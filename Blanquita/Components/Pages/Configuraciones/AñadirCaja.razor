@@ -1,0 +1,152 @@
+﻿@page "/añadir-caja"
+@using System.ComponentModel.DataAnnotations
+@inject ICajaService cajaService
+@inject ILogger<AñadirCaja> Logger
+
+<MudText Typo="Typo.h3" Align="Align.Center">Añadir caja</MudText>
+<EditForm Model="caja" OnValidSubmit="GuardarCaja">
+    <DataAnnotationsValidator />
+    <MudGrid Justify="Justify.Center">
+        <MudItem xs="12" sm="7">
+            <MudCard>
+                <MudCardContent>
+                    <MudTextField @bind-Value="caja.Nombre" Label="Nombre de caja" Variant="Variant.Text"></MudTextField>
+                    <MudTextField @bind-Value="caja.IpImpresora" Label="Ip Impresora" Variant="Variant.Text"></MudTextField>
+                    <MudTextField @bind-Value="caja.Port" Label="Puerto Impresora" Variant="Variant.Text"></MudTextField>
+                    <MudSelect T="int" Label="Seleccione sucursal" @bind-Value="caja.Sucursal">
+                        @foreach (var _sucursal in sucursales)
+                        {
+                            <MudSelectItem T="int" Value="@_sucursal.Id">@_sucursal.Nombre</MudSelectItem>
+                        }
+                    </MudSelect>
+                    <MudCheckBox @bind-Value="caja.Ultima" Label="Ultima caja" LabelPlacement="Placement.Start" Color="Color.Primary"></MudCheckBox>
+                </MudCardContent>
+                <MudCardActions>
+                    @if (isEditing)
+                    {
+                        <MudButton Variant="Variant.Text" Color="Color.Error" OnClick="CancelEdit">Cancelar</MudButton>
+                    }
+                    <MudButton ButtonType="ButtonType.Submit"
+                               Variant="Variant.Filled"
+                               Color="Color.Primary"
+                               Class="ml-auto">
+                        @(isEditing ? "Actualizar" : "Guardar")
+                    </MudButton>
+                </MudCardActions>
+            </MudCard>
+        </MudItem>
+    </MudGrid>
+</EditForm>
+<MudTable ServerData="ServerReload" Dense="true" Hover="true" @ref="cajas">
+    <ToolBarContent>
+        <MudText Typo="Typo.h6">Cajas</MudText>
+        <MudSpacer />
+        <MudTextField T="string" ValueChanged="@(s=>OnSearch(s))" Placeholder="Buscar" Adornment="Adornment.Start"
+                      AdornmentIcon="@Icons.Material.Filled.Search" IconSize="Size.Medium" Class="mt-0"></MudTextField>
+    </ToolBarContent>
+    <HeaderContent>
+        <MudTh><MudTableSortLabel SortLabel="Id" T="Cajas">Id</MudTableSortLabel></MudTh>
+        <MudTh><MudTableSortLabel SortLabel="Nombre" T="Cajas">Nombre</MudTableSortLabel></MudTh>
+        <MudTh><MudTableSortLabel SortLabel="IpImpresora" T="Cajas">Ip de impresora</MudTableSortLabel></MudTh>
+        <MudTh><MudTableSortLabel SortLabel="PuertoImpresora" T="Cajas">Puerto impresora</MudTableSortLabel></MudTh>
+        <MudTh><MudTableSortLabel SortLabel="Sucursal" T="Cajas">Sucursal</MudTableSortLabel></MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd DataLabel="Id">@context.Id</MudTd>
+        <MudTd DataLabel="Nombre">@context.Nombre</MudTd>
+        <MudTd DataLabel="IpImpresora">@context.IpImpresora</MudTd>
+        <MudTd DataLabel="Port">@context.Port</MudTd>
+        <MudTd DataLabel="Sucursal">@context.Sucursal</MudTd>
+        <MudTd>
+            <MudIconButton Icon="@Icons.Material.Filled.Edit"
+                           Color="Color.Primary"
+                           Class="pa-0 ma-0 min-width-auto"
+                           OnClick="@(() => EditCaja(context))" />
+        </MudTd>
+    </RowTemplate>
+    <NoRecordsContent>
+        <MudText>No matching records found</MudText>
+    </NoRecordsContent>
+    <LoadingContent>
+        <MudText>Loading...</MudText>
+    </LoadingContent>
+    <PagerContent>
+        <MudTablePager />
+    </PagerContent>
+</MudTable>
+
+@code {
+    private Cajas caja = new() { Sucursal = 0 };
+    private bool isEditing = false; // Bandera para saber si estamos editando
+    private List<(int Id, string Nombre)> sucursales = new()
+    {
+        (6, "Himno Nacional"),
+        (7, "Pozos"),
+        (8, "Soledad"),
+        (9, "Saucito"),
+        (10, "Chapultepec")
+    };
+    private string mensajeConfirmacion;
+    private MudTable<Cajas> cajas;
+    private IEnumerable<Cajas> pagedData;
+    private int totalItems;
+    private string searchString = null;
+
+    private void EditCaja(Cajas selectedCaja)
+    {
+        caja = new Cajas
+            {
+                Id = selectedCaja.Id,
+                Nombre = selectedCaja.Nombre,
+                IpImpresora = selectedCaja.IpImpresora,
+                Port = selectedCaja.Port,
+                Sucursal = selectedCaja.Sucursal,
+                Ultima = selectedCaja.Ultima
+            };
+        isEditing = true;
+        StateHasChanged();
+    }
+
+    private void CancelEdit()
+    {
+        caja = new Cajas { Sucursal = 0 };
+        isEditing = false;
+        StateHasChanged();
+    }
+
+    private async Task<TableData<Cajas>> ServerReload(TableState state, CancellationToken token)
+    {
+        return await cajaService.ObtenerCajasPaginadasAsync(state, searchString);
+    }
+    private void OnSearch(string text)
+    {
+        searchString = text;
+        cajas.ReloadServerData();
+    }
+
+    private async Task GuardarCaja()
+    {
+        try
+        {
+            if (isEditing)
+            {
+                await cajaService.ActualizarCajaAsync(caja);
+                mensajeConfirmacion = "Caja actualizada exitosamente";
+            }
+            else
+            {
+                await cajaService.CrearCajaAsync(caja);
+                mensajeConfirmacion = "Caja registrada exitosamente";
+            }
+
+            cajas.ReloadServerData();
+            caja = new Cajas { Sucursal = 0 };
+            isEditing = false;
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error al guardar la caja");
+        }
+    }
+}

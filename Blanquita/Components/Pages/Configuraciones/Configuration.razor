@@ -1,0 +1,164 @@
+﻿@page "/configuracion-zebra"
+@using System.ComponentModel.DataAnnotations
+@inject SweetAlertService Swal
+@inject FileConfigService ConfigService
+@inject NavigationManager NavManager
+
+<PageTitle>Configuracion</PageTitle>
+
+
+@if (!logged)
+{
+    <MudContainer MaxWidth="MaxWidth.Small" Class="d-flex align-center justify-center" Style="min-height: 100vh;">
+        <MudPaper Elevation="8" Class="pa-8" Style="width: 100%; max-width: 450px;">
+            <MudStack Spacing="4">
+                <!-- Logo o título -->
+                <MudStack AlignItems="AlignItems.Center" Spacing="2">
+                    <MudAvatar Color="Color.Primary" Size="Size.Large" Style="width: 80px; height: 80px;">
+                        <MudIcon Icon="@Icons.Material.Filled.Lock" Size="Size.Large" />
+                    </MudAvatar>
+                    <MudText Typo="Typo.h4" Align="Align.Center">Iniciar Sesión</MudText>
+                    <MudText Typo="Typo.body2" Align="Align.Center" Color="Color.Secondary">
+                        Ingresa tus credenciales para continuar
+                    </MudText>
+                </MudStack>
+
+                <!-- Formulario -->
+                <EditForm Model="@model" OnValidSubmit="OnValidSubmit">
+                    <DataAnnotationsValidator />
+
+                    <MudStack Spacing="3">
+                        <MudTextField @bind-Value="model.Username"
+                                      Label="Usuario"
+                                      Variant="Variant.Outlined"
+                                      For="@(() => model.Username)"
+                                      Adornment="Adornment.Start"
+                                      AdornmentIcon="@Icons.Material.Filled.Person" />
+
+                        <MudTextField @bind-Value="model.Password"
+                                      Label="Contraseña"
+                                      Variant="Variant.Outlined"
+                                      For="@(() => model.Password)"
+                                      InputType="@PasswordInput"
+                                      Adornment="Adornment.End"
+                                      AdornmentIcon="@PasswordIcon"
+                                      OnAdornmentClick="TogglePasswordVisibility" />
+
+                        @if (!string.IsNullOrEmpty(errorMessage))
+                        {
+                            <MudAlert Severity="Severity.Error" Dense="true">@errorMessage</MudAlert>
+                        }
+
+                        <MudButton ButtonType="ButtonType.Submit"
+                                   Variant="Variant.Filled"
+                                   Color="Color.Primary"
+                                   FullWidth="true"
+                                   Size="Size.Large"
+                                   Disabled="@isLoading">
+                            @if (isLoading)
+                            {
+                                <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true" />
+                                <MudText Class="ms-2">Iniciando sesión...</MudText>
+                            }
+                            else
+                            {
+                                <MudText>Iniciar Sesión</MudText>
+                            }
+                        </MudButton>
+                    </MudStack>
+                </EditForm>
+            </MudStack>
+        </MudPaper>
+    </MudContainer>
+}
+else
+{
+    <MudGrid Justify="Justify.Center">
+        <MudItem xs="12" sm="7">
+            <MudCard>
+                <MudCardHeader>
+                    <CardHeaderContent>
+                        <MudText Typo="Typo.h3" Align="Align.Center">Configuracion Zebra</MudText>
+                    </CardHeaderContent>
+                </MudCardHeader>
+                <MudCardContent>
+                    <MudTextField @bind-Value="ConfigService.Config.DefaultDbfPath" Label="Ruta del archivo DBF de productos" Variant="Variant.Outlined" />
+                    <MudTextField @bind-Value="ConfigService.Config.DefaultDbfPathForDocs" Label="Ruta del archivo DBF de documentos" Variant="Variant.Outlined" />
+                    <MudText Typo="Typo.h6" Class="mt-3">Impresora 1</MudText>
+                    <MudTextField @bind-Value="ConfigService.Config.PrinterName" Label="Nombre de la impresora" Variant="Variant.Outlined" />
+                    <MudTextField @bind-Value="ConfigService.Config.PrinterIp" Label="Ip de la impresora" Variant="Variant.Outlined" />
+                    <MudTextField @bind-Value="ConfigService.Config.PrinterPort" Label="Puerto de impresora" Variant="Variant.Outlined" />
+                    <MudText Typo="Typo.h6" Class="mt-3">Impresora 2</MudText>
+                    <MudTextField @bind-Value="ConfigService.Config.Printer2Name" Label="Nombre de la impresora 2" Variant="Variant.Outlined" />
+                    <MudTextField @bind-Value="ConfigService.Config.Printer2Ip" Label="Ip de la impresora 2" Variant="Variant.Outlined" />
+                    <MudTextField @bind-Value="ConfigService.Config.Printer2Port" Label="Puerto de impresora 2" Variant="Variant.Outlined" />
+                </MudCardContent>
+                <MudCardActions>
+                    <MudButton Variant="Variant.Text" Color="Color.Error" OnClick="Cancel">Cancelar</MudButton>
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Guardar">Guardar</MudButton>
+                </MudCardActions>
+            </MudCard>
+        </MudItem>
+    </MudGrid>
+}
+
+@code {
+    private LoginModel model = new();
+    private bool isLoading = false;
+    private bool logged = false;
+    private string errorMessage = string.Empty;
+    private bool isPasswordVisible = false;
+    private InputType PasswordInput => isPasswordVisible ? InputType.Text : InputType.Password;
+    private string PasswordIcon => isPasswordVisible ? Icons.Material.Filled.Visibility : Icons.Material.Filled.VisibilityOff;
+
+    private void TogglePasswordVisibility()
+    {
+        isPasswordVisible = !isPasswordVisible;
+    }
+    private async Task OnValidSubmit()
+    {
+        isLoading = true;
+        errorMessage = string.Empty;
+
+        try
+        {
+            // Simular un pequeño delay para mejor UX
+            await Task.Delay(800);
+
+            // Validar credenciales
+            if (model.Username == "Admin" && model.Password == "Blanquita123...")
+            {
+                // Login exitoso - redirigir a la página principal
+                // NavigationManager.NavigateTo("/dashboard");
+                logged = true;
+            }
+            else
+            {
+                errorMessage = "Usuario o contraseña incorrectos";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error al iniciar sesión: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+    private void Guardar()
+    {
+        ConfigService.UpdateConfig(c => { }); // Fuerza guardado
+        NavManager.NavigateTo("/");
+    }
+    public class LoginModel
+    {
+        [Required(ErrorMessage = "El usuario es requerido")]
+        public string Username { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "La contraseña es requerida")]
+        public string Password { get; set; } = string.Empty;
+    }
+
+    private void Cancel() => NavManager.NavigateTo("/");
+}

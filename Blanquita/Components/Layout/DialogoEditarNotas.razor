@@ -1,0 +1,36 @@
+﻿<MudDialog>
+    <DialogContent>
+        <MudTextField @bind-Value="notas"
+                      Label="Notas del Reporte"
+                      Variant="Variant.Outlined"
+                      Lines="5"
+                      AutoGrow="true"
+                      Immediate="true"
+                      HelperText="Agregue o modifique las notas del reporte" />
+    </DialogContent>
+
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancelar</MudButton>
+        <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="Submit">
+            Guardar
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    IMudDialogInstance MudDialog { get; set; } = default!;
+
+    [Parameter]
+    public string NotasActuales { get; set; } = "";
+
+    private string notas = "";
+
+    protected override void OnInitialized()
+    {
+        notas = NotasActuales;
+    }
+
+    private void Submit() => MudDialog.Close(DialogResult.Ok(notas));
+    private void Cancel() => MudDialog.Cancel();
+}

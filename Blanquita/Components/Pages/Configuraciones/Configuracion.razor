@@ -1,0 +1,640 @@
+﻿@page "/configuracion"
+@using System.ComponentModel.DataAnnotations
+@inject AppConfiguration AppConfig
+@inject Blanquita.Services.IConfigurationManager ConfigManager
+@inject ISnackbar Snackbar
+@inject NavigationManager Navigation
+@inject FileConfigService ConfigService
+@inject ILogger<Configuracion> Logger
+
+<PageTitle>Configuración - Sistema de Reportes</PageTitle>
+
+@if (!logged)
+{
+    <MudContainer MaxWidth="MaxWidth.Small" Class="d-flex align-center justify-center" Style="min-height: 100vh;">
+        <MudPaper Elevation="8" Class="pa-8" Style="width: 100%; max-width: 450px;">
+            <MudStack Spacing="4">
+                <!-- Logo o título -->
+                <MudStack AlignItems="AlignItems.Center" Spacing="2">
+                    <MudAvatar Color="Color.Primary" Size="Size.Large" Style="width: 80px; height: 80px;">
+                        <MudIcon Icon="@Icons.Material.Filled.Lock" Size="Size.Large" />
+                    </MudAvatar>
+                    <MudText Typo="Typo.h4" Align="Align.Center">Iniciar Sesión</MudText>
+                    <MudText Typo="Typo.body2" Align="Align.Center" Color="Color.Secondary">
+                        Ingresa tus credenciales para continuar
+                    </MudText>
+                </MudStack>
+
+                <!-- Formulario -->
+                <EditForm Model="@model" OnValidSubmit="OnValidSubmit">
+                    <DataAnnotationsValidator />
+
+                    <MudStack Spacing="3">
+                        <MudTextField @bind-Value="model.Username"
+                                      Label="Usuario"
+                                      Variant="Variant.Outlined"
+                                      For="@(() => model.Username)"
+                                      Adornment="Adornment.Start"
+                                      AdornmentIcon="@Icons.Material.Filled.Person" />
+
+                        <MudTextField @bind-Value="model.Password"
+                                      Label="Contraseña"
+                                      Variant="Variant.Outlined"
+                                      For="@(() => model.Password)"
+                                      InputType="@PasswordInput"
+                                      Adornment="Adornment.End"
+                                      AdornmentIcon="@PasswordIcon"
+                                      OnAdornmentClick="TogglePasswordVisibility" />
+
+                        @if (!string.IsNullOrEmpty(errorMessage))
+                        {
+                            <MudAlert Severity="Severity.Error" Dense="true">@errorMessage</MudAlert>
+                        }
+
+                        <MudButton ButtonType="ButtonType.Submit"
+                                   Variant="Variant.Filled"
+                                   Color="Color.Primary"
+                                   FullWidth="true"
+                                   Size="Size.Large"
+                                   Disabled="@isLoading">
+                            @if (isLoading)
+                            {
+                                <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true" />
+                                <MudText Class="ms-2">Iniciando sesión...</MudText>
+                            }
+                            else
+                            {
+                                <MudText>Iniciar Sesión</MudText>
+                            }
+                        </MudButton>
+                    </MudStack>
+                </EditForm>
+            </MudStack>
+        </MudPaper>
+    </MudContainer>
+}
+else
+{
+    <MudText Typo="Typo.h4" Class="mb-4">
+        <MudIcon Icon="@Icons.Material.Filled.Settings" Class="mr-2" />
+        Configuración del Sistema
+    </MudText>
+
+    <MudGrid>
+        <!-- Sección de Archivos DBF -->
+        <MudItem xs="12">
+            <MudPaper Elevation="2" Class="pa-4">
+                <MudButton OnClick="ExpandDbfConfig">
+                    <MudText Typo="Typo.h6" Class="mb-4">
+                        <MudIcon Icon="@Icons.Material.Filled.Folder" Class="mr-2" />
+                        Rutas de Archivos DBF
+                    </MudText>
+                </MudButton>
+                <MudDivider />
+                <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
+                    Configure las rutas de los archivos de base de datos FoxPro necesarios para generar los reportes.
+                </MudText>
+                <MudCollapse Expanded="_dbfConfigExpanded">
+                    <MudGrid>
+                        <!-- POS10041 -->
+                        <MudItem xs="12" md="4">
+                            <MudCard Outlined="true">
+                                <MudCardContent>
+                                    <MudText Typo="Typo.h6" Class="mb-2">POS10041.DBF</MudText>
+                                    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
+                                        Archivo de posiciones 10041
+                                    </MudText>
+
+                                    <MudTextField @bind-Value="pos10041Path"
+                                                  Label="Ruta del archivo"
+                                                  Variant="Variant.Outlined"
+                                                  ReadOnly="true"
+                                                  Adornment="Adornment.End"
+                                                  AdornmentIcon="@Icons.Material.Filled.FolderOpen"
+                                                  OnAdornmentClick="() => AbrirDialogoArchivo(1)"
+                                                  Class="mb-2" />
+
+                                    @if (!string.IsNullOrEmpty(pos10041Path))
+                                    {
+                                        <MudChip T="string" Size="Size.Small"
+                                                 Color="@(File.Exists(pos10041Path) ? Color.Success : Color.Error)"
+                                                 Icon="@(File.Exists(pos10041Path) ? Icons.Material.Filled.CheckCircle : Icons.Material.Filled.Error)">
+                                            @(File.Exists(pos10041Path) ? "Archivo encontrado" : "Archivo no encontrado")
+                                        </MudChip>
+                                    }
+                                </MudCardContent>
+                            </MudCard>
+                        </MudItem>
+
+                        <!-- POS10042 -->
+                        <MudItem xs="12" md="4">
+                            <MudCard Outlined="true">
+                                <MudCardContent>
+                                    <MudText Typo="Typo.h6" Class="mb-2">POS10042.DBF</MudText>
+                                    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
+                                        Archivo de posiciones 10042
+                                    </MudText>
+
+                                    <MudTextField @bind-Value="pos10042Path"
+                                                  Label="Ruta del archivo"
+                                                  Variant="Variant.Outlined"
+                                                  ReadOnly="true"
+                                                  Adornment="Adornment.End"
+                                                  AdornmentIcon="@Icons.Material.Filled.FolderOpen"
+                                                  OnAdornmentClick="() => AbrirDialogoArchivo(2)"
+                                                  Class="mb-2" />
+
+                                    @if (!string.IsNullOrEmpty(pos10042Path))
+                                    {
+                                        <MudChip T="string" Size="Size.Small"
+                                                 Color="@(File.Exists(pos10042Path) ? Color.Success : Color.Error)"
+                                                 Icon="@(File.Exists(pos10042Path) ? Icons.Material.Filled.CheckCircle : Icons.Material.Filled.Error)">
+                                            @(File.Exists(pos10042Path) ? "Archivo encontrado" : "Archivo no encontrado")
+                                        </MudChip>
+                                    }
+                                </MudCardContent>
+                            </MudCard>
+                        </MudItem>
+
+                        <!-- MGW10008 -->
+                        <MudItem xs="12" md="4">
+                            <MudCard Outlined="true">
+                                <MudCardContent>
+                                    <MudText Typo="Typo.h6" Class="mb-2">MGW10008.DBF</MudText>
+                                    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
+                                        Archivo MGW 10008
+                                    </MudText>
+
+                                    <MudTextField @bind-Value="mgw10008Path"
+                                                  Label="Ruta del archivo"
+                                                  Variant="Variant.Outlined"
+                                                  ReadOnly="true"
+                                                  Adornment="Adornment.End"
+                                                  AdornmentIcon="@Icons.Material.Filled.FolderOpen"
+                                                  OnAdornmentClick="() => AbrirDialogoArchivo(3)"
+                                                  Class="mb-2" />
+
+                                    @if (!string.IsNullOrEmpty(mgw10008Path))
+                                    {
+                                        <MudChip T="string" Size="Size.Small"
+                                                 Color="@(File.Exists(mgw10008Path) ? Color.Success : Color.Error)"
+                                                 Icon="@(File.Exists(mgw10008Path) ? Icons.Material.Filled.CheckCircle : Icons.Material.Filled.Error)">
+                                            @(File.Exists(mgw10008Path) ? "Archivo encontrado" : "Archivo no encontrado")
+                                        </MudChip>
+                                    }
+                                </MudCardContent>
+                            </MudCard>
+                        </MudItem>
+
+                        <!-- MGW10005 -->
+                        <MudItem xs="12" md="4">
+                            <MudCard Outlined="true">
+                                <MudCardContent>
+                                    <MudText Typo="Typo.h6" Class="mb-2">MGW10005.DBF</MudText>
+                                    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
+                                        Archivo de posiciones 10005
+                                    </MudText>
+
+                                    <MudTextField @bind-Value="mgw10005Path"
+                                                  Label="Ruta del archivo"
+                                                  Variant="Variant.Outlined"
+                                                  ReadOnly="true"
+                                                  Adornment="Adornment.End"
+                                                  AdornmentIcon="@Icons.Material.Filled.FolderOpen"
+                                                  OnAdornmentClick="() => AbrirDialogoArchivo(4)"
+                                                  Class="mb-2" />
+
+                                    @if (!string.IsNullOrEmpty(mgw10005Path))
+                                    {
+                                        <MudChip T="string" Size="Size.Small"
+                                                 Color="@(File.Exists(mgw10005Path) ? Color.Success : Color.Error)"
+                                                 Icon="@(File.Exists(mgw10005Path) ? Icons.Material.Filled.CheckCircle : Icons.Material.Filled.Error)">
+                                            @(File.Exists(mgw10005Path) ? "Archivo encontrado" : "Archivo no encontrado")
+                                        </MudChip>
+                                    }
+                                </MudCardContent>
+                            </MudCard>
+                        </MudItem>
+                    </MudGrid>
+                    <!-- Botones de acción -->
+                    <MudDivider Class="my-4" />
+
+                    <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                        <MudButton Variant="Variant.Outlined"
+                                   StartIcon="@Icons.Material.Filled.BugReport"
+                                   Color="Color.Info"
+                                   OnClick="IrADiagnostico">
+                            Verificar Conexión
+                        </MudButton>
+
+                        <MudStack Row="true" Spacing="2">
+                            <MudButton Variant="Variant.Outlined"
+                                       StartIcon="@Icons.Material.Filled.Restore"
+                                       OnClick="LimpiarFormulario">
+                                Limpiar
+                            </MudButton>
+
+                            <MudButton Variant="Variant.Filled"
+                                       StartIcon="@Icons.Material.Filled.Save"
+                                       Color="Color.Primary"
+                                       OnClick="GuardarConfiguracion"
+                                       Disabled="@guardando">
+                                @if (guardando)
+                                {
+                                    <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                                    <text>Guardando...</text>
+                                }
+                                else
+                                {
+                                    <text>Guardar Configuración</text>
+                                }
+                            </MudButton>
+                        </MudStack>
+                    </MudStack>
+                </MudCollapse>
+            </MudPaper>
+        </MudItem>
+
+        <!-- Sección Impresoras -->
+        <MudItem xs="12">
+            <MudPaper Elevation="2" Class="pa-4">
+                <MudButton OnClick="ExpandZebraConfig">
+                    <MudText Typo="Typo.h6" Class="mb-4">
+                        <MudIcon Icon="@Icons.Material.Filled.Print" Class="mr-2" />
+                        Zebra
+                    </MudText>
+                </MudButton>
+                <MudDivider />
+                <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
+                    Configure las impresoras Zebra.
+                </MudText>
+                <MudCollapse Expanded="_zebraConfigExpanded">
+                    <MudGrid>
+                        <!--B8-->
+                        <MudItem xs="12" md="4">
+                            <MudCard Outlined="true">
+                                <MudCardContent>
+                                    <MudText Typo="Typo.h6" Class="mb-2">Impresora 1</MudText>
+                                    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
+                                        Nombre
+                                    </MudText>
+                                    <MudTextField @bind-Value="ConfigService.Config.PrinterName"
+                                                  Label="Nombre"
+                                                  Variant="Variant.Outlined"
+                                                  ReadOnly="false"
+                                                  Adornment="Adornment.End"
+                                                  AdornmentIcon="@Icons.Material.Filled.LabelImportant"
+                                                  Class="mb-2" />
+                                    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
+                                        Direccion IP
+                                    </MudText>
+                                    <MudTextField @bind-Value="ConfigService.Config.PrinterIp"
+                                                  Label="Direccion IP"
+                                                  Variant="Variant.Outlined"
+                                                  ReadOnly="false"
+                                                  Adornment="Adornment.End"
+                                                  AdornmentIcon="@Icons.Material.Filled.Link"
+                                                  Class="mb-2" />
+                                    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
+                                        Puerto
+                                    </MudText>
+                                    <MudTextField @bind-Value="ConfigService.Config.PrinterPort"
+                                                  Label="Puerto"
+                                                  Variant="Variant.Outlined"
+                                                  ReadOnly="false"
+                                                  Adornment="Adornment.End"
+                                                  AdornmentIcon="@Icons.Material.Filled.BugReport"
+                                                  Class="mb-2" />
+                                </MudCardContent>
+                            </MudCard>
+                        </MudItem>
+                        <!--B9-->
+                        <MudItem xs="12" md="4">
+                            <MudCard Outlined="true">
+                                <MudCardContent>
+                                    <MudText Typo="Typo.h6" Class="mb-2">Impresora 2</MudText>
+                                    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
+                                        Nombre
+                                    </MudText>
+                                    <MudTextField @bind-Value="ConfigService.Config.Printer2Name"
+                                                  Label="Nombre"
+                                                  Variant="Variant.Outlined"
+                                                  ReadOnly="false"
+                                                  Adornment="Adornment.End"
+                                                  AdornmentIcon="@Icons.Material.Filled.LabelImportant"
+                                                  Class="mb-2" />
+                                    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
+                                        Direccion IP
+                                    </MudText>
+                                    <MudTextField @bind-Value="ConfigService.Config.Printer2Ip"
+                                                  Label="Direccion IP"
+                                                  Variant="Variant.Outlined"
+                                                  ReadOnly="false"
+                                                  Adornment="Adornment.End"
+                                                  AdornmentIcon="@Icons.Material.Filled.Link"
+                                                  Class="mb-2" />
+                                    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
+                                        Puerto
+                                    </MudText>
+                                    <MudTextField @bind-Value="ConfigService.Config.Printer2Port"
+                                                  Label="Puerto"
+                                                  Variant="Variant.Outlined"
+                                                  ReadOnly="false"
+                                                  Adornment="Adornment.End"
+                                                  AdornmentIcon="@Icons.Material.Filled.BugReport"
+                                                  Class="mb-2" />
+                                </MudCardContent>
+                            </MudCard>
+                        </MudItem>
+                    </MudGrid>
+                    <MudDivider Class="my-4" />
+
+                    <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                        <MudStack Row="true" Spacing="2">
+                            <MudButton Variant="Variant.Outlined"
+                                       StartIcon="@Icons.Material.Filled.Restore"
+                                       OnClick="LimpiarFormulario">
+                                Limpiar
+                            </MudButton>
+
+                            <MudButton Variant="Variant.Filled"
+                                       StartIcon="@Icons.Material.Filled.Save"
+                                       Color="Color.Primary"
+                                       OnClick="SavePrinters"
+                                       Disabled="@guardando">
+                                @if (guardando)
+                                {
+                                    <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                                    <text>Guardando...</text>
+                                }
+                                else
+                                {
+                                    <text>Guardar Configuración</text>
+                                }
+                            </MudButton>
+                        </MudStack>
+                    </MudStack>
+                </MudCollapse>
+            </MudPaper>
+        </MudItem>
+        <!-- Sección para futuras configuraciones -->
+        <MudItem xs="12">
+            <MudPaper Elevation="2" Class="pa-4">
+                <MudText Typo="Typo.h6" Class="mb-4">
+                    <MudIcon Icon="@Icons.Material.Filled.Comment" Class="mr-2" />
+                    Extras
+                </MudText>
+                <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
+                    Futuras configuraciones...
+                </MudText>
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+}
+
+
+@code {
+    private string pos10041Path = "";
+    private string pos10042Path = "";
+    private string mgw10008Path = "";
+    private string mgw10005Path = "";
+    private bool guardando = false;
+    private bool _zebraConfigExpanded = false;
+    private bool _dbfConfigExpanded = false;
+    private LoginModel model = new();
+    private bool isLoading = false;
+    private bool logged = false;
+    private string errorMessage = string.Empty;
+    private bool isPasswordVisible = false;
+    private InputType PasswordInput => isPasswordVisible ? InputType.Text : InputType.Password;
+    private string PasswordIcon => isPasswordVisible ? Icons.Material.Filled.Visibility : Icons.Material.Filled.VisibilityOff;
+
+    protected override void OnInitialized()
+    {
+        // Cargar configuración actual
+        pos10041Path = AppConfig.Pos10041Path;
+        pos10042Path = AppConfig.Pos10042Path;
+        mgw10008Path = AppConfig.Mgw10008Path;
+        mgw10005Path = AppConfig.Mgw10005Path;
+        //b8Ip = AppConfig.B8Ip;
+    }
+
+    private void TogglePasswordVisibility()
+    {
+        isPasswordVisible = !isPasswordVisible;
+    }
+    private async Task OnValidSubmit()
+    {
+        isLoading = true;
+        errorMessage = string.Empty;
+
+        try
+        {
+            // Simular un pequeño delay para mejor UX
+            await Task.Delay(800);
+
+            // Validar credenciales
+            if (model.Username == "Admin" && model.Password == "Blanquita123...")
+            {
+                // Login exitoso - redirigir a la página principal
+                // NavigationManager.NavigateTo("/dashboard");
+                logged = true;
+            }
+            else
+            {
+                errorMessage = "Usuario o contraseña incorrectos";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error al iniciar sesión: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void ExpandZebraConfig()
+    {
+        _zebraConfigExpanded = !_zebraConfigExpanded;
+    }
+
+    private void ExpandDbfConfig()
+    {
+        _dbfConfigExpanded = !_dbfConfigExpanded;
+    }
+
+    private async Task AbrirDialogoArchivo(int archivo)
+    {
+        try
+        {
+            // Crear input de archivo usando JavaScript
+            var fileName = archivo switch
+            {
+                1 => "POS10041.DBF",
+                2 => "POS10042.DBF",
+                3 => "MGW10008.DBF",
+                4 => "MGW10005.DBF",
+                _ => "archivo.dbf"
+            };
+
+            // En Blazor Server, necesitamos usar un componente de selección de archivos
+            // Por ahora, permitir al usuario escribir la ruta manualmente
+            var dialogOptions = new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true };
+            var parameters = new DialogParameters
+            {
+                { "ArchivoActual", archivo switch {
+                    1 => pos10041Path,
+                    2 => pos10042Path,
+                    3 => mgw10008Path,
+                    4 => mgw10005Path,
+                    _ => ""
+                }},
+                { "NombreArchivo", fileName }
+            };
+
+            var dialog = await DialogService.ShowAsync<Layout.DialogoSeleccionArchivo>("Seleccionar Archivo", parameters, dialogOptions);
+            var result = await dialog.Result;
+
+            if (!result.Canceled && result.Data is string rutaSeleccionada)
+            {
+                switch (archivo)
+                {
+                    case 1:
+                        pos10041Path = rutaSeleccionada;
+                        break;
+                    case 2:
+                        pos10042Path = rutaSeleccionada;
+                        break;
+                    case 3:
+                        mgw10008Path = rutaSeleccionada;
+                        break;
+                    case 4:
+                        mgw10005Path = rutaSeleccionada;
+                        break;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error al seleccionar archivo: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private bool ValidarRutas()
+    {
+        var errores = new List<string>();
+
+        if (string.IsNullOrWhiteSpace(pos10041Path))
+            errores.Add("La ruta de POS10041.DBF es obligatoria");
+        else if (!File.Exists(pos10041Path))
+            errores.Add("El archivo POS10041.DBF no existe en la ruta especificada");
+
+        if (string.IsNullOrWhiteSpace(pos10042Path))
+            errores.Add("La ruta de POS10042.DBF es obligatoria");
+        else if (!File.Exists(pos10042Path))
+            errores.Add("El archivo POS10042.DBF no existe en la ruta especificada");
+
+        if (string.IsNullOrWhiteSpace(mgw10008Path))
+            errores.Add("La ruta de MGW10008.DBF es obligatoria");
+        else if (!File.Exists(mgw10008Path))
+            errores.Add("El archivo MGW10008.DBF no existe en la ruta especificada");
+
+        if (string.IsNullOrWhiteSpace(mgw10005Path))
+            errores.Add("La ruta de MGW10005.DBF es obligatoria");
+        else if (!File.Exists(mgw10008Path))
+            errores.Add("El archivo MGW10005.DBF no existe en la ruta especificada");
+
+        if (errores.Any())
+        {
+            foreach (var error in errores)
+            {
+                Snackbar.Add(error, Severity.Warning);
+            }
+            return false;
+        }
+
+        return true;
+    }
+
+    private async Task GuardarConfiguracion()
+    {
+        if (!ValidarRutas())
+            return;
+
+        guardando = true;
+
+        try
+        {
+            // Actualizar configuración
+            AppConfig.Pos10041Path = pos10041Path;
+            AppConfig.Pos10042Path = pos10042Path;
+            AppConfig.Mgw10008Path = mgw10008Path;
+            AppConfig.Mgw10005Path = mgw10005Path;
+
+            // Guardar en archivo
+            // Guardar en archivo
+            Logger.LogInformation("Guardando configuracion...");
+            Logger.LogInformation("AppConfig: {@AppConfig}", AppConfig);
+            ConfigManager.GuardarConfiguracion(AppConfig);
+
+            Snackbar.Add("Configuración guardada exitosamente", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error al guardar la configuración: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            guardando = false;
+        }
+    }
+
+    private void LimpiarFormulario()
+    {
+        pos10041Path = "";
+        pos10042Path = "";
+        mgw10008Path = "";
+        mgw10005Path = "";
+        Snackbar.Add("Formulario limpiado", Severity.Info);
+    }
+
+    private void DeletePrinters()
+    {
+        ConfigService.Config.PrinterName = "";
+        ConfigService.Config.PrinterIp = "";
+        ConfigService.Config.PrinterPort = "";
+        ConfigService.Config.Printer2Name = "";
+        ConfigService.Config.Printer2Ip = "";
+        ConfigService.Config.Printer2Port = "";
+    }
+
+    private void SavePrinters()
+    {
+        try
+        {
+            ConfigService.UpdateConfig(c => { });
+            Snackbar.Add("Impresoras guardadas exitosamente", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error al guardar la impresoras: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private void IrADiagnostico()
+    {
+        Navigation.NavigateTo("/diagnostico");
+    }
+    public class LoginModel
+    {
+        [Required(ErrorMessage = "El usuario es requerido")]
+        public string Username { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "La contraseña es requerida")]
+        public string Password { get; set; } = string.Empty;
+    }
+
+    [Inject] private IDialogService DialogService { get; set; } = default!;
+}

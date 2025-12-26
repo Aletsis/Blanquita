@@ -1,0 +1,105 @@
+﻿@page "/reimprimir_CorteReco"
+@inject IRecoService recoService
+@inject ICajaService cajaService
+@inject ICajeraService cajeraService
+@inject IEncargadaService encargadaService
+@inject ICorteService corteService
+@inject IDialogService DialogService
+@inject PrintJobService printJobService
+
+<PageTitle>Reimpresion Cortes/Recos - Sistema de Reportes</PageTitle>
+
+<MudText Typo="Typo.h4" Class="mb-4">
+    <MudIcon Icon="@Icons.Material.Filled.History" Class="mr-2" />
+    Histórico de Reportes
+</MudText>
+
+<MudGrid>
+    <MudItem xs="12">
+        <MudPaper Elevation="2" Class="pa-4">
+            <MudGrid>
+                <MudItem xs="12" md="3">
+                    <MudSelect @bind-Value="corteReco"
+                               Label=""
+                               Variant="Variant.Outlined"
+                               Clearable="true"
+                               OnClearButtonClick="LimpiarFiltros">
+                        <MudSelectItem Value="@("")">Recolecciones</MudSelectItem>
+                        <MudSelectItem Value="@("Himno")">Cortes</MudSelectItem>
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="12" md="3">
+                    <MudDatePicker @bind-Date="fechaInicio"
+                                   Label="Fecha Inicio"
+                                   Variant="Variant.Outlined"
+                                   Clearable="true" />
+                </MudItem>
+                <MudItem xs="12" md="3">
+                    <MudDatePicker @bind-Date="fechaFin"
+                                   Label="Fecha Fin"
+                                   Variant="Variant.Outlined"
+                                   Clearable="true" />
+                </MudItem>
+                <MudItem xs="12" md="3" Class="d-flex align-end">
+                    <MudButton Variant="Variant.Filled"
+                               Color="Color.Primary"
+                               StartIcon="@Icons.Material.Filled.Search"
+                               OnClick="BuscarCortesRecos"
+                               FullWidth="true">
+                        Buscar
+                    </MudButton>
+                </MudItem>
+            </MudGrid>
+        </MudPaper>
+    </MudItem>
+    <MudItem xs="12">
+        <MudPaper Elevation="2">
+            @if (cargando)
+            {
+                <div class="pa-8 text-center">
+                    <MudProgressCircular Indeterminate="true" />
+                    <MudText Typo="Typo.body1" Class="mt-4">Cargando reportes...</MudText>
+                </div>
+            }
+            else if (reimpresionesFiltradas != null && reimpresionesFiltradas.Any())
+            {
+                <MudTable Items="@reimpresionesFiltradas"
+                          Hover="true"
+                          Striped="true"
+                          Dense="true"
+                          Elevation="0">
+                      <HeaderContent>
+                        <MudTh>Fecha</MudTh>
+                        <MudTh>Sucursal</MudTh>
+                        <MudTh>Caja</MudTh>
+                        <MudTh>Folio</MudTh>
+                        <MudTh Style="text-align: right;">Cantidad</MudTh>
+                        <MudTh Style="text-align: center;">Acciones</MudTh>
+                      </HeaderContent>
+                      <RowTemplate>
+
+                      </RowTemplate>
+                </MudTable>
+            }
+        </MudPaper>
+    </MudItem>
+</MudGrid>
+
+@code {
+    private string corteReco = "";
+    private DateTime? fechaInicio;
+    private DateTime? fechaFin;
+    private bool cargando = true;
+    private List<Recolecciones> reimpresionesFiltradas;
+
+    private void LimpiarFiltros()
+    {
+        corteReco = "";
+        fechaInicio = null;
+        fechaFin = null;
+    }
+    private async Task BuscarCortesRecos()
+    {
+        return;
+    }
+}

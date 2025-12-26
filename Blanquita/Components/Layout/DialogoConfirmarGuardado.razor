@@ -1,0 +1,109 @@
+﻿<MudDialog>
+    <DialogContent>
+        <MudText Typo="Typo.h6" Class="mb-3">
+            ¿Está seguro de guardar este reporte en el histórico?
+        </MudText>
+
+        <MudPaper Elevation="0" Class="pa-3" Style="background-color: #f5f5f5;">
+            <MudGrid>
+                <MudItem xs="6">
+                    <MudText Typo="Typo.body2"><strong>Sucursal:</strong></MudText>
+                </MudItem>
+                <MudItem xs="6">
+                    <MudText Typo="Typo.body2">@Sucursal</MudText>
+                </MudItem>
+
+                <MudItem xs="6">
+                    <MudText Typo="Typo.body2"><strong>Fecha:</strong></MudText>
+                </MudItem>
+                <MudItem xs="6">
+                    <MudText Typo="Typo.body2">@Fecha</MudText>
+                </MudItem>
+
+                <MudItem xs="6">
+                    <MudText Typo="Typo.body2"><strong>Registros:</strong></MudText>
+                </MudItem>
+                <MudItem xs="6">
+                    <MudText Typo="Typo.body2">@NumeroRegistros</MudText>
+                </MudItem>
+
+                <MudItem xs="12">
+                    <MudDivider Class="my-2" />
+                </MudItem>
+
+                <MudItem xs="6">
+                    <MudText Typo="Typo.body2"><strong>Total Sistema:</strong></MudText>
+                </MudItem>
+                <MudItem xs="6">
+                    <MudText Typo="Typo.body2">
+                        @TotalSistema.ToString("C2", new System.Globalization.CultureInfo("es-MX"))
+                    </MudText>
+                </MudItem>
+
+                @if (TotalManual.HasValue)
+                {
+                    <MudItem xs="6">
+                        <MudText Typo="Typo.body2"><strong>Total Corte Manual:</strong></MudText>
+                    </MudItem>
+                    <MudItem xs="6">
+                        <MudText Typo="Typo.body2">
+                            @TotalManual.Value.ToString("C2", new System.Globalization.CultureInfo("es-MX"))
+                        </MudText>
+                    </MudItem>
+
+                    <MudItem xs="6">
+                        <MudText Typo="Typo.body2"><strong>Diferencia:</strong></MudText>
+                    </MudItem>
+                    <MudItem xs="6">
+                        <MudText Typo="Typo.body2"
+                                 Color="@(Diferencia == 0 ? Color.Success : (Diferencia > 0 ? Color.Info : Color.Warning))">
+                            <strong>@Diferencia?.ToString("C2", new System.Globalization.CultureInfo("es-MX"))</strong>
+                        </MudText>
+                    </MudItem>
+                }
+
+                @if (!string.IsNullOrWhiteSpace(Notas))
+                {
+                    <MudItem xs="12">
+                        <MudDivider Class="my-2" />
+                    </MudItem>
+
+                    <MudItem xs="12">
+                        <MudText Typo="Typo.body2"><strong>Notas:</strong></MudText>
+                        <MudText Typo="Typo.body2" Class="mt-1">@Notas</MudText>
+                    </MudItem>
+                }
+            </MudGrid>
+        </MudPaper>
+
+        @if (!TotalManual.HasValue)
+        {
+            <MudAlert Severity="Severity.Warning" Class="mt-3" Dense="true">
+                No se ha ingresado el total del corte manual
+            </MudAlert>
+        }
+    </DialogContent>
+
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancelar</MudButton>
+        <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="Submit">
+            Confirmar y Guardar
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    IMudDialogInstance MudDialog { get; set; } = default!;
+
+    [Parameter] public string Sucursal { get; set; } = "";
+    [Parameter] public string Fecha { get; set; } = "";
+    [Parameter] public decimal TotalSistema { get; set; }
+    [Parameter] public decimal? TotalManual { get; set; }
+    [Parameter] public decimal? Diferencia { get; set; }
+    [Parameter] public string Notas { get; set; } = "";
+    [Parameter] public int NumeroRegistros { get; set; }
+
+    private void Submit() => MudDialog.Close(DialogResult.Ok(true));
+    private void Cancel() => MudDialog.Cancel();
+}

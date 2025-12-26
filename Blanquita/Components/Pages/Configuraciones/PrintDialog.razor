@@ -1,0 +1,125 @@
+﻿@inject ICajaService cajaService
+@inject IRecoService recoService
+@inject ICajeraService cajeraService
+@inject IEncargadaService encargadaService
+@inject PrintJobService printJobService
+@inject ICorteService corteService
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">
+            <MudIcon Icon="@Icons.Material.Filled.Print" Class="mr-3 mb-n1" />
+            Seleccione una impresora
+        </MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudSelect T="int" Label="Seleccione caja" @bind-Value="_selectedCaja">
+            @if (cajas == null)
+            {
+                <MudSelectItem T="int" Value="0">Cargando...</MudSelectItem>
+            }
+            else
+            {
+                @foreach (var _caja in cajas)
+                {
+                    <MudSelectItem T="int" Value="@_caja.Id">@_caja.Nombre</MudSelectItem>
+                }
+            }
+        </MudSelect>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancelar</MudButton>
+        <MudButton Color="Color.Primary" OnClick="Imprimir">Imprimir</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    private IMudDialogInstance MudDialog { get; set; }
+    [Parameter]
+    public int idReco { get; set; }
+    [Parameter]
+    public string accion { get; set; }
+    private int _selectedCaja = 0;
+    private List<Cajas>? cajas;
+    private Recolecciones recoleccion;
+    private Cortes corte;
+    private Cajas caja;
+    private Cajeras cajera;
+    private Encargadas encargada;
+    private Cajas impresora;
+    private string sucursal;
+
+    protected override async Task OnInitializedAsync()
+    {
+        cajas = await cajaService.ObtenerCajas();
+    }
+    private async Task Imprimir()
+    {
+        impresora = await cajaService.EncontrarCajaPorId(_selectedCaja);
+        if (accion == "Reco")
+        {
+            recoleccion = await recoService.BuscarRecoPorId(idReco);
+            caja = await cajaService.EncontrarCajaPorId(Convert.ToInt32(recoleccion.Caja));
+            cajera = await cajeraService.EncontrarCajeraPorId(Convert.ToInt32(recoleccion.Cajera));
+            encargada = await encargadaService.EncontrarEncargadaPorId(Convert.ToInt32(recoleccion.Encargada));
+            switch (caja.Sucursal)
+            {
+                case 6:
+                    sucursal = "Himno Nacional";
+                    break;
+                case 7:
+                    sucursal = "Pozos";
+                    break;
+                case 8:
+                    sucursal = "Soledad";
+                    break;
+                case 9:
+                    sucursal = "Saucito";
+                    break;
+                case 10:
+                    sucursal = "Chapultepec";
+                    break;
+            }
+            var printData = new PrintTicketData
+            {
+                CantMil = recoleccion.Mil,
+                CantQuinientos = recoleccion.Quinientos,
+                CantDoscientos = recoleccion.Doscientos,
+                CantCien = recoleccion.Cien,
+                CantCincuenta = recoleccion.Cincuenta,
+                CantVeinte = recoleccion.Veinte,
+                Caja = caja.Nombre,
+                Cajera = cajera.Nombre,
+                Encargada = encargada.Nombre,
+                Folio = recoleccion.Folio,
+                Sucursal = sucursal
+            };
+            printJobService.PrintTicketAsync(impresora.Id, printData);
+        }
+        else
+        {
+            corte = await corteService.BuscarCortePorId(idReco);
+            var printData = new PrintCorteData
+                {
+                    TotalM = corte.TotalM,
+                    TotalQ = corte.TotalQ,
+                    TotalD = corte.TotalD,
+                    TotalC = corte.TotalC,
+                    TotalCi = corte.TotalCi,
+                    TotalV = corte.TotalV,
+                    TotalTira = corte.TotalTira,
+                    TotalTarjetas = corte.TotalTarjetas,
+                    GranTotal = corte.GranTotal,
+                    Caja = corte.Caja,
+                    Cajera = corte.Cajera,
+                    Encargada = corte.Encargada,
+                    Sucursal = corte.Sucursal,
+                    FechaHora = corte.FechaHora
+                };
+            printJobService.PrintCorteCajaAsync(impresora.Id, printData);
+        }
+        MudDialog.Close(DialogResult.Ok(true));
+    }
+    private void Cancel() => MudDialog.Cancel();
+}

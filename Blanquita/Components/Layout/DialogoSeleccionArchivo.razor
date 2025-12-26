@@ -1,0 +1,286 @@
+﻿@using System.IO
+
+<MudDialog>
+    <DialogContent>
+        <MudText Typo="Typo.body1" Class="mb-4">
+            Seleccione o ingrese la ruta completa del archivo <strong>@NombreArchivo</strong>
+        </MudText>
+
+        <MudTextField @bind-Value="rutaArchivo"
+                      Label="Ruta del archivo"
+                      Variant="Variant.Outlined"
+                      HelperText="Ejemplo: C:\Datos\POS10041.DBF"
+                      Immediate="true"
+                      OnBlur="ValidarRuta"
+                      Class="mb-3" />
+
+        @if (!string.IsNullOrEmpty(mensajeValidacion))
+        {
+            <MudAlert Severity="@severidadMensaje" Class="mb-3">@mensajeValidacion</MudAlert>
+        }
+
+        <MudDivider Class="my-3" />
+
+        <MudText Typo="Typo.body2" Class="mb-2">
+            <strong>Explorador de carpetas del servidor:</strong>
+        </MudText>
+
+        <MudSelect T="string" 
+                   Label="Unidad" 
+                   Value="unidadSeleccionada" 
+                   Variant="Variant.Outlined"
+                   ValueChanged="OnUnidadChanged"
+                   Class="mb-2">
+            @foreach (var drive in unidades)
+            {
+                <MudSelectItem Value="@drive">@drive</MudSelectItem>
+            }
+        </MudSelect>
+
+        <MudTextField @bind-Value="carpetaActual"
+                      Label="Carpeta actual"
+                      Variant="Variant.Outlined"
+                      ReadOnly="true"
+                      Class="mb-2" />
+
+        <MudPaper Elevation="0" Class="pa-2" Style="max-height: 300px; overflow-y: auto; border: 1px solid #e0e0e0;">
+            @if (cargandoDirectorio)
+            {
+                <MudProgressLinear Indeterminate="true" />
+            }
+            else
+            {
+                <MudList T="string" Dense="true">
+                    @if (!string.IsNullOrEmpty(carpetaActual) && Directory.GetParent(carpetaActual) != null)
+                    {
+                        <MudListItem Icon="@Icons.Material.Filled.ArrowUpward" OnClick="SubirDirectorio">
+                            <MudText Typo="Typo.body2">..</MudText>
+                        </MudListItem>
+                        <MudDivider />
+                    }
+
+                    @foreach (var carpeta in carpetas)
+                    {
+                        <MudListItem Icon="@Icons.Material.Filled.Folder" 
+                                     OnClick="() => AbrirCarpeta(carpeta)">
+                            <MudText Typo="Typo.body2">@Path.GetFileName(carpeta)</MudText>
+                        </MudListItem>
+                    }
+
+                    @if (carpetas.Any() && archivos.Any())
+                    {
+                        <MudDivider Class="my-1" />
+                    }
+
+                    @foreach (var archivo in archivos)
+                    {
+                        var nombreArchivo = Path.GetFileName(archivo);
+                        var esArchivoObjetivo = nombreArchivo.Equals(NombreArchivo, StringComparison.OrdinalIgnoreCase);
+                        
+                        <MudListItem Icon="@Icons.Material.Filled.InsertDriveFile"
+                                     IconColor="@(esArchivoObjetivo ? Color.Success : Color.Default)"
+                                     OnClick="() => SeleccionarArchivo(archivo)">
+                            <MudText Typo="Typo.body2" 
+                                     Color="@(esArchivoObjetivo ? Color.Success : Color.Default)">
+                                <strong>@nombreArchivo</strong>
+                            </MudText>
+                        </MudListItem>
+                    }
+
+                    @if (!carpetas.Any() && !archivos.Any())
+                    {
+                        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="pa-2">
+                            No hay archivos ni carpetas
+                        </MudText>
+                    }
+                </MudList>
+            }
+        </MudPaper>
+    </DialogContent>
+
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancelar</MudButton>
+        <MudButton Color="Color.Primary" 
+                   Variant="Variant.Filled" 
+                   OnClick="Submit"
+                   Disabled="@(!rutaValida)">
+            Seleccionar
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] 
+    IMudDialogInstance MudDialog { get; set; } = default!;
+
+    [Parameter] 
+    public string ArchivoActual { get; set; } = "";
+
+    [Parameter] 
+    public string NombreArchivo { get; set; } = "";
+
+    private string rutaArchivo = "";
+    private string mensajeValidacion = "";
+    private Severity severidadMensaje = Severity.Normal;
+    private bool rutaValida = false;
+
+    private List<string> unidades = new();
+    private string unidadSeleccionada = "";
+    private string carpetaActual = "";
+    private List<string> carpetas = new();
+    private List<string> archivos = new();
+    private bool cargandoDirectorio = false;
+
+    protected override void OnInitialized()
+    {
+        rutaArchivo = ArchivoActual;
+        
+        // Cargar unidades disponibles
+        try
+        {
+            unidades = DriveInfo.GetDrives()
+                .Where(d => d.IsReady)
+                .Select(d => d.Name)
+                .ToList();
+
+            if (unidades.Any())
+            {
+                unidadSeleccionada = unidades.First();
+                CargarDirectorioRaiz();
+            }
+        }
+        catch (Exception)
+        {
+            // Ignorar errores al cargar unidades
+        }
+
+        if (!string.IsNullOrEmpty(rutaArchivo))
+        {
+            ValidarRuta();
+        }
+    }
+
+    private void ValidarRuta()
+    {
+        if (string.IsNullOrWhiteSpace(rutaArchivo))
+        {
+            mensajeValidacion = "";
+            rutaValida = false;
+            return;
+        }
+
+        try
+        {
+            if (File.Exists(rutaArchivo))
+            {
+                var nombreArchivo = Path.GetFileName(rutaArchivo);
+                if (nombreArchivo.Equals(NombreArchivo, StringComparison.OrdinalIgnoreCase))
+                {
+                    mensajeValidacion = "✓ Archivo encontrado y válido";
+                    severidadMensaje = Severity.Success;
+                    rutaValida = true;
+                }
+                else
+                {
+                    mensajeValidacion = $"⚠ El archivo debe llamarse {NombreArchivo}";
+                    severidadMensaje = Severity.Warning;
+                    rutaValida = false;
+                }
+            }
+            else
+            {
+                mensajeValidacion = "✗ El archivo no existe en la ruta especificada";
+                severidadMensaje = Severity.Error;
+                rutaValida = false;
+            }
+        }
+        catch (Exception)
+        {
+            mensajeValidacion = "✗ Ruta inválida";
+            severidadMensaje = Severity.Error;
+            rutaValida = false;
+        }
+    }
+
+    private void OnUnidadChanged(string nuevaUnidad)
+    {
+        unidadSeleccionada = nuevaUnidad;
+        CargarDirectorioRaiz();
+    }
+
+    private void CargarDirectorioRaiz()
+    {
+        if (!string.IsNullOrEmpty(unidadSeleccionada))
+        {
+            carpetaActual = unidadSeleccionada;
+            CargarContenidoDirectorio();
+        }
+    }
+
+    private void CargarContenidoDirectorio()
+    {
+        cargandoDirectorio = true;
+        carpetas.Clear();
+        archivos.Clear();
+
+        try
+        {
+            // Cargar carpetas
+            var directorios = Directory.GetDirectories(carpetaActual);
+            carpetas = directorios.OrderBy(d => d).ToList();
+
+            // Cargar solo archivos .DBF
+            var archivosDbf = Directory.GetFiles(carpetaActual, "*.dbf", SearchOption.TopDirectoryOnly);
+            archivos = archivosDbf.OrderBy(f => f).ToList();
+        }
+        catch (UnauthorizedAccessException)
+        {
+            mensajeValidacion = "⚠ No tiene permisos para acceder a esta carpeta";
+            severidadMensaje = Severity.Warning;
+        }
+        catch (Exception ex)
+        {
+            mensajeValidacion = $"Error al cargar carpeta: {ex.Message}";
+            severidadMensaje = Severity.Error;
+        }
+        finally
+        {
+            cargandoDirectorio = false;
+        }
+    }
+
+    private void AbrirCarpeta(string carpeta)
+    {
+        carpetaActual = carpeta;
+        CargarContenidoDirectorio();
+    }
+
+    private void SubirDirectorio()
+    {
+        var parent = Directory.GetParent(carpetaActual);
+        if (parent != null)
+        {
+            carpetaActual = parent.FullName;
+            CargarContenidoDirectorio();
+        }
+    }
+
+    private void SeleccionarArchivo(string archivo)
+    {
+        rutaArchivo = archivo;
+        ValidarRuta();
+    }
+
+    private void Submit()
+    {
+        if (rutaValida)
+        {
+            MudDialog.Close(DialogResult.Ok(rutaArchivo));
+        }
+    }
+
+    private void Cancel()
+    {
+        MudDialog.Cancel();
+    }
+}

@@ -1,0 +1,422 @@
+﻿@page "/historico"
+@using System.ComponentModel.DataAnnotations
+@inject IReporteService ReporteService
+@inject IExportService ExportService
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+@inject IJSRuntime JS
+
+<PageTitle>Histórico - Sistema de Reportes</PageTitle>
+
+@if (!logged)
+{
+    <MudContainer MaxWidth="MaxWidth.Small" Class="d-flex align-center justify-center" Style="min-height: 100vh;">
+        <MudPaper Elevation="8" Class="pa-8" Style="width: 100%; max-width: 450px;">
+            <MudStack Spacing="4">
+                <!-- Logo o título -->
+                <MudStack AlignItems="AlignItems.Center" Spacing="2">
+                    <MudAvatar Color="Color.Primary" Size="Size.Large" Style="width: 80px; height: 80px;">
+                        <MudIcon Icon="@Icons.Material.Filled.Lock" Size="Size.Large" />
+                    </MudAvatar>
+                    <MudText Typo="Typo.h4" Align="Align.Center">Iniciar Sesión</MudText>
+                    <MudText Typo="Typo.body2" Align="Align.Center" Color="Color.Secondary">
+                        Ingresa tus credenciales para continuar
+                    </MudText>
+                </MudStack>
+
+                <!-- Formulario -->
+                <EditForm Model="@model" OnValidSubmit="OnValidSubmit">
+                    <DataAnnotationsValidator />
+
+                    <MudStack Spacing="3">
+                        <MudTextField @bind-Value="model.Username"
+                                      Label="Usuario"
+                                      Variant="Variant.Outlined"
+                                      For="@(() => model.Username)"
+                                      Adornment="Adornment.Start"
+                                      AdornmentIcon="@Icons.Material.Filled.Person" />
+
+                        <MudTextField @bind-Value="model.Password"
+                                      Label="Contraseña"
+                                      Variant="Variant.Outlined"
+                                      For="@(() => model.Password)"
+                                      InputType="@PasswordInput"
+                                      Adornment="Adornment.End"
+                                      AdornmentIcon="@PasswordIcon"
+                                      OnAdornmentClick="TogglePasswordVisibility" />
+
+                        @if (!string.IsNullOrEmpty(errorMessage))
+                        {
+                            <MudAlert Severity="Severity.Error" Dense="true">@errorMessage</MudAlert>
+                        }
+
+                        <MudButton ButtonType="ButtonType.Submit"
+                                   Variant="Variant.Filled"
+                                   Color="Color.Primary"
+                                   FullWidth="true"
+                                   Size="Size.Large"
+                                   Disabled="@isLoading">
+                            @if (isLoading)
+                            {
+                                <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true" />
+                                <MudText Class="ms-2">Iniciando sesión...</MudText>
+                            }
+                            else
+                            {
+                                <MudText>Iniciar Sesión</MudText>
+                            }
+                        </MudButton>
+                    </MudStack>
+                </EditForm>
+            </MudStack>
+        </MudPaper>
+    </MudContainer>
+}
+else
+{
+    <MudText Typo="Typo.h4" Class="mb-4">
+        <MudIcon Icon="@Icons.Material.Filled.History" Class="mr-2" />
+        Histórico de Reportes
+    </MudText>
+
+    <MudGrid>
+        <!-- Filtros -->
+        <MudItem xs="12">
+            <MudPaper Elevation="2" Class="pa-4">
+                <MudGrid>
+                    <MudItem xs="12" md="3">
+                        <MudSelect @bind-Value="sucursalFiltro"
+                                   Label="Sucursal"
+                                   Variant="Variant.Outlined"
+                                   Clearable="true"
+                                   OnClearButtonClick="LimpiarFiltros">
+                            <MudSelectItem Value="@("")">Todas</MudSelectItem>
+                            <MudSelectItem Value="@("Himno")">Himno</MudSelectItem>
+                            <MudSelectItem Value="@("Pozos")">Pozos</MudSelectItem>
+                            <MudSelectItem Value="@("Soledad")">Soledad</MudSelectItem>
+                            <MudSelectItem Value="@("Saucito")">Saucito</MudSelectItem>
+                            <MudSelectItem Value="@("Chapultepec")">Chapultepec</MudSelectItem>
+                        </MudSelect>
+                    </MudItem>
+
+                    <MudItem xs="12" md="3">
+                        <MudDatePicker @bind-Date="fechaInicio"
+                                       Label="Fecha Inicio"
+                                       Variant="Variant.Outlined"
+                                       Clearable="true" />
+                    </MudItem>
+
+                    <MudItem xs="12" md="3">
+                        <MudDatePicker @bind-Date="fechaFin"
+                                       Label="Fecha Fin"
+                                       Variant="Variant.Outlined"
+                                       Clearable="true" />
+                    </MudItem>
+
+                    <MudItem xs="12" md="3" Class="d-flex align-end">
+                        <MudButton Variant="Variant.Filled"
+                                   Color="Color.Primary"
+                                   StartIcon="@Icons.Material.Filled.Search"
+                                   OnClick="BuscarReportes"
+                                   FullWidth="true">
+                            Buscar
+                        </MudButton>
+                    </MudItem>
+                </MudGrid>
+            </MudPaper>
+        </MudItem>
+
+        <!-- Tabla de reportes -->
+        <MudItem xs="12">
+            <MudPaper Elevation="2">
+                @if (cargando)
+                {
+                    <div class="pa-8 text-center">
+                        <MudProgressCircular Indeterminate="true" />
+                        <MudText Typo="Typo.body1" Class="mt-4">Cargando reportes...</MudText>
+                    </div>
+                }
+                else if (reportesFiltrados != null && reportesFiltrados.Any())
+                {
+                    <MudTable Items="@reportesFiltrados"
+                              Hover="true"
+                              Striped="true"
+                              Dense="true"
+                              Elevation="0">
+                        <HeaderContent>
+                            <MudTh>Fecha Reporte</MudTh>
+                            <MudTh>Sucursal</MudTh>
+                            <MudTh Style="text-align: right;">Total Sistema</MudTh>
+                            <MudTh Style="text-align: right;">Total Manual</MudTh>
+                            <MudTh Style="text-align: right;">Diferencia</MudTh>
+                            <MudTh>Fecha Generación</MudTh>
+                            <MudTh Style="text-align: center;">Acciones</MudTh>
+                        </HeaderContent>
+                        <RowTemplate>
+                            <MudTd DataLabel="Fecha">@context.Fecha.ToString("dd/MM/yyyy")</MudTd>
+                            <MudTd DataLabel="Sucursal">
+                                <MudChip T="string" Size="Size.Small" Color="Color.Primary">@context.Sucursal</MudChip>
+                            </MudTd>
+                            <MudTd DataLabel="Total Sistema" Style="text-align: right;">
+                                @context.TotalSistema.ToString("C2", new System.Globalization.CultureInfo("es-MX"))
+                            </MudTd>
+                            <MudTd DataLabel="Total Manual" Style="text-align: right;">
+                                @context.TotalCorteManual.ToString("C2", new System.Globalization.CultureInfo("es-MX"))
+                            </MudTd>
+                            <MudTd DataLabel="Diferencia" Style="text-align: right;">
+                                <MudText Color="@ObtenerColorDiferencia(context.Diferencia)">
+                                    <strong>@context.Diferencia.ToString("C2", new System.Globalization.CultureInfo("es-MX"))</strong>
+                                </MudText>
+                            </MudTd>
+                            <MudTd DataLabel="Fecha Generación">
+                                @context.FechaGeneracion.ToString("dd/MM/yyyy HH:mm")
+                            </MudTd>
+                            <MudTd DataLabel="Acciones" Style="text-align: center;">
+                                <MudTooltip Text="Ver Detalles">
+                                    <MudIconButton Icon="@Icons.Material.Filled.Visibility"
+                                                   Size="Size.Small"
+                                                   Color="Color.Info"
+                                                   OnClick="() => VerDetalles(context)" />
+                                </MudTooltip>
+                                <MudTooltip Text="Editar Notas">
+                                    <MudIconButton Icon="@Icons.Material.Filled.Edit"
+                                                   Size="Size.Small"
+                                                   Color="Color.Warning"
+                                                   OnClick="() => EditarNotas(context)" />
+                                </MudTooltip>
+                                <MudTooltip Text="Exportar Excel">
+                                    <MudIconButton Icon="@Icons.Material.Filled.TableChart"
+                                                   Size="Size.Small"
+                                                   Color="Color.Success"
+                                                   OnClick="() => ExportarExcel(context)" />
+                                </MudTooltip>
+                                <MudTooltip Text="Exportar PDF">
+                                    <MudIconButton Icon="@Icons.Material.Filled.PictureAsPdf"
+                                                   Size="Size.Small"
+                                                   Color="Color.Error"
+                                                   OnClick="() => ExportarPDF(context)" />
+                                </MudTooltip>
+                            </MudTd>
+                        </RowTemplate>
+                    </MudTable>
+
+                    <MudDivider />
+
+                    <div class="pa-3">
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">
+                            Total de reportes: @reportesFiltrados.Count
+                        </MudText>
+                    </div>
+                }
+                else
+                {
+                    <div class="pa-8 text-center">
+                        <MudIcon Icon="@Icons.Material.Filled.SearchOff" Size="Size.Large" Color="Color.Secondary" />
+                        <MudText Typo="Typo.h6" Color="Color.Secondary" Class="mt-4">
+                            No se encontraron reportes
+                        </MudText>
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">
+                            Ajusta los filtros o genera un nuevo reporte
+                        </MudText>
+                    </div>
+                }
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+}
+
+
+@code {
+    private List<Reporte>? reportesFiltrados;
+    private bool cargando = true;
+    
+    private string sucursalFiltro = "";
+    private DateTime? fechaInicio;
+    private DateTime? fechaFin;
+
+    private LoginModel model = new();
+    private bool isLoading = false;
+    private bool logged = false;
+    private string errorMessage = string.Empty;
+    private bool isPasswordVisible = false;
+    private InputType PasswordInput => isPasswordVisible ? InputType.Text : InputType.Password;
+    private string PasswordIcon => isPasswordVisible ? Icons.Material.Filled.Visibility : Icons.Material.Filled.VisibilityOff;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarReportes();
+    }
+
+    private void TogglePasswordVisibility()
+    {
+        isPasswordVisible = !isPasswordVisible;
+    }
+
+    private async Task OnValidSubmit()
+    {
+        isLoading = true;
+        errorMessage = string.Empty;
+
+        try
+        {
+            // Simular un pequeño delay para mejor UX
+            await Task.Delay(800);
+
+            // Validar credenciales
+            if (model.Username == "Admin" && model.Password == "Blanquita123...")
+            {
+                // Login exitoso - redirigir a la página principal
+                // NavigationManager.NavigateTo("/dashboard");
+                logged = true;
+            }
+            else
+            {
+                errorMessage = "Usuario o contraseña incorrectos";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error al iniciar sesión: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task CargarReportes()
+    {
+        cargando = true;
+        try
+        {
+            var todosLosReportes = await ReporteService.ObtenerReportesAsync();
+            reportesFiltrados = todosLosReportes;
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error al cargar reportes: {ex.Message}", Severity.Error);
+            reportesFiltrados = new List<Reporte>();
+        }
+        finally
+        {
+            cargando = false;
+        }
+    }
+
+    private async Task BuscarReportes()
+    {
+        cargando = true;
+        try
+        {
+            var sucursal = string.IsNullOrEmpty(sucursalFiltro) ? null : sucursalFiltro;
+            reportesFiltrados = await ReporteService.BuscarReportesAsync(sucursal, fechaInicio, fechaFin);
+            
+            var mensaje = reportesFiltrados.Any() 
+                ? $"Se encontraron {reportesFiltrados.Count} reportes" 
+                : "No se encontraron reportes con los filtros especificados";
+            
+            Snackbar.Add(mensaje, reportesFiltrados.Any() ? Severity.Success : Severity.Info);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error al buscar reportes: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            cargando = false;
+        }
+    }
+
+    private void LimpiarFiltros()
+    {
+        sucursalFiltro = "";
+        fechaInicio = null;
+        fechaFin = null;
+    }
+
+    private Color ObtenerColorDiferencia(decimal diferencia)
+    {
+        if (diferencia == 0) return Color.Success;
+        if (diferencia > 0) return Color.Info;
+        return Color.Warning;
+    }
+
+    private async Task VerDetalles(Reporte reporte)
+    {
+        var parameters = new DialogParameters
+        {
+            { "Reporte", reporte }
+        };
+
+        var options = new DialogOptions 
+        { 
+            MaxWidth = MaxWidth.ExtraExtraLarge, 
+            FullWidth = true,
+            CloseButton = true
+        };
+
+        await DialogService.ShowAsync<DialogoDetalleReporte>("Detalle del Reporte", parameters, options);
+    }
+
+    private async Task EditarNotas(Reporte reporte)
+    {
+        var parameters = new DialogParameters
+        {
+            { "NotasActuales", reporte.Notas }
+        };
+
+        var dialog = await DialogService.ShowAsync<DialogoEditarNotas>("Editar Notas", parameters);
+        var result = await dialog.Result;
+
+        if (!result.Canceled && result.Data is string notasNuevas)
+        {
+            try
+            {
+                reporte.Notas = notasNuevas;
+                // TODO: Implementar actualización en ReporteService
+                // await ReporteService.ActualizarReporteAsync(reporte);
+                
+                Snackbar.Add("Notas actualizadas exitosamente", Severity.Success);
+            }
+            catch (Exception ex)
+            {
+                Snackbar.Add($"Error al actualizar notas: {ex.Message}", Severity.Error);
+            }
+        }
+    }
+
+    private async Task ExportarExcel(Reporte reporte)
+    {
+        try
+        {
+            // TODO: Implementar exportación a Excel
+            Snackbar.Add("Funcionalidad de exportación a Excel próximamente...", Severity.Info);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error al exportar a Excel: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task ExportarPDF(Reporte reporte)
+    {
+        try
+        {
+            // TODO: Implementar exportación a PDF
+            Snackbar.Add("Funcionalidad de exportación a PDF próximamente...", Severity.Info);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error al exportar a PDF: {ex.Message}", Severity.Error);
+        }
+    }
+
+    public class LoginModel
+    {
+        [Required(ErrorMessage = "El usuario es requerido")]
+        public string Username { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "La contraseña es requerida")]
+        public string Password { get; set; } = string.Empty;
+    }
+}

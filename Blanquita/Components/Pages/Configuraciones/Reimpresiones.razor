@@ -1,0 +1,141 @@
+﻿@page "/reimprimir"
+@inject IRecoService recoService
+@inject PrintJobService printJobService
+@inject ICajaService cajaService
+@inject ICajeraService cajeraService
+@inject IEncargadaService encargadaService
+@inject IDialogService DialogService
+@inject ICorteService corteService
+
+<MudText Typo="Typo.h3" Align="Align.Center">Reimprimir</MudText>
+<MudStack AlignItems="AlignItems.Center" Justify="Justify.Center">
+    <MudToggleGroup T="string" Color="Color.Primary" SelectionMode="SelectionMode.SingleSelection" @bind-Value="@accion" CheckMark FixedContent>
+        <MudToggleItem Value="@("Reco")" />
+        <MudToggleItem Value="@("Corte")" />
+    </MudToggleGroup>
+</MudStack>
+@if (accion == "Reco")
+{
+    <MudTable ServerData="ServerReload" Dense="true" Hover="true" @ref="recos">
+        <ToolBarContent>
+            <MudText Typo="Typo.h6">Recolecciones</MudText>
+            <MudSpacer />
+            <MudTextField T="string" ValueChanged="@(s=>OnSearch(s))" Placeholder="Buscar" Adornment="Adornment.Start"
+                          AdornmentIcon="@Icons.Material.Filled.Search" IconSize="Size.Medium" Class="mt-0"></MudTextField>
+        </ToolBarContent>
+        <HeaderContent>
+            <MudTh><MudTableSortLabel SortLabel="Id" T="Recolecciones">Id</MudTableSortLabel></MudTh>
+            <MudTh><MudTableSortLabel SortLabel="Folio" T="Recolecciones">Folio</MudTableSortLabel></MudTh>
+            <MudTh><MudTableSortLabel SortLabel="Fecha_Hora" T="Recolecciones">Fecha Hora</MudTableSortLabel></MudTh>
+            <MudTh><MudTableSortLabel SortLabel="Caja" T="Recolecciones">Caja</MudTableSortLabel></MudTh>
+            <MudTh><MudTableSortLabel SortLabel="Cantidad" T="Recolecciones">Cantidad</MudTableSortLabel></MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd DataLabel="Id">@context.Id</MudTd>
+            <MudTd DataLabel="Folio">@context.Folio</MudTd>
+            <MudTd DataLabel="Fecha_Hora">@context.FechaHora</MudTd>
+            <MudTd DataLabel="Caja">
+                @{
+                    var nombreCaja = listaCajas.FirstOrDefault(c => c.Id == Convert.ToInt32(context.Caja))?.Nombre ?? "Desconocido";
+                    @nombreCaja
+                }
+            </MudTd>
+            <MudTd DataLabel="Cantidad">@context.CantidadTotal</MudTd>
+            <MudTd>
+                <MudIconButton Icon="@Icons.Material.Filled.Print" Color="Color.Primary" Class="pa-0 ma-0 min-width-auto" OnClick="@(() => Imprimir(context.Id))" />
+            </MudTd>
+        </RowTemplate>
+        <NoRecordsContent>
+            <MudText>No matching records found</MudText>
+        </NoRecordsContent>
+        <LoadingContent>
+            <MudText>Loading...</MudText>
+        </LoadingContent>
+        <PagerContent>
+            <MudTablePager />
+        </PagerContent>
+    </MudTable>
+}
+else
+{
+    <MudTable ServerData="CargarDatosCortes" Dense="true" Hover="true" @ref="cortes">
+        <ToolBarContent>
+            <MudText Typo="Typo.h6">Cortes</MudText>
+            <MudSpacer />
+            <MudTextField T="string" ValueChanged="@(s=>OnSearch(s))" Placeholder="Buscar" Adornment="Adornment.Start"
+                          AdornmentIcon="@Icons.Material.Filled.Search" IconSize="Size.Medium" Class="mt-0"></MudTextField>
+        </ToolBarContent>
+        <HeaderContent>
+            <MudTh><MudTableSortLabel SortLabel="Id" T="Cortes">Id</MudTableSortLabel></MudTh>
+            <MudTh><MudTableSortLabel SortLabel="Caja" T="Cortes">Caja</MudTableSortLabel></MudTh>
+            <MudTh><MudTableSortLabel SortLabel="Cajera" T="Cortes">Cajera</MudTableSortLabel></MudTh>
+            <MudTh><MudTableSortLabel SortLabel="Encargada" T="Cortes">Encargada</MudTableSortLabel></MudTh>
+            <MudTh><MudTableSortLabel SortLabel="Sucursal" T="Cortes">Sucursal</MudTableSortLabel></MudTh>
+            <MudTh><MudTableSortLabel SortLabel="Fecha_Hora" T="Cortes">Fecha y hora</MudTableSortLabel></MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd DataLabel="Id">@context.Id</MudTd>
+            <MudTd DataLabel="Caja">@context.Caja</MudTd>
+            <MudTd DataLabel="Cajera">@context.Cajera</MudTd>
+            <MudTd DataLabel="Encargada">@context.Encargada</MudTd>
+            <MudTd DataLabel="Sucursal">@context.Sucursal</MudTd>
+            <MudTd DataLabel="Fecha_Hora">@context.FechaHora</MudTd>
+            <MudTd>
+                <MudIconButton Icon="@Icons.Material.Filled.Print" Color="Color.Primary" Class="pa-0 ma-0 min-width-auto" OnClick="@(() => Imprimir(context.Id))" />
+            </MudTd>
+        </RowTemplate>
+        <NoRecordsContent>
+            <MudText>No matching records found</MudText>
+        </NoRecordsContent>
+        <LoadingContent>
+            <MudText>Loading...</MudText>
+        </LoadingContent>
+        <PagerContent>
+            <MudTablePager />
+        </PagerContent>
+    </MudTable>
+}
+
+@code {
+    private string accion = "Reco";
+    private MudTable<Recolecciones> recos;
+    private MudTable<Cortes> cortes;
+    private string searchString = null;
+    private Recolecciones recoleccion = new Recolecciones();
+    private Cajas caja;
+    private Cajeras cajera;
+    private Encargadas encargada;
+    private List<Cajas> listaCajas = new List<Cajas>();
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Cargar la lista de cajas al inicializar el componente
+        listaCajas = await cajaService.ObtenerCajas();
+    }
+
+    private async Task<TableData<Recolecciones>> ServerReload(TableState state, CancellationToken token)
+    {
+        return await recoService.ObtenerRecosPaginadasAsync(state, searchString);
+    }
+
+    private async Task<TableData<Cortes>> CargarDatosCortes(TableState states, CancellationToken tokens)
+    {
+        return await corteService.ObtenerCortesPaginados(states, searchString);
+    }
+
+    private void OnSearch(string text)
+    {
+        searchString = text;
+        recos.ReloadServerData();
+    }
+    private Task Imprimir (int Id)
+    {
+        var parameters = new DialogParameters<PrintDialog>
+        {
+            { x => x.idReco, Id},
+            {x => x.accion, accion}
+        };
+        var options = new DialogOptions() { CloseButton = true };
+        return DialogService.ShowAsync<PrintDialog>("Delete", parameters, options);
+    }
+}
