@@ -65,7 +65,7 @@ namespace Blanquita.Services
                 }
                 targetIp = _impresoraSeleccionada.IpImpresora;
                 targetPort = _impresoraSeleccionada.Port;
-                _logger.LogInformation("Impresora seleccionada con IP: {IpImpresora}", targetIp);
+                _logger.LogInformation("Impresora seleccionada - ID: {IdImpresora}, IP: {IpImpresora}, Port: {Port}", ipImpresora, targetIp, targetPort);
             }
 
             var ticketData = new PrintTicketData

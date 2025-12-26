@@ -18,18 +18,32 @@ Log.Logger = new LoggerConfiguration()
     .MinimumLevel.Information()
     .MinimumLevel.Override("Microsoft", LogEventLevel.Warning)
     .MinimumLevel.Override("Microsoft.Hosting.Lifetime", LogEventLevel.Information)
+    .MinimumLevel.Override("Microsoft.EntityFrameworkCore", LogEventLevel.Warning)
+    .MinimumLevel.Override("Microsoft.AspNetCore", LogEventLevel.Warning)
     .MinimumLevel.Override("System", LogEventLevel.Warning)
+    .MinimumLevel.Override("System.Net.Http.HttpClient", LogEventLevel.Warning)
     .Enrich.FromLogContext()
     .Enrich.WithEnvironmentName()
     .Enrich.WithMachineName()
     .Enrich.WithProcessId()
     .Enrich.WithThreadId()
     .WriteTo.Console(
+        restrictedToMinimumLevel: LogEventLevel.Information,
         outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] {SourceContext}: {Message:lj}{NewLine}{Exception}")
     .WriteTo.File(
         path: "logs/blanquita-.log",
         rollingInterval: RollingInterval.Day,
-        retainedFileCountLimit: 7,
+        retainedFileCountLimit: 30,
+        fileSizeLimitBytes: 104857600,
+        rollOnFileSizeLimit: true,
+        outputTemplate: "[{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} {Level:u3}] {SourceContext}: {Message:lj} {Properties:j}{NewLine}{Exception}")
+    .WriteTo.File(
+        path: "logs/errors/blanquita-errors-.log",
+        restrictedToMinimumLevel: LogEventLevel.Error,
+        rollingInterval: RollingInterval.Day,
+        retainedFileCountLimit: 90,
+        fileSizeLimitBytes: 104857600,
+        rollOnFileSizeLimit: true,
         outputTemplate: "[{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} {Level:u3}] {SourceContext}: {Message:lj} {Properties:j}{NewLine}{Exception}")
     .CreateLogger();
 

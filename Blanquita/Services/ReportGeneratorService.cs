@@ -31,28 +31,26 @@ namespace Blanquita.Services
             var result = new List<ReportRow>();
             var series = _foxProService.GetBranchSeries(sucursal);
 
-            _logger.LogDebug("=== Iniciando generación de reporte ===");
-            _logger.LogDebug("Sucursal: {Sucursal}", sucursal);
-            _logger.LogDebug("Fecha: {Fecha:dd/MM/yyyy}", fecha);
+            _logger.LogInformation("Iniciando generación de reporte para {Sucursal} en fecha {Fecha:dd/MM/yyyy}", sucursal, fecha);
             _logger.LogDebug("Series - Cliente: {SerieCliente}, Global: {SerieGlobal}, Devolucion: {SerieDevolucion}", series.Cliente, series.Global, series.Devolucion);
 
             try
             {
                 // Paso 1: Obtener todos los cortes de la fecha especificada
-                _logger.LogDebug("Paso 1: Buscando cortes en fecha {Fecha:dd/MM/yyyy}...", fecha);
+                _logger.LogInformation("Buscando cortes en fecha {Fecha:dd/MM/yyyy}", fecha);
                 var cortes = await _foxProService.GetCortesDelDiaAsync(fecha);
-                _logger.LogDebug("Total de cortes encontrados: {Count}", cortes.Count);
+                _logger.LogInformation("Total de cortes encontrados: {Count}", cortes.Count);
 
                 if (!cortes.Any())
                 {
-                    _logger.LogDebug("No hay cortes para esta fecha");
+                    _logger.LogInformation("No hay cortes para la fecha {Fecha:dd/MM/yyyy}", fecha);
                     return result;
                 }
 
                 // Paso 2: Obtener todos los documentos de la fecha y sucursal
-                _logger.LogDebug("Paso 2: Obteniendo documentos de la fecha para series de {Sucursal}...", sucursal);
+                _logger.LogInformation("Obteniendo documentos para {Sucursal}", sucursal);
                 var documentos = await _foxProService.GetDocumentosPorFechaYSucursalAsync(fecha, series);
-                _logger.LogDebug("Total de documentos encontrados: {Count}", documentos.Count);
+                _logger.LogInformation("Total de documentos encontrados: {Count}", documentos.Count);
 
                 // Paso 3: Procesar cada corte
                 foreach (var corte in cortes)
@@ -126,8 +124,7 @@ namespace Blanquita.Services
                     }
                 }
 
-                _logger.LogDebug("=== Fin de generación ===");
-                _logger.LogDebug("Total de registros en el reporte: {Count}", result.Count);
+                _logger.LogInformation("Generación de reporte completada. Total de registros: {Count}", result.Count);
             }
             catch (Exception ex)
             {

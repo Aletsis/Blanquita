@@ -89,10 +89,7 @@ namespace Blanquita.Services
                     }
                 }
 
-                _logger.LogDebug("Estadísticas POS10042:");
-                _logger.LogDebug("  Total registros: {TotalRegistros}", totalRegistros);
-                _logger.LogDebug("  Cortes en fecha {Fecha:dd/MM/yyyy}: {CortesEnFecha}", fecha, cortesEnFecha);
-                _logger.LogDebug("  Cortes con caja válida: {Count}", cortes.Count);
+                _logger.LogInformation("Estadísticas POS10042 - Total: {TotalRegistros}, En fecha {Fecha:dd/MM/yyyy}: {CortesEnFecha}, Válidos: {Count}", totalRegistros, fecha, cortesEnFecha, cortes.Count);
             }
             catch (Exception ex)
             {
@@ -320,10 +317,8 @@ namespace Blanquita.Services
                             }
                         }
 
-                        _logger.LogDebug("  Total revisados: {TotalRevisados}", totalRevisados);
-                        _logger.LogDebug("  Con fecha {Fecha:dd/MM/yyyy}: {ConFechaCorrecta}", fecha, conFechaCorrecta);
-                        _logger.LogDebug("  Encontrados con fecha y serie correcta: {Encontrados}", encontrados);
-                        _logger.LogDebug("  Errores - Fecha: {ErroresFecha}, Serie: {ErroresSerie}, Otros: {ErroresOtros}", erroresFecha, erroresSerie, erroresOtros);
+                        _logger.LogInformation("Documentos MGW10008 - Revisados: {TotalRevisados}, Con fecha correcta: {ConFechaCorrecta}, Encontrados: {Encontrados}", totalRevisados, conFechaCorrecta, encontrados);
+                        _logger.LogDebug("Errores - Fecha: {ErroresFecha}, Serie: {ErroresSerie}, Otros: {ErroresOtros}", erroresFecha, erroresSerie, erroresOtros);
                     }
                 }
             }
