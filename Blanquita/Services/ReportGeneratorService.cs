@@ -1,3 +1,4 @@
+using Blanquita.Exceptions;
 using Blanquita.Interfaces;
 using Blanquita.Models;
 using Blanquita.Services.Parsing;
@@ -131,7 +132,7 @@ namespace Blanquita.Services
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Excepción durante la generación");
-                throw new Exception($"Error al generar reporte: {ex.Message}", ex);
+                throw new ReportGenerationException($"Error al generar reporte: {ex.Message}", ex);
             }
 
             return result;
