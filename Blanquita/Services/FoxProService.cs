@@ -1,5 +1,6 @@
 ﻿using Blanquita.Interfaces;
 using Blanquita.Models;
+using Blanquita.Services.Parsing;
 using DbfDataReader;
 using System;
 using System.Collections.Generic;
@@ -15,11 +16,13 @@ namespace Blanquita.Services
     {
         private readonly AppConfiguration _config;
         private readonly ILogger<FoxProService> _logger;
+        private readonly IDbfStringParser _dbfParser;
 
-        public FoxProService(AppConfiguration config, ILogger<FoxProService> logger)
+        public FoxProService(AppConfiguration config, ILogger<FoxProService> logger, IDbfStringParser dbfParser)
         {
             _config = config;
             _logger = logger;
+            _dbfParser = dbfParser;
         }
 
         public async Task<List<ReportRow>> GenerarReportDataAsync(string sucursal, DateTime fecha)
@@ -84,7 +87,7 @@ namespace Blanquita.Services
                     }
 
                     // Procesar facturas (Global) - usar campo CFACTURA del corte
-                    var docsFactGlobal = ParsearDocumentos(corte.Facturas);
+                    var docsFactGlobal = _dbfParser.ParsearDocumentos(corte.Facturas);
                     foreach (var doc in docsFactGlobal)
                     {
                         var docEncontrado = documentos.FirstOrDefault(d =>
@@ -101,7 +104,7 @@ namespace Blanquita.Services
                     }
 
                     // Procesar devoluciones - usar campo CDEVOLUCIO del corte
-                    var docsDev = ParsearDocumentos(corte.Devoluciones);
+                    var docsDev = _dbfParser.ParsearDocumentos(corte.Devoluciones);
                     foreach (var doc in docsDev)
                     {
                         var docEncontrado = documentos.FirstOrDefault(d =>
@@ -450,82 +453,7 @@ namespace Blanquita.Services
             return documentos;
         }
 
-        private List<DocumentoRef> ParsearDocumentos(string cadenaDocumentos)
-        {
-            var documentos = new List<DocumentoRef>();
 
-            if (string.IsNullOrWhiteSpace(cadenaDocumentos))
-                return documentos;
-
-            try
-            {
-                _logger.LogDebug("    Parseando cadena (length={Length}): '{Cadena}'", cadenaDocumentos.Length, cadenaDocumentos);
-
-                // Ejemplo de formato esperado: "4          FGIFS                 4821"
-                // Donde: IdDocumento(10) + Serie(20) + Folio(resto)
-
-                // Primero intentar como una sola línea
-                if (!cadenaDocumentos.Contains('\n') && !cadenaDocumentos.Contains('\r'))
-                {
-                    if (cadenaDocumentos.Length >= 30)
-                    {
-                        var idDoc = cadenaDocumentos.Substring(0, 10).Trim();
-                        var serie = cadenaDocumentos.Substring(10, 20).Trim();
-                        var folio = cadenaDocumentos.Substring(30).Trim();
-
-                        _logger.LogDebug("    Parseado: ID='{IdDoc}', Serie='{Serie}', Folio='{Folio}'", idDoc, serie, folio);
-
-                        if (!string.IsNullOrEmpty(idDoc) && !string.IsNullOrEmpty(serie) && !string.IsNullOrEmpty(folio))
-                        {
-                            documentos.Add(new DocumentoRef
-                            {
-                                IdDocumento = idDoc,
-                                Serie = serie,
-                                Folio = folio
-                            });
-                        }
-                    }
-                    else
-                    {
-                        _logger.LogDebug("    Cadena muy corta (< 30 caracteres)");
-                    }
-                }
-                else
-                {
-                    // Si tiene saltos de línea, procesar cada línea
-                    var partes = cadenaDocumentos.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries);
-                    _logger.LogDebug("    Encontradas {Count} líneas", partes.Length);
-
-                    foreach (var parte in partes)
-                    {
-                        if (parte.Length < 30) continue;
-
-                        var idDoc = parte.Substring(0, 10).Trim();
-                        var serie = parte.Substring(10, 20).Trim();
-                        var folio = parte.Substring(30).Trim();
-
-                        if (!string.IsNullOrEmpty(idDoc) && !string.IsNullOrEmpty(serie) && !string.IsNullOrEmpty(folio))
-                        {
-                            documentos.Add(new DocumentoRef
-                            {
-                                IdDocumento = idDoc,
-                                Serie = serie,
-                                Folio = folio
-                            });
-                            _logger.LogDebug("      Línea parseada: ID='{IdDoc}', Serie='{Serie}', Folio='{Folio}'", idDoc, serie, folio);
-                        }
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogDebug("Error al parsear documentos: {Message}", ex.Message);
-                _logger.LogDebug("Cadena problemática: '{CadenaDocumentos}'", cadenaDocumentos);
-            }
-
-            _logger.LogDebug("    Total documentos parseados: {Count}", documentos.Count);
-            return documentos;
-        }
 
         private BranchSeries GetBranchSeries(string branch)
         {
@@ -877,11 +805,6 @@ namespace Blanquita.Services
             public string CajaTexto { get; set; } = "";
         }
 
-        private class DocumentoRef
-        {
-            public string IdDocumento { get; set; } = "";
-            public string Serie { get; set; } = "";
-            public string Folio { get; set; } = "";
-        }
+
     }
 }

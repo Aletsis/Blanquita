@@ -1,5 +1,6 @@
 ﻿using Blanquita.Interfaces;
 using Blanquita.Services;
+using Blanquita.Services.Parsing;
 using CurrieTechnologies.Razor.SweetAlert2;
 
 namespace Blanquita.Interfaces
@@ -22,6 +23,7 @@ namespace Blanquita.Interfaces
             services.AddScoped<IExportService, ExportService>();
             services.AddScoped<IReporteService, ReporteService>();
             services.AddScoped<PrintJobService>();
+            services.AddSingleton<IDbfStringParser, DbfStringParser>();
             services.AddSingleton<FileConfigService>();
             services.AddSingleton<BrowserPrintService>();
             services.AddLogging();
