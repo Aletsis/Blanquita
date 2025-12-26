@@ -16,138 +16,21 @@ namespace Blanquita.Services
     {
         private readonly AppConfiguration _config;
         private readonly ILogger<FoxProService> _logger;
-        private readonly IDbfStringParser _dbfParser;
 
-        public FoxProService(AppConfiguration config, ILogger<FoxProService> logger, IDbfStringParser dbfParser)
+        public FoxProService(AppConfiguration config, ILogger<FoxProService> logger)
         {
             _config = config;
             _logger = logger;
-            _dbfParser = dbfParser;
         }
 
-        public async Task<List<ReportRow>> GenerarReportDataAsync(string sucursal, DateTime fecha)
+        public async Task<List<CorteDelDia>> GetCortesDelDiaAsync(DateTime fecha)
         {
-            return await Task.Run(() => GenerarReportData(sucursal, fecha));
+            return await Task.Run(() => ObtenerCortesDelDia(fecha));
         }
 
-        private List<ReportRow> GenerarReportData(string sucursal, DateTime fecha)
+        public async Task<List<DocumentoMGW>> GetDocumentosPorFechaYSucursalAsync(DateTime fecha, BranchSeries series)
         {
-            var result = new List<ReportRow>();
-            var series = GetBranchSeries(sucursal);
-
-            _logger.LogDebug("=== Iniciando generación de reporte ===");
-            _logger.LogDebug("Sucursal: {Sucursal}", sucursal);
-            _logger.LogDebug("Fecha: {Fecha:dd/MM/yyyy}", fecha);
-            _logger.LogDebug("Series - Cliente: {SerieCliente}, Global: {SerieGlobal}, Devolucion: {SerieDevolucion}", series.Cliente, series.Global, series.Devolucion);
-
-            if (string.IsNullOrEmpty(_config.Pos10041Path) ||
-                string.IsNullOrEmpty(_config.Pos10042Path) ||
-                string.IsNullOrEmpty(_config.Mgw10008Path))
-            {
-                _logger.LogError("Configuración incompleta");
-                throw new Exception("Configuración no establecida. Por favor configure las rutas en Configuración.");
-            }
-
-            try
-            {
-                // Paso 1: Obtener todos los cortes de la fecha especificada
-                _logger.LogDebug("Paso 1: Buscando cortes en fecha {Fecha:dd/MM/yyyy}...", fecha);
-                var cortes = ObtenerCortesDelDia(fecha);
-                _logger.LogDebug("Total de cortes encontrados: {Count}", cortes.Count);
-
-                if (!cortes.Any())
-                {
-                    _logger.LogDebug("No hay cortes para esta fecha");
-                    return result;
-                }
-
-                // Paso 2: Obtener todos los documentos de la fecha y sucursal
-                _logger.LogDebug("Paso 2: Obteniendo documentos de la fecha para series de {Sucursal}...", sucursal);
-                var documentos = ObtenerDocumentosPorFechaYSucursal(fecha, series);
-                _logger.LogDebug("Total de documentos encontrados: {Count}", documentos.Count);
-
-                // Paso 3: Procesar cada corte
-                foreach (var corte in cortes)
-                {
-                    _logger.LogDebug("Procesando corte - Caja ID: {IdCaja}, Serie: '{SerieCaja}'", corte.IdCaja, corte.SerieCaja);
-
-                    decimal facturado = 0;
-                    decimal ventaGlobal = 0;
-                    decimal devolucion = 0;
-
-                    // Procesar facturas (Cliente) - usar CTEXTOEX03 para identificar la caja
-                    var docsCliente = documentos.Where(d =>
-                        d.Serie == series.Cliente &&
-                        d.CajaTexto.Equals(corte.SerieCaja, StringComparison.OrdinalIgnoreCase)).ToList();
-
-                    foreach (var doc in docsCliente)
-                    {
-                        facturado += doc.Total;
-                        _logger.LogDebug("  + Factura Cliente: {Serie}-{Folio} (Caja: {CajaTexto}) = {Total:C2}", doc.Serie, doc.Folio, doc.CajaTexto, doc.Total);
-                    }
-
-                    // Procesar facturas (Global) - usar campo CFACTURA del corte
-                    var docsFactGlobal = _dbfParser.ParsearDocumentos(corte.Facturas);
-                    foreach (var doc in docsFactGlobal)
-                    {
-                        var docEncontrado = documentos.FirstOrDefault(d =>
-                            d.IdDocumento == doc.IdDocumento &&
-                            d.Serie == doc.Serie &&
-                            d.Folio == doc.Folio &&
-                            d.Serie == series.Global);
-
-                        if (docEncontrado != null)
-                        {
-                            ventaGlobal += docEncontrado.Total;
-                            _logger.LogDebug("  + Venta Global: {Serie}-{Folio} = {Total:C2}", doc.Serie, doc.Folio, docEncontrado.Total);
-                        }
-                    }
-
-                    // Procesar devoluciones - usar campo CDEVOLUCIO del corte
-                    var docsDev = _dbfParser.ParsearDocumentos(corte.Devoluciones);
-                    foreach (var doc in docsDev)
-                    {
-                        var docEncontrado = documentos.FirstOrDefault(d =>
-                            d.IdDocumento == doc.IdDocumento &&
-                            d.Serie == doc.Serie &&
-                            d.Folio == doc.Folio &&
-                            d.Serie == series.Devolucion);
-
-                        if (docEncontrado != null)
-                        {
-                            devolucion += docEncontrado.Total;
-                            _logger.LogDebug("  - Devolución: {Serie}-{Folio} = {Total:C2}", doc.Serie, doc.Folio, docEncontrado.Total);
-                        }
-                    }
-
-                    decimal total = facturado + ventaGlobal - devolucion;
-                    _logger.LogDebug("  Totales caja '{SerieCaja}': Fact={Facturado:C2}, VG={VentaGlobal:C2}, Dev={Devolucion:C2}, Total={Total:C2}", corte.SerieCaja, facturado, ventaGlobal, devolucion, total);
-
-                    if (facturado > 0 || ventaGlobal > 0 || devolucion > 0)
-                    {
-                        result.Add(new ReportRow
-                        {
-                            Fecha = fecha.ToString("dd/MM/yyyy"),
-                            Caja = corte.SerieCaja,
-                            Facturado = facturado,
-                            Devolucion = devolucion,
-                            VentaGlobal = ventaGlobal,
-                            Total = total
-                        });
-                        _logger.LogDebug("  ✓ Registro agregado al reporte");
-                    }
-                }
-
-                _logger.LogDebug("=== Fin de generación ===");
-                _logger.LogDebug("Total de registros en el reporte: {Count}", result.Count);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Excepción durante la generación");
-                throw new Exception($"Error al generar reporte: {ex.Message}", ex);
-            }
-
-            return result;
+            return await Task.Run(() => ObtenerDocumentosPorFechaYSucursal(fecha, series));
         }
 
         private List<CorteDelDia> ObtenerCortesDelDia(DateTime fecha)
@@ -455,7 +338,7 @@ namespace Blanquita.Services
 
 
 
-        private BranchSeries GetBranchSeries(string branch)
+        public BranchSeries GetBranchSeries(string branch)
         {
             return branch switch
             {
@@ -787,23 +670,7 @@ namespace Blanquita.Services
             return $"{len:0.##} {sizes[order]}";
         }
 
-        private class CorteDelDia
-        {
-            public int IdCaja { get; set; }
-            public string SerieCaja { get; set; } = "";
-            public string Facturas { get; set; } = "";
-            public string Devoluciones { get; set; } = "";
-        }
 
-        private class DocumentoMGW
-        {
-            public string IdDocumento { get; set; } = "";
-            public string Serie { get; set; } = "";
-            public string Folio { get; set; } = "";
-            public DateTime Fecha { get; set; }
-            public decimal Total { get; set; }
-            public string CajaTexto { get; set; } = "";
-        }
 
 
     }

@@ -1,6 +1,7 @@
 ﻿@page "/reportes"
 @using System.ComponentModel.DataAnnotations
 @inject IReporteService ReporteService
+@inject IReportGeneratorService ReportGeneratorService
 @inject IFoxProService FoxProService
 @inject IExportService ExportService
 @inject ISnackbar Snackbar
@@ -389,7 +390,7 @@ else
 
         try
         {
-            datosReporte = await FoxProService.GenerarReportDataAsync(sucursalSeleccionada, fechaSeleccionada.Value);
+            datosReporte = await ReportGeneratorService.GenerarReportDataAsync(sucursalSeleccionada, fechaSeleccionada.Value);
 
             if (datosReporte != null && datosReporte.Any())
             {

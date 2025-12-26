@@ -21,6 +21,7 @@ namespace Blanquita.Interfaces
             services.AddScoped<ISearchInDbfFileService, SearchInDbfFileService>();
             services.AddScoped<IFoxProService, FoxProService>();
             services.AddScoped<IExportService, ExportService>();
+            services.AddScoped<IReportGeneratorService, ReportGeneratorService>();
             services.AddScoped<IReporteService, ReporteService>();
             services.AddScoped<PrintJobService>();
             services.AddSingleton<IDbfStringParser, DbfStringParser>();

@@ -8,7 +8,9 @@ namespace Blanquita.Interfaces
 {
     public interface IFoxProService
     {
-        Task<List<ReportRow>> GenerarReportDataAsync(string sucursal, DateTime fecha);
+        Task<List<CorteDelDia>> GetCortesDelDiaAsync(DateTime fecha);
+        Task<List<DocumentoMGW>> GetDocumentosPorFechaYSucursalAsync(DateTime fecha, BranchSeries series);
+        BranchSeries GetBranchSeries(string branch);
         Task<bool> VerificarConexionAsync();
 
         // Métodos de diagnóstico
