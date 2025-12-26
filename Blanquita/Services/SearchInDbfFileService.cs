@@ -16,31 +16,42 @@ namespace Blanquita.Services
             _logger = logger;
         }
         public async Task<SearchResult> SearchInDbfFileAsync(
-    string filepath,
-    string fieldName,
-    string searchValue,
-    int chunkSize = 1000,
-    bool exactMatch = true)
+            string filepath,
+            string fieldName,
+            string searchValue,
+            int chunkSize = 1000,
+            bool exactMatch = true,
+            int maxMemoryMB = 500,
+            CancellationToken cancellationToken = default)
         {
+            var startTime = DateTime.UtcNow;
             var dataTable = new DataTable();
             var result = new SearchResult
             {
                 MatchingRows = new List<DataRow>(),
-                TotalRowsScanned = 0
+                TotalRowsScanned = 0,
+                IsCancelled = false,
+                IsPartialResult = false,
+                EstimatedMemoryBytes = 0
             };
 
             var options = new DbfDataReaderOptions
             {
                 SkipDeletedRecords = true,
                 Encoding = GetBestEncodingForDbf(),
-                //UseMemoFile = false  ← ¡Importante! Ignora el archivo de memos
             };
             dataTable.TableName = Path.GetFileNameWithoutExtension(filepath);
+            
+            long maxMemoryBytes = maxMemoryMB * 1024L * 1024L;
+            long currentMemoryBytes = 0;
+
             try
             {
                 // 1. Validar que el archivo y campo existan
                 if (!File.Exists(filepath))
                     throw new FileNotFoundException("El archivo DBF no existe", filepath);
+
+                cancellationToken.ThrowIfCancellationRequested();
 
                 // 2. Abrir el archivo y verificar el campo
                 using (var dbfReader = new DbfDataReader.DbfDataReader(filepath, options))
@@ -52,6 +63,7 @@ namespace Blanquita.Services
                     // Verificar si el campo existe y obtener su tipo
                     for (int i = 0; i < dbfReader.FieldCount; i++)
                     {
+                        cancellationToken.ThrowIfCancellationRequested();
                         _logger.LogTrace("Scanning field index {Index}", i);
                         if (dbfReader.GetName(i).Equals(fieldName, StringComparison.OrdinalIgnoreCase))
                         {
@@ -67,9 +79,15 @@ namespace Blanquita.Services
 
                     // 3. Contar registros para progreso (opcional, puede comentarse para más velocidad)
                     int totalRecords = 0;
-                    while (dbfReader.Read()) totalRecords++;
+                    while (dbfReader.Read())
+                    {
+                        if (cancellationToken.IsCancellationRequested)
+                            break;
+                        totalRecords++;
+                    }
                     dbfReader.Dispose();
 
+                    cancellationToken.ThrowIfCancellationRequested();
 
                     // 4. Reabrir para realizar la búsqueda
                     using (var reader = new DbfDataReader.DbfDataReader(filepath, options))
@@ -86,6 +104,15 @@ namespace Blanquita.Services
 
                         while (reader.Read())
                         {
+                            // Check cancellation
+                            if (cancellationToken.IsCancellationRequested)
+                            {
+                                result.IsCancelled = true;
+                                result.IsPartialResult = true;
+                                _logger.LogInformation("Search cancelled after processing {ProcessedRecords} records", processedRecords);
+                                break;
+                            }
+
                             processedRecords++;
                             result.TotalRowsScanned++;
 
@@ -120,7 +147,20 @@ namespace Blanquita.Services
                                 {
                                     row[i] = reader.GetValue(i) ?? DBNull.Value;
                                 }
+                                
+                                // Estimate memory usage (rough estimate)
+                                long rowSize = EstimateRowSize(row);
+                                currentMemoryBytes += rowSize;
+                                
                                 currentChunk.Add(row);
+
+                                // Check memory limit
+                                if (currentMemoryBytes >= maxMemoryBytes)
+                                {
+                                    _logger.LogWarning("Memory limit reached ({MaxMemoryMB}MB). Stopping search.", maxMemoryMB);
+                                    result.IsPartialResult = true;
+                                    break;
+                                }
 
                                 // Procesar chunk si está lleno
                                 if (currentChunk.Count >= chunkSize)
@@ -139,6 +179,17 @@ namespace Blanquita.Services
                         }
                     }
                 }
+                
+                result.EstimatedMemoryBytes = currentMemoryBytes;
+                result.SearchDuration = DateTime.UtcNow - startTime;
+                return result;
+            }
+            catch (OperationCanceledException)
+            {
+                result.IsCancelled = true;
+                result.IsPartialResult = true;
+                result.SearchDuration = DateTime.UtcNow - startTime;
+                _logger.LogInformation("Search operation was cancelled");
                 return result;
             }
             catch (Exception ex)
@@ -148,18 +199,24 @@ namespace Blanquita.Services
             }
         }
         public async Task<SearchResult> SearchDocsInDbfFile(
-    string filepath,
-    string[] fieldNames,  // Cambiado a array de nombres de campos
-    string[] searchValues, // Cambiado a array de valores de búsqueda
-    Action<int> progressCallback = null,
-    int chunkSize = 1000,
-    bool exactMatch = true)
+            string filepath,
+            string[] fieldNames,
+            string[] searchValues,
+            Action<int> progressCallback = null,
+            int chunkSize = 1000,
+            bool exactMatch = true,
+            int maxMemoryMB = 500,
+            CancellationToken cancellationToken = default)
         {
+            var startTime = DateTime.UtcNow;
             var dataTable = new DataTable();
             var result = new SearchResult
             {
                 MatchingRows = new List<DataRow>(),
-                TotalRowsScanned = 0
+                TotalRowsScanned = 0,
+                IsCancelled = false,
+                IsPartialResult = false,
+                EstimatedMemoryBytes = 0
             };
 
             // Validar que el número de campos y valores coincida
@@ -174,10 +231,15 @@ namespace Blanquita.Services
             };
             dataTable.TableName = Path.GetFileNameWithoutExtension(filepath);
 
+            long maxMemoryBytes = maxMemoryMB * 1024L * 1024L;
+            long currentMemoryBytes = 0;
+
             try
             {
                 if (!File.Exists(filepath))
                     throw new FileNotFoundException("El archivo DBF no existe", filepath);
+
+                cancellationToken.ThrowIfCancellationRequested();
 
                 using (var dbfReader = new DbfDataReader.DbfDataReader(filepath, options))
                 {
@@ -188,6 +250,7 @@ namespace Blanquita.Services
 
                     for (int j = 0; j < fieldNames.Length; j++)
                     {
+                        cancellationToken.ThrowIfCancellationRequested();
                         bool fieldExists = false;
                         for (int i = 0; i < dbfReader.FieldCount; i++)
                         {
@@ -209,6 +272,8 @@ namespace Blanquita.Services
                     //while (dbfReader.Read()) totalRecords++;
                     dbfReader.Dispose();
 
+                    cancellationToken.ThrowIfCancellationRequested();
+
                     // Reabrir para realizar la búsqueda
                     using (var reader = new DbfDataReader.DbfDataReader(filepath, options))
                     {
@@ -227,6 +292,15 @@ namespace Blanquita.Services
                         {
                             try
                             {
+                                // Check cancellation
+                                if (cancellationToken.IsCancellationRequested)
+                                {
+                                    result.IsCancelled = true;
+                                    result.IsPartialResult = true;
+                                    _logger.LogInformation("Search cancelled after processing {ProcessedRecords} records", processedRecords);
+                                    break;
+                                }
+
                                 if (!reader.Read())
                                     break;
                                 cont++;
@@ -297,7 +371,20 @@ namespace Blanquita.Services
                                             {
                                                 row[i] = reader.IsDBNull(i) ? DBNull.Value : reader.GetValue(i);
                                             }
-                                            currentChunk.Add(row); // <-- ¿Falla aquí?
+
+                                            // Estimate memory usage
+                                            long rowSize = EstimateRowSize(row);
+                                            currentMemoryBytes += rowSize;
+
+                                            currentChunk.Add(row);
+
+                                            // Check memory limit
+                                            if (currentMemoryBytes >= maxMemoryBytes)
+                                            {
+                                                _logger.LogWarning("Memory limit reached ({MaxMemoryMB}MB). Stopping search.", maxMemoryMB);
+                                                result.IsPartialResult = true;
+                                                break;
+                                            }
                                         }
                                         catch (Exception ex)
                                         {
@@ -337,7 +424,17 @@ namespace Blanquita.Services
                     }
                 }
 
+                result.EstimatedMemoryBytes = currentMemoryBytes;
+                result.SearchDuration = DateTime.UtcNow - startTime;
                 progressCallback?.Invoke(100);
+                return result;
+            }
+            catch (OperationCanceledException)
+            {
+                result.IsCancelled = true;
+                result.IsPartialResult = true;
+                result.SearchDuration = DateTime.UtcNow - startTime;
+                _logger.LogInformation("Search operation was cancelled");
                 return result;
             }
             catch (Exception ex)
@@ -395,6 +492,285 @@ namespace Blanquita.Services
                 return Nullable.GetUnderlyingType(type);
             }
             return type;
+        }
+
+        private long EstimateRowSize(DataRow row)
+        {
+            long size = 0;
+            foreach (var item in row.ItemArray)
+            {
+                if (item == null || item == DBNull.Value)
+                {
+                    size += 8; // Reference size
+                    continue;
+                }
+
+                switch (item)
+                {
+                    case string str:
+                        size += str.Length * 2; // Unicode chars
+                        break;
+                    case DateTime:
+                        size += 8;
+                        break;
+                    case int:
+                    case float:
+                        size += 4;
+                        break;
+                    case long:
+                    case double:
+                        size += 8;
+                        break;
+                    case decimal:
+                        size += 16;
+                        break;
+                    case bool:
+                        size += 1;
+                        break;
+                    default:
+                        size += 8; // Default reference size
+                        break;
+                }
+            }
+            return size;
+        }
+
+        public async IAsyncEnumerable<DataRow> SearchInDbfFileStreamAsync(
+            string filepath,
+            string fieldName,
+            string searchValue,
+            bool exactMatch = true,
+            [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
+        {
+            var options = new DbfDataReaderOptions
+            {
+                SkipDeletedRecords = true,
+                Encoding = GetBestEncodingForDbf(),
+            };
+
+            if (!File.Exists(filepath))
+                throw new FileNotFoundException("El archivo DBF no existe", filepath);
+
+            using (var dbfReader = new DbfDataReader.DbfDataReader(filepath, options))
+            {
+                var fieldExists = false;
+                int fieldIndex = -1;
+                Type fieldType = null;
+
+                // Verificar si el campo existe y obtener su tipo
+                for (int i = 0; i < dbfReader.FieldCount; i++)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    if (dbfReader.GetName(i).Equals(fieldName, StringComparison.OrdinalIgnoreCase))
+                    {
+                        fieldExists = true;
+                        fieldIndex = i;
+                        fieldType = dbfReader.GetFieldType(i);
+                        break;
+                    }
+                }
+
+                if (!fieldExists)
+                    throw new ArgumentException($"El campo '{fieldName}' no existe en el archivo DBF");
+
+                dbfReader.Dispose();
+
+                // Reabrir para realizar la búsqueda
+                using (var reader = new DbfDataReader.DbfDataReader(filepath, options))
+                {
+                    var dataTable = new DataTable();
+                    dataTable.TableName = Path.GetFileNameWithoutExtension(filepath);
+
+                    // Crear estructura de la tabla
+                    for (int i = 0; i < reader.FieldCount; i++)
+                    {
+                        var fieldTypes = MapDbfTypeToNetType(reader.GetFieldType(i));
+                        dataTable.Columns.Add(reader.GetName(i), fieldTypes);
+                    }
+
+                    while (reader.Read())
+                    {
+                        cancellationToken.ThrowIfCancellationRequested();
+
+                        // Obtener el valor del campo
+                        var fieldValue = reader.GetValue(fieldIndex)?.ToString();
+
+                        // Realizar la comparación
+                        bool isMatch = exactMatch
+                            ? string.Equals(fieldValue, searchValue, StringComparison.OrdinalIgnoreCase)
+                            : fieldValue?.Contains(searchValue, StringComparison.OrdinalIgnoreCase) ?? false;
+
+                        if (isMatch)
+                        {
+                            var row = dataTable.NewRow();
+                            for (int i = 0; i < reader.FieldCount; i++)
+                            {
+                                row[i] = reader.GetValue(i) ?? DBNull.Value;
+                            }
+                            yield return row;
+                        }
+
+                        // Yield periodically to keep UI responsive
+                        if (reader.RecordsAffected % 100 == 0)
+                        {
+                            await Task.Yield();
+                        }
+                    }
+                }
+            }
+        }
+
+        public async IAsyncEnumerable<DataRow> SearchDocsInDbfFileStreamAsync(
+            string filepath,
+            string[] fieldNames,
+            string[] searchValues,
+            bool exactMatch = true,
+            [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
+        {
+            if (fieldNames.Length != searchValues.Length)
+                throw new ArgumentException("El número de campos y valores de búsqueda debe coincidir");
+
+            var options = new DbfDataReaderOptions
+            {
+                SkipDeletedRecords = true,
+                Encoding = GetBestEncodingForDbf()
+            };
+
+            if (!File.Exists(filepath))
+                throw new FileNotFoundException("El archivo DBF no existe", filepath);
+
+            using (var dbfReader = new DbfDataReader.DbfDataReader(filepath, options))
+            {
+                // Verificar que todos los campos existan y obtener sus índices
+                var fieldIndices = new int[fieldNames.Length];
+                var fieldTypes = new Type[fieldNames.Length];
+
+                for (int j = 0; j < fieldNames.Length; j++)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    bool fieldExists = false;
+                    for (int i = 0; i < dbfReader.FieldCount; i++)
+                    {
+                        if (dbfReader.GetName(i).Equals(fieldNames[j], StringComparison.OrdinalIgnoreCase))
+                        {
+                            fieldExists = true;
+                            fieldIndices[j] = i;
+                            fieldTypes[j] = dbfReader.GetFieldType(i);
+                            break;
+                        }
+                    }
+
+                    if (!fieldExists)
+                        throw new ArgumentException($"El campo '{fieldNames[j]}' no existe en el archivo DBF");
+                }
+
+                dbfReader.Dispose();
+
+                // Reabrir para realizar la búsqueda
+                using (var reader = new DbfDataReader.DbfDataReader(filepath, options))
+                {
+                    var dataTable = new DataTable();
+                    dataTable.TableName = Path.GetFileNameWithoutExtension(filepath);
+
+                    // Crear estructura de la tabla
+                    for (int i = 0; i < reader.FieldCount; i++)
+                    {
+                        Type fieldType = MapDbfTypeToNetType(reader.GetFieldType(i));
+                        dataTable.Columns.Add(reader.GetName(i), fieldType);
+                    }
+
+                    int recordCount = 0;
+                    while (reader.Read())
+                    {
+                        cancellationToken.ThrowIfCancellationRequested();
+                        recordCount++;
+
+                        DataRow? matchedRow = null;
+                        bool hasError = false;
+
+                        try
+                        {
+                            if (reader.FieldCount < fieldIndices.Max() + 1)
+                            {
+                                _logger.LogWarning("Registro {RecordCount} tiene solo {FieldCount} campos. Se esperaban al menos {ExpectedCount}.", recordCount, reader.FieldCount, fieldIndices.Max() + 1);
+                                continue;
+                            }
+
+                            bool allFieldsMatch = true;
+
+                            // Validar estructura del registro actual
+                            if (reader.FieldCount != dataTable.Columns.Count)
+                            {
+                                _logger.LogWarning("Fila {RecordCount} tiene {FieldCount} campos (se esperaban {ExpectedCount}). Omitiendo.", recordCount, reader.FieldCount, dataTable.Columns.Count);
+                                continue;
+                            }
+
+                            // Búsqueda en campos
+                            for (int j = 0; j < fieldNames.Length; j++)
+                            {
+                                int currentFieldIndex = fieldIndices[j];
+
+                                if (currentFieldIndex >= reader.FieldCount)
+                                {
+                                    _logger.LogError("Índice {CurrentIndex} para campo '{FieldName}' excede los campos disponibles.", currentFieldIndex, fieldNames[j]);
+                                    allFieldsMatch = false;
+                                    break;
+                                }
+
+                                object rawValue;
+                                try
+                                {
+                                    rawValue = reader.GetValue(currentFieldIndex);
+                                }
+                                catch (Exception ex)
+                                {
+                                    _logger.LogError(ex, "Error leyendo campo '{FieldName}' (índice {CurrentFieldIndex}) en fila {RecordCount}", fieldNames[j], currentFieldIndex, recordCount);
+                                    rawValue = null;
+                                }
+
+                                string fieldValue = rawValue?.ToString();
+
+                                bool isMatch = exactMatch
+                                    ? string.Equals(fieldValue, searchValues[j], StringComparison.OrdinalIgnoreCase)
+                                    : fieldValue?.Contains(searchValues[j], StringComparison.OrdinalIgnoreCase) ?? false;
+
+                                if (!isMatch)
+                                {
+                                    allFieldsMatch = false;
+                                    break;
+                                }
+                            }
+
+                            // Si coinciden, crear fila
+                            if (allFieldsMatch)
+                            {
+                                matchedRow = dataTable.NewRow();
+                                for (int i = 0; i < reader.FieldCount; i++)
+                                {
+                                    matchedRow[i] = reader.IsDBNull(i) ? DBNull.Value : reader.GetValue(i);
+                                }
+                            }
+                        }
+                        catch (Exception ex) when (ex is IndexOutOfRangeException || ex is ArgumentOutOfRangeException)
+                        {
+                            _logger.LogWarning("Registro #{RecordCount} corrupto. Saltando...", recordCount);
+                            hasError = true;
+                        }
+
+                        // Yield outside of try-catch
+                        if (!hasError && matchedRow != null)
+                        {
+                            yield return matchedRow;
+                        }
+
+                        // Yield periodically to keep UI responsive
+                        if (recordCount % 100 == 0)
+                        {
+                            await Task.Yield();
+                        }
+                    }
+                }
+            }
         }
     }
 }
