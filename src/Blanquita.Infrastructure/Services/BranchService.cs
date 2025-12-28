@@ -18,4 +18,10 @@ public class BranchService : IBranchService
     {
         return Task.FromResult<IEnumerable<BranchDto>>(_branches);
     }
+
+    public Task<BranchDto?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
+    {
+        var branch = _branches.FirstOrDefault(b => b.Id == id);
+        return Task.FromResult(branch);
+    }
 }

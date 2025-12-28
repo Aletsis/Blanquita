@@ -15,6 +15,7 @@ public class CashCutService : ICashCutService
     private readonly ISupervisorService _supervisorService;
     private readonly ICashierService _cashierService;
     private readonly ICashRegisterService _cashRegisterService;
+    private readonly IBranchService _branchService;
 
     public CashCutService(
         ICashCutRepository repository,
@@ -22,7 +23,8 @@ public class CashCutService : ICashCutService
         ICashCollectionService cashCollectionService,
         ISupervisorService supervisorService,
         ICashierService cashierService,
-        ICashRegisterService cashRegisterService)
+        ICashRegisterService cashRegisterService,
+        IBranchService branchService)
     {
         _repository = repository;
         _logger = logger;
@@ -30,6 +32,7 @@ public class CashCutService : ICashCutService
         _supervisorService = supervisorService;
         _cashierService = cashierService;
         _cashRegisterService = cashRegisterService;
+        _branchService = branchService;
     }
 
     public async Task<CashCutDto?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
@@ -168,6 +171,9 @@ public class CashCutService : ICashCutService
 
         var cashier = await _cashierService.GetByIdAsync(request.CashierId, cancellationToken);
         if (cashier == null) throw new InvalidOperationException($"Cashier {request.CashierId} not found");
+        
+        var branch = await _branchService.GetByIdAsync(supervisor.BranchId, cancellationToken);
+        var branchName = branch?.Name ?? "Unknown";
 
         // 2. Fetch Collections
         var today = DateTime.Today;
@@ -210,8 +216,9 @@ public class CashCutService : ICashCutService
             CashRegisterName = register.Name,
             SupervisorName = supervisor.Name,
             CashierName = cashier.Name, 
-            BranchName = GetBranchName(supervisor.BranchId)
+            BranchName = branchName
         };
+
 
         var calculatedCashTotal = (totalThousands * 1000m) + (totalFiveHundreds * 500m) + (totalTwoHundreds * 200m) +
                                   (totalHundreds * 100m) + (totalFifties * 50m) + (totalTwenties * 20m);
@@ -227,15 +234,7 @@ public class CashCutService : ICashCutService
         return await CreateAsync(createDto, cancellationToken);
     }
 
-    private string GetBranchName(int branchId)
-    {
-        return branchId switch
-        {
-            1 => "Himno",
-            2 => "Pozos",
-            _ => "Unknown"
-        };
-    }
+
 
     public async Task<CashCutDto> CreateAsync(CreateCashCutDto dto, CancellationToken cancellationToken = default)
     {
