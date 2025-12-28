@@ -15,108 +15,425 @@
 
 <PageTitle>Reimpresión Cortes/Recos - Sistema de Reportes</PageTitle>
 
-<MudText Typo="Typo.h3" Align="Align.Center">Reimprimir</MudText>
-<MudStack AlignItems="AlignItems.Center" Justify="Justify.Center">
-    <MudToggleGroup T="TipoReporte" Color="Color.Primary" SelectionMode="SelectionMode.SingleSelection" @bind-Value="@accion" CheckMark FixedContent>
-        <MudToggleItem Value="@TipoReporte.Recolecciones">Recolecciones</MudToggleItem>
-        <MudToggleItem Value="@TipoReporte.Cortes">Cortes</MudToggleItem>
-    </MudToggleGroup>
-</MudStack>
+<style>
+    .reimpresiones-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 16px;
+        padding: 32px;
+        margin-bottom: 32px;
+        box-shadow: 0 10px 40px rgba(102, 126, 234, 0.2);
+        animation: fadeInDown 0.6s ease-out;
+    }
+
+    .reimpresiones-title {
+        color: white;
+        font-weight: 600;
+        font-size: 2.5rem;
+        margin-bottom: 24px;
+        text-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    }
+
+    .toggle-container {
+        background: rgba(255, 255, 255, 0.15);
+        backdrop-filter: blur(10px);
+        border-radius: 12px;
+        padding: 8px;
+        display: inline-block;
+    }
+
+    .table-card {
+        background: white;
+        border-radius: 16px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+        overflow: hidden;
+        animation: fadeInUp 0.6s ease-out;
+    }
+
+    .table-toolbar {
+        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+        padding: 20px 24px;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+    }
+
+    .table-toolbar-title {
+        font-weight: 600;
+        font-size: 1.5rem;
+        color: #2d3748;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .search-field {
+        background: white;
+        border-radius: 8px;
+        min-width: 300px;
+    }
+
+    .action-button {
+        transition: all 0.2s ease;
+    }
+
+    .action-button:hover {
+        transform: translateY(-2px);
+    }
+
+    .view-button {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 8px;
+        padding: 8px 16px;
+        margin-right: 8px;
+    }
+
+    .print-button {
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        color: white;
+        border-radius: 8px;
+        padding: 8px 16px;
+    }
+
+    .amount-badge {
+        background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+        color: white;
+        padding: 6px 16px;
+        border-radius: 20px;
+        font-weight: 600;
+        display: inline-block;
+    }
+
+    .id-badge {
+        background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        color: white;
+        padding: 4px 12px;
+        border-radius: 12px;
+        font-weight: 600;
+        font-size: 0.875rem;
+    }
+
+    .folio-badge {
+        background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+        color: white;
+        padding: 4px 12px;
+        border-radius: 12px;
+        font-weight: 600;
+        font-size: 0.875rem;
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 60px 20px;
+        color: #718096;
+    }
+
+    .empty-state-icon {
+        font-size: 4rem;
+        color: #cbd5e0;
+        margin-bottom: 16px;
+    }
+
+    .empty-state-text {
+        font-size: 1.25rem;
+        font-weight: 500;
+        margin-bottom: 8px;
+    }
+
+    .empty-state-subtext {
+        font-size: 0.875rem;
+        color: #a0aec0;
+    }
+
+    .loading-state {
+        text-align: center;
+        padding: 60px 20px;
+    }
+
+    .loading-spinner {
+        margin-bottom: 16px;
+    }
+
+    @@keyframes fadeInDown {
+        from {
+            opacity: 0;
+            transform: translateY(-20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    @@keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .mud-table-row:hover {
+        background-color: rgba(102, 126, 234, 0.04) !important;
+        transition: background-color 0.2s ease;
+    }
+
+    .date-time-cell {
+        color: #4a5568;
+        font-size: 0.875rem;
+    }
+
+    .register-name {
+        font-weight: 600;
+        color: #2d3748;
+    }
+
+    .person-name {
+        color: #4a5568;
+        font-weight: 500;
+    }
+
+    .branch-badge {
+        background: #edf2f7;
+        color: #2d3748;
+        padding: 4px 12px;
+        border-radius: 12px;
+        font-weight: 500;
+        font-size: 0.875rem;
+    }
+</style>
+
+<div class="reimpresiones-header">
+    <MudText Class="reimpresiones-title" Align="Align.Center">
+        <MudIcon Icon="@Icons.Material.Filled.Print" Size="Size.Large" Style="vertical-align: middle; margin-right: 12px;" />
+        Reimpresión de Documentos
+    </MudText>
+    <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center">
+        <div class="toggle-container">
+            <MudToggleGroup T="TipoReporte" 
+                           Color="Color.Primary" 
+                           SelectionMode="SelectionMode.SingleSelection" 
+                           @bind-Value="@accion" 
+                           CheckMark 
+                           FixedContent
+                           Size="Size.Large">
+                <MudToggleItem Value="@TipoReporte.Recolecciones">
+                    <MudIcon Icon="@Icons.Material.Filled.AccountBalance" Size="Size.Small" Style="margin-right: 8px;" />
+                    Recolecciones
+                </MudToggleItem>
+                <MudToggleItem Value="@TipoReporte.Cortes">
+                    <MudIcon Icon="@Icons.Material.Filled.ContentCut" Size="Size.Small" Style="margin-right: 8px;" />
+                    Cortes
+                </MudToggleItem>
+            </MudToggleGroup>
+        </div>
+    </MudStack>
+</div>
+
 @if (accion == TipoReporte.Recolecciones)
 {
-    <MudTable ServerData="ServerReload" Dense="true" Hover="true" @ref="recosTable">
-        <ToolBarContent>
-            <MudText Typo="Typo.h6">Recolecciones</MudText>
-            <MudSpacer />
-            <MudTextField T="string" ValueChanged="@(s=>OnSearch(s))" Placeholder="Buscar" Adornment="Adornment.Start"
-                          AdornmentIcon="@Icons.Material.Filled.Search" IconSize="Size.Medium" Class="mt-0"></MudTextField>
-        </ToolBarContent>
-        <HeaderContent>
-            <MudTh><MudTableSortLabel SortLabel="Id" T="CashCollectionDto">Id</MudTableSortLabel></MudTh>
-            <MudTh><MudTableSortLabel SortLabel="Folio" T="CashCollectionDto">Folio</MudTableSortLabel></MudTh>
-            <MudTh><MudTableSortLabel SortLabel="CollectionDateTime" T="CashCollectionDto">Fecha Hora</MudTableSortLabel></MudTh>
-            <MudTh><MudTableSortLabel SortLabel="CashRegisterName" T="CashCollectionDto">Caja</MudTableSortLabel></MudTh>
-            <MudTh><MudTableSortLabel SortLabel="TotalAmount" T="CashCollectionDto">Cantidad</MudTableSortLabel></MudTh>
-            <MudTh>Acciones</MudTh>
-        </HeaderContent>
-        <RowTemplate>
-            <MudTd DataLabel="Id">@context.Id</MudTd>
-            <MudTd DataLabel="Folio">@context.Folio</MudTd>
-            <MudTd DataLabel="Fecha_Hora">@context.CollectionDateTime</MudTd>
-            <MudTd DataLabel="Caja">@context.CashRegisterName</MudTd>
-            <MudTd DataLabel="Cantidad">@context.TotalAmount.ToString("C2")</MudTd>
-            <MudTd>
-                <MudIconButton Icon="@Icons.Material.Filled.Visibility" 
-                               Color="Color.Info" 
-                               Class="pa-0 ma-0 min-width-auto mr-2" 
-                               OnClick="@(() => VerDetalleRecoleccion(context))" 
-                               Title="Ver detalle" />
-                <MudIconButton Icon="@Icons.Material.Filled.Print" 
-                             Color="Color.Primary" 
-                             Class="pa-0 ma-0 min-width-auto" 
-                             OnClick="@(() => ImprimirRecoleccion(context.Id))" 
-                             Title="Imprimir recolección" />
-            </MudTd>
-        </RowTemplate>
-        <NoRecordsContent>
-            <MudText>No matching records found</MudText>
-        </NoRecordsContent>
-        <LoadingContent>
-            <MudText>Loading...</MudText>
-        </LoadingContent>
-        <PagerContent>
-            <MudTablePager />
-        </PagerContent>
-    </MudTable>
+    <div class="table-card">
+        <MudTable ServerData="ServerReload" 
+                  Hover="true" 
+                  @ref="recosTable"
+                  Elevation="0"
+                  Striped="true">
+            <ToolBarContent>
+                <div class="table-toolbar" style="width: 100%; display: flex; align-items: center; justify-content: space-between;">
+                    <div class="table-toolbar-title">
+                        <MudIcon Icon="@Icons.Material.Filled.AccountBalance" Color="Color.Primary" />
+                        <span>Recolecciones de Efectivo</span>
+                    </div>
+                    <MudTextField T="string" 
+                                 ValueChanged="@(s=>OnSearch(s))" 
+                                 Placeholder="Buscar por caja o folio..." 
+                                 Adornment="Adornment.Start"
+                                 AdornmentIcon="@Icons.Material.Filled.Search" 
+                                 IconSize="Size.Medium" 
+                                 Class="search-field"
+                                 Variant="Variant.Outlined"
+                                 Margin="Margin.Dense"></MudTextField>
+                </div>
+            </ToolBarContent>
+            <HeaderContent>
+                <MudTh><MudTableSortLabel SortLabel="Id" T="CashCollectionDto">ID</MudTableSortLabel></MudTh>
+                <MudTh><MudTableSortLabel SortLabel="Folio" T="CashCollectionDto">Folio</MudTableSortLabel></MudTh>
+                <MudTh><MudTableSortLabel SortLabel="CollectionDateTime" T="CashCollectionDto">Fecha y Hora</MudTableSortLabel></MudTh>
+                <MudTh><MudTableSortLabel SortLabel="CashRegisterName" T="CashCollectionDto">Caja Registradora</MudTableSortLabel></MudTh>
+                <MudTh><MudTableSortLabel SortLabel="TotalAmount" T="CashCollectionDto">Cantidad Total</MudTableSortLabel></MudTh>
+                <MudTh Style="text-align: center;">Acciones</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd DataLabel="Id">
+                    <span class="id-badge">@context.Id</span>
+                </MudTd>
+                <MudTd DataLabel="Folio">
+                    <span class="folio-badge">@context.Folio</span>
+                </MudTd>
+                <MudTd DataLabel="Fecha_Hora">
+                    <div class="date-time-cell">
+                        <MudIcon Icon="@Icons.Material.Filled.CalendarToday" Size="Size.Small" Style="vertical-align: middle; margin-right: 4px;" />
+                        @context.CollectionDateTime.ToString("dd/MM/yyyy HH:mm")
+                    </div>
+                </MudTd>
+                <MudTd DataLabel="Caja">
+                    <span class="register-name">@context.CashRegisterName</span>
+                </MudTd>
+                <MudTd DataLabel="Cantidad">
+                    <span class="amount-badge">@context.TotalAmount.ToString("C2")</span>
+                </MudTd>
+                <MudTd Style="text-align: center;">
+                    <MudTooltip Text="Ver detalles completos">
+                        <MudButton Variant="Variant.Filled"
+                                  StartIcon="@Icons.Material.Filled.Visibility" 
+                                  Color="Color.Info" 
+                                  Size="Size.Small"
+                                  Class="action-button"
+                                  OnClick="@(() => VerDetalleRecoleccion(context))">
+                            Detalles
+                        </MudButton>
+                    </MudTooltip>
+                    <MudTooltip Text="Reimprimir documento">
+                        <MudButton Variant="Variant.Filled"
+                                  StartIcon="@Icons.Material.Filled.Print" 
+                                  Color="Color.Primary" 
+                                  Size="Size.Small"
+                                  Class="action-button"
+                                  Style="margin-left: 8px;"
+                                  OnClick="@(() => ImprimirRecoleccion(context.Id))">
+                            Imprimir
+                        </MudButton>
+                    </MudTooltip>
+                </MudTd>
+            </RowTemplate>
+            <NoRecordsContent>
+                <div class="empty-state">
+                    <div class="empty-state-icon">
+                        <MudIcon Icon="@Icons.Material.Filled.SearchOff" Size="Size.Large" />
+                    </div>
+                    <div class="empty-state-text">No se encontraron recolecciones</div>
+                    <div class="empty-state-subtext">Intenta ajustar los filtros de búsqueda</div>
+                </div>
+            </NoRecordsContent>
+            <LoadingContent>
+                <div class="loading-state">
+                    <MudProgressCircular Color="Color.Primary" Indeterminate="true" Class="loading-spinner" />
+                    <MudText Typo="Typo.body1">Cargando recolecciones...</MudText>
+                </div>
+            </LoadingContent>
+            <PagerContent>
+                <MudTablePager PageSizeOptions="new int[] { 10, 25, 50, 100 }" />
+            </PagerContent>
+        </MudTable>
+    </div>
 }
 else
 {
-    <MudTable ServerData="CargarDatosCortes" Dense="true" Hover="true" @ref="cortesTable">
-        <ToolBarContent>
-            <MudText Typo="Typo.h6">Cortes</MudText>
-            <MudSpacer />
-            <MudTextField T="string" ValueChanged="@(s=>OnSearch(s))" Placeholder="Buscar" Adornment="Adornment.Start"
-                          AdornmentIcon="@Icons.Material.Filled.Search" IconSize="Size.Medium" Class="mt-0"></MudTextField>
-        </ToolBarContent>
-        <HeaderContent>
-            <MudTh><MudTableSortLabel SortLabel="Id" T="CashCutDto">Id</MudTableSortLabel></MudTh>
-            <MudTh><MudTableSortLabel SortLabel="CashRegisterName" T="CashCutDto">Caja</MudTableSortLabel></MudTh>
-            <MudTh><MudTableSortLabel SortLabel="CashierName" T="CashCutDto">Cajera</MudTableSortLabel></MudTh>
-            <MudTh><MudTableSortLabel SortLabel="SupervisorName" T="CashCutDto">Encargada</MudTableSortLabel></MudTh>
-            <MudTh><MudTableSortLabel SortLabel="BranchName" T="CashCutDto">Sucursal</MudTableSortLabel></MudTh>
-            <MudTh><MudTableSortLabel SortLabel="CutDateTime" T="CashCutDto">Fecha y hora</MudTableSortLabel></MudTh>
-            <MudTh>Acciones</MudTh>
-        </HeaderContent>
-        <RowTemplate>
-            <MudTd DataLabel="Id">@context.Id</MudTd>
-            <MudTd DataLabel="Caja">@context.CashRegisterName</MudTd>
-            <MudTd DataLabel="Cajera">@context.CashierName</MudTd>
-            <MudTd DataLabel="Encargada">@context.SupervisorName</MudTd>
-            <MudTd DataLabel="Sucursal">@context.BranchName</MudTd>
-            <MudTd DataLabel="Fecha_Hora">@context.CutDateTime</MudTd>
-            <MudTd>
-                <MudIconButton Icon="@Icons.Material.Filled.Visibility" 
-                               Color="Color.Info" 
-                               Class="pa-0 ma-0 min-width-auto mr-2" 
-                               OnClick="@(() => VerDetalleCorte(context))" 
-                               Title="Ver detalle" />
-                <MudIconButton Icon="@Icons.Material.Filled.Print" 
-                             Color="Color.Primary" 
-                             Class="pa-0 ma-0 min-width-auto" 
-                             OnClick="@(() => ImprimirCorte(context.Id))" 
-                             Title="Imprimir corte" />
-            </MudTd>
-        </RowTemplate>
-        <NoRecordsContent>
-            <MudText>No matching records found</MudText>
-        </NoRecordsContent>
-        <LoadingContent>
-            <MudText>Loading...</MudText>
-        </LoadingContent>
-        <PagerContent>
-            <MudTablePager />
-        </PagerContent>
-    </MudTable>
+    <div class="table-card">
+        <MudTable ServerData="CargarDatosCortes" 
+                  Hover="true" 
+                  @ref="cortesTable"
+                  Elevation="0"
+                  Striped="true">
+            <ToolBarContent>
+                <div class="table-toolbar" style="width: 100%; display: flex; align-items: center; justify-content: space-between;">
+                    <div class="table-toolbar-title">
+                        <MudIcon Icon="@Icons.Material.Filled.ContentCut" Color="Color.Primary" />
+                        <span>Cortes de Caja</span>
+                    </div>
+                    <MudTextField T="string" 
+                                 ValueChanged="@(s=>OnSearch(s))" 
+                                 Placeholder="Buscar por caja..." 
+                                 Adornment="Adornment.Start"
+                                 AdornmentIcon="@Icons.Material.Filled.Search" 
+                                 IconSize="Size.Medium" 
+                                 Class="search-field"
+                                 Variant="Variant.Outlined"
+                                 Margin="Margin.Dense"></MudTextField>
+                </div>
+            </ToolBarContent>
+            <HeaderContent>
+                <MudTh><MudTableSortLabel SortLabel="Id" T="CashCutDto">ID</MudTableSortLabel></MudTh>
+                <MudTh><MudTableSortLabel SortLabel="CashRegisterName" T="CashCutDto">Caja</MudTableSortLabel></MudTh>
+                <MudTh><MudTableSortLabel SortLabel="CashierName" T="CashCutDto">Cajera</MudTableSortLabel></MudTh>
+                <MudTh><MudTableSortLabel SortLabel="SupervisorName" T="CashCutDto">Encargada</MudTableSortLabel></MudTh>
+                <MudTh><MudTableSortLabel SortLabel="BranchName" T="CashCutDto">Sucursal</MudTableSortLabel></MudTh>
+                <MudTh><MudTableSortLabel SortLabel="CutDateTime" T="CashCutDto">Fecha y Hora</MudTableSortLabel></MudTh>
+                <MudTh Style="text-align: center;">Acciones</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd DataLabel="Id">
+                    <span class="id-badge">#{context.Id}</span>
+                </MudTd>
+                <MudTd DataLabel="Caja">
+                    <span class="register-name">@context.CashRegisterName</span>
+                </MudTd>
+                <MudTd DataLabel="Cajera">
+                    <div class="person-name">
+                        <MudIcon Icon="@Icons.Material.Filled.Person" Size="Size.Small" Style="vertical-align: middle; margin-right: 4px;" />
+                        @context.CashierName
+                    </div>
+                </MudTd>
+                <MudTd DataLabel="Encargada">
+                    <div class="person-name">
+                        <MudIcon Icon="@Icons.Material.Filled.SupervisorAccount" Size="Size.Small" Style="vertical-align: middle; margin-right: 4px;" />
+                        @context.SupervisorName
+                    </div>
+                </MudTd>
+                <MudTd DataLabel="Sucursal">
+                    <span class="branch-badge">@context.BranchName</span>
+                </MudTd>
+                <MudTd DataLabel="Fecha_Hora">
+                    <div class="date-time-cell">
+                        <MudIcon Icon="@Icons.Material.Filled.CalendarToday" Size="Size.Small" Style="vertical-align: middle; margin-right: 4px;" />
+                        @context.CutDateTime.ToString("dd/MM/yyyy HH:mm")
+                    </div>
+                </MudTd>
+                <MudTd Style="text-align: center;">
+                    <MudTooltip Text="Ver detalles completos">
+                        <MudButton Variant="Variant.Filled"
+                                  StartIcon="@Icons.Material.Filled.Visibility" 
+                                  Color="Color.Info" 
+                                  Size="Size.Small"
+                                  Class="action-button"
+                                  OnClick="@(() => VerDetalleCorte(context))">
+                            Detalles
+                        </MudButton>
+                    </MudTooltip>
+                    <MudTooltip Text="Reimprimir documento">
+                        <MudButton Variant="Variant.Filled"
+                                  StartIcon="@Icons.Material.Filled.Print" 
+                                  Color="Color.Primary" 
+                                  Size="Size.Small"
+                                  Class="action-button"
+                                  Style="margin-left: 8px;"
+                                  OnClick="@(() => ImprimirCorte(context.Id))">
+                            Imprimir
+                        </MudButton>
+                    </MudTooltip>
+                </MudTd>
+            </RowTemplate>
+            <NoRecordsContent>
+                <div class="empty-state">
+                    <div class="empty-state-icon">
+                        <MudIcon Icon="@Icons.Material.Filled.SearchOff" Size="Size.Large" />
+                    </div>
+                    <div class="empty-state-text">No se encontraron cortes</div>
+                    <div class="empty-state-subtext">Intenta ajustar los filtros de búsqueda</div>
+                </div>
+            </NoRecordsContent>
+            <LoadingContent>
+                <div class="loading-state">
+                    <MudProgressCircular Color="Color.Primary" Indeterminate="true" Class="loading-spinner" />
+                    <MudText Typo="Typo.body1">Cargando cortes...</MudText>
+                </div>
+            </LoadingContent>
+            <PagerContent>
+                <MudTablePager PageSizeOptions="new int[] { 10, 25, 50, 100 }" />
+            </PagerContent>
+        </MudTable>
+    </div>
 }
 
 @code {
