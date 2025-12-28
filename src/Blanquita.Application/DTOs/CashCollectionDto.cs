@@ -11,6 +11,7 @@ public record CashCollectionDto
     public int Twenties { get; init; }
     public decimal TotalAmount { get; init; }
     public string CashRegisterName { get; init; } = string.Empty;
+    public int BranchId { get; init; }
     public string CashierName { get; init; } = string.Empty;
     public string SupervisorName { get; init; } = string.Empty;
     public DateTime CollectionDateTime { get; init; }

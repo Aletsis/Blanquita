@@ -13,7 +13,7 @@ public static class CashRegisterMapper
             Name = cashRegister.Name,
             PrinterIp = cashRegister.PrinterConfig.IpAddress,
             PrinterPort = cashRegister.PrinterConfig.Port,
-            BranchId = cashRegister.BranchId,
+            BranchId = cashRegister.BranchId.Value,
             IsLastRegister = cashRegister.IsLastRegister
         };
     }

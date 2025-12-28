@@ -7,10 +7,14 @@
 @using Microsoft.Extensions.Logging
 @inject ICashCollectionService CashCollectionService
 @inject ICashCutService CashCutService
+@inject ICashRegisterService CashRegisterService
 @inject IDialogService DialogService
 @inject ISnackbar Snackbar
 @inject ILogger<Reimpresiones> Logger
 @using Blanquita.Web.Components.Layout
+
+<PageTitle>Reimpresión Cortes/Recos - Sistema de Reportes</PageTitle>
+
 <MudText Typo="Typo.h3" Align="Align.Center">Reimprimir</MudText>
 <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center">
     <MudToggleGroup T="TipoReporte" Color="Color.Primary" SelectionMode="SelectionMode.SingleSelection" @bind-Value="@accion" CheckMark FixedContent>
@@ -222,15 +226,97 @@ else
         return MostrarDialogoImpresion(id, "Corte");
     }
 
-    private Task MostrarDialogoImpresion(int id, string tipo)
+    private async Task MostrarDialogoImpresion(int id, string tipo)
     {
-        var parameters = new DialogParameters<PrintDialog>
+        try
         {
-            { x => x.idReco, id },
-            { x => x.accion, tipo }
-        };
-        var options = new DialogOptions { CloseButton = true };
-        return DialogService.ShowAsync<PrintDialog>("Seleccione Impresora", parameters, options);
+            Logger.LogInformation("=== INICIO MostrarDialogoImpresion ===");
+            Logger.LogInformation("ID: {Id}, Tipo: {Tipo}", id, tipo);
+            
+            // Obtener el BranchId según el tipo de documento
+            int? branchId = null;
+            
+            if (tipo == "Reco")
+            {
+                Logger.LogInformation("Obteniendo recolección con ID: {Id}", id);
+                var collection = await CashCollectionService.GetByIdAsync(id);
+                
+                if (collection != null)
+                {
+                    Logger.LogInformation("Recolección encontrada. CashRegisterName: '{CashRegisterName}'", collection.CashRegisterName);
+                    
+                    // Buscar la caja registradora por nombre para obtener el BranchId
+                    var cashRegister = await CashRegisterService.GetByNameAsync(collection.CashRegisterName);
+                    
+                    if (cashRegister != null)
+                    {
+                        branchId = cashRegister.BranchId;
+                        Logger.LogInformation("Caja registradora encontrada: {Name}, BranchId: {BranchId}", 
+                            cashRegister.Name, branchId);
+                    }
+                    else
+                    {
+                        Logger.LogWarning("No se encontró la caja registradora con nombre: '{CashRegisterName}'", 
+                            collection.CashRegisterName);
+                    }
+                }
+                else
+                {
+                    Logger.LogWarning("No se encontró la recolección con ID: {Id}", id);
+                }
+            }
+            else if (tipo == "Corte")
+            {
+                Logger.LogInformation("Obteniendo corte con ID: {Id}", id);
+                var cut = await CashCutService.GetByIdAsync(id);
+                
+                if (cut != null)
+                {
+                    Logger.LogInformation("Corte encontrado. CashRegisterName: '{CashRegisterName}'", cut.CashRegisterName);
+                    
+                    // Buscar la caja registradora por nombre para obtener el BranchId
+                    var cashRegister = await CashRegisterService.GetByNameAsync(cut.CashRegisterName);
+                    
+                    if (cashRegister != null)
+                    {
+                        branchId = cashRegister.BranchId;
+                        Logger.LogInformation("Caja registradora encontrada: {Name}, BranchId: {BranchId}", 
+                            cashRegister.Name, branchId);
+                    }
+                    else
+                    {
+                        Logger.LogWarning("No se encontró la caja registradora con nombre: '{CashRegisterName}'", 
+                            cut.CashRegisterName);
+                    }
+                }
+                else
+                {
+                    Logger.LogWarning("No se encontró el corte con ID: {Id}", id);
+                }
+            }
+            
+            Logger.LogInformation("BranchId final para pasar al diálogo: {BranchId}", branchId);
+            
+            var parameters = new DialogParameters<PrintDialog>
+            {
+                { x => x.idReco, id },
+                { x => x.accion, tipo },
+                { x => x.BranchId, branchId }
+            };
+            
+            Logger.LogInformation("Abriendo diálogo con parámetros: idReco={Id}, accion={Tipo}, BranchId={BranchId}", 
+                id, tipo, branchId);
+            
+            var options = new DialogOptions { CloseButton = true };
+            await DialogService.ShowAsync<PrintDialog>("Seleccione Impresora", parameters, options);
+            
+            Logger.LogInformation("=== FIN MostrarDialogoImpresion ===");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error al abrir el diálogo de impresión para {Tipo} con ID: {Id}", tipo, id);
+            Snackbar.Add($"Error al abrir el diálogo de impresión: {ex.Message}", Severity.Error);
+        }
     }
 
     private void VerDetalleRecoleccion(CashCollectionDto item)

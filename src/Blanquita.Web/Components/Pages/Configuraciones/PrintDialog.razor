@@ -23,6 +23,10 @@
             {
                 <MudSelectItem T="int" Value="0">Cargando...</MudSelectItem>
             }
+            else if (!cashRegisters.Any())
+            {
+                <MudSelectItem T="int" Value="0">No hay impresoras disponibles para esta sucursal</MudSelectItem>
+            }
             else
             {
                 @foreach (var reg in cashRegisters)
@@ -34,7 +38,7 @@
     </DialogContent>
     <DialogActions>
         <MudButton OnClick="Cancel">Cancelar</MudButton>
-        <MudButton Color="Color.Primary" OnClick="Imprimir" Disabled="_imprimiendo">
+        <MudButton Color="Color.Primary" OnClick="Imprimir" Disabled="_imprimiendo || !cashRegisters.Any()">
             @if (_imprimiendo)
             {
                 <MudProgressCircular Class="mr-2" Size="Size.Small" Indeterminate="true" />
@@ -54,18 +58,52 @@
     [Parameter]
     public string accion { get; set; } = string.Empty;
     
+    [Parameter]
+    public int? BranchId { get; set; }
+    
     private int _selectedCajaId = 0;
-    private List<CashRegisterDto>? cashRegisters;
+    private List<CashRegisterDto> cashRegisters = new();
     private bool _imprimiendo = false;
 
     protected override async Task OnInitializedAsync()
     {
         try
         {
-            Logger.LogInformation("Cargando cajas registradoras para impresión");
-            var result = await CashRegisterService.GetAllAsync();
-            cashRegisters = result.ToList();
-            Logger.LogInformation("Se cargaron {Count} cajas registradoras", cashRegisters.Count);
+            Logger.LogInformation("=== INICIO PrintDialog.OnInitializedAsync ===");
+            Logger.LogInformation("BranchId recibido: {BranchId}", BranchId);
+            Logger.LogInformation("BranchId.HasValue: {HasValue}", BranchId.HasValue);
+            
+            // If BranchId is provided, filter by branch; otherwise get all
+            if (BranchId.HasValue)
+            {
+                Logger.LogInformation("Filtrando cajas por sucursal {BranchId}", BranchId.Value);
+                var result = await CashRegisterService.GetByBranchAsync(BranchId.Value);
+                cashRegisters = result.ToList();
+                Logger.LogInformation("Se cargaron {Count} cajas registradoras de la sucursal {BranchId}", 
+                    cashRegisters.Count, BranchId.Value);
+                
+                // Log each cash register
+                foreach (var reg in cashRegisters)
+                {
+                    Logger.LogInformation("  - Caja: {Name}, BranchId: {BranchId}", reg.Name, reg.BranchId);
+                }
+            }
+            else
+            {
+                Logger.LogWarning("BranchId es NULL - mostrando TODAS las cajas");
+                var result = await CashRegisterService.GetAllAsync();
+                cashRegisters = result.ToList();
+                Logger.LogWarning("Se cargaron TODAS las {Count} cajas registradoras", 
+                    cashRegisters.Count);
+                
+                // Log each cash register
+                foreach (var reg in cashRegisters)
+                {
+                    Logger.LogWarning("  - Caja: {Name}, BranchId: {BranchId}", reg.Name, reg.BranchId);
+                }
+            }
+            
+            Logger.LogInformation("=== FIN PrintDialog.OnInitializedAsync ===");
         }
         catch (Exception ex)
         {

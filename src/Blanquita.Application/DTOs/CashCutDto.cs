@@ -13,6 +13,7 @@ public record CashCutDto
     public decimal TotalCards { get; init; }
     public decimal GrandTotal { get; init; }
     public string CashRegisterName { get; init; } = string.Empty;
+    public int BranchId { get; init; }
     public string SupervisorName { get; init; } = string.Empty;
     public string CashierName { get; init; } = string.Empty;
     public string BranchName { get; init; } = string.Empty;
