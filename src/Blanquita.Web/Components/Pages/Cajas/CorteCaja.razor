@@ -10,70 +10,212 @@
 
 <PageTitle>Corte de Caja</PageTitle>
 
-<MudText Typo="Typo.h3" Align="Align.Center">Corte de caja</MudText>
-<EditForm Model="model" OnValidSubmit="HacerCorte">
-    <MudGrid Justify="Justify.Center">
-        <MudItem xs="12" sm="7">
-            <MudCard>
-                <MudCardContent>
-                    <MudSelect T="int" Label="Seleccione encargada" Value="_selectedSupervisorId" ValueChanged="@(async (int value) => await OnSupervisorChanged(value))">
-                        @if (supervisors == null)
-                        {
-                            <MudSelectItem T="int" Value="0">Cargando...</MudSelectItem>
-                        }
-                        else
-                        {
-                            @foreach (var supervisor in supervisors)
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4 animated fadeIn">
+    <MudText Typo="Typo.h4" Class="mb-6 font-weight-bold" Style="background: linear-gradient(45deg, #d32f2f, #f44336); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+        <MudIcon Icon="@Icons.Material.Filled.PointOfSale" Class="mr-2" Size="Size.Large" Color="Color.Error" />
+        Corte de Caja
+    </MudText>
+
+    @if (_isSubmitting)
+    {
+        <MudAlert Severity="Severity.Info" Class="mb-4 animate-fade-in" Elevation="2">
+            <div class="d-flex align-center">
+                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-3" />
+                <MudText Typo="Typo.body1">Procesando corte de caja...</MudText>
+            </div>
+        </MudAlert>
+    }
+
+    <EditForm Model="model" OnValidSubmit="HacerCorte">
+        <MudGrid>
+            <!-- Sección de Selección -->
+            <MudItem xs="12" md="6">
+                <MudCard Elevation="4" Class="pa-4 rounded-lg animate-slide-up">
+                    <MudCardHeader>
+                        <CardHeaderContent>
+                            <MudText Typo="Typo.h6" Color="Color.Primary">
+                                <MudIcon Icon="@Icons.Material.Filled.People" Class="mr-2" />
+                                Información del Personal
+                            </MudText>
+                        </CardHeaderContent>
+                    </MudCardHeader>
+                    <MudCardContent>
+                        <MudSelect T="int" 
+                                   Label="Seleccione encargada" 
+                                   Value="_selectedSupervisorId" 
+                                   ValueChanged="@(async (int value) => await OnSupervisorChanged(value))"
+                                   Variant="Variant.Outlined"
+                                   AnchorOrigin="Origin.BottomCenter"
+                                   Class="mb-4"
+                                   Adornment="Adornment.Start"
+                                   AdornmentIcon="@Icons.Material.Filled.SupervisorAccount">
+                            @if (supervisors == null)
                             {
-                                <MudSelectItem T="int" Value="@supervisor.Id">@supervisor.Name</MudSelectItem>
+                                <MudSelectItem T="int" Value="0">
+                                    <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                                    Cargando...
+                                </MudSelectItem>
                             }
-                        }
-                    </MudSelect>
-                    <MudSelect T="int" Label="Seleccione cajera" @bind-Value="_selectedCashierId">
-                        @if (cashiers == null)
-                        {
-                            <MudSelectItem T="int" Value="0">Cargando...</MudSelectItem>
-                        }
-                        else
-                        {
-                            @foreach (var cashier in cashiers)
+                            else
                             {
-                                if (cashier.IsActive)
+                                <MudSelectItem T="int" Value="0">-- Seleccione una encargada --</MudSelectItem>
+                                @foreach (var supervisor in supervisors)
                                 {
-                                    <MudSelectItem T="int" Value="@cashier.Id">@cashier.Name</MudSelectItem>
+                                    <MudSelectItem T="int" Value="@supervisor.Id">@supervisor.Name</MudSelectItem>
                                 }
                             }
-                        }
-                    </MudSelect>
-                    <MudSelect T="int" Label="Seleccione caja" @bind-Value="_selectedCashRegisterId">
-                        @if (cashRegisters == null)
-                        {
-                            <MudSelectItem T="int" Value="0">Cargando...</MudSelectItem>
-                        }
-                        else
-                        {
-                            @foreach (var register in cashRegisters)
+                        </MudSelect>
+
+                        <MudSelect T="int" 
+                                   Label="Seleccione cajera" 
+                                   @bind-Value="_selectedCashierId"
+                                   Variant="Variant.Outlined"
+                                   AnchorOrigin="Origin.BottomCenter"
+                                   Class="mb-4"
+                                   Disabled="@(_selectedSupervisorId == 0)"
+                                   Adornment="Adornment.Start"
+                                   AdornmentIcon="@Icons.Material.Filled.Person">
+                            @if (cashiers == null || !cashiers.Any())
                             {
-                                <MudSelectItem T="int" Value="@register.Id">@register.Name</MudSelectItem>
+                                <MudSelectItem T="int" Value="0">-- Seleccione una encargada primero --</MudSelectItem>
                             }
-                        }
-                    </MudSelect>
-                    <MudNumericField @bind-Value="model.TotalSlips" Label="Ingrese total de tira" Variant="Variant.Text" Min="0" />
-                    <MudNumericField @bind-Value="model.TotalCards" Label="Ingrese total cobrado con tarjeta" Variant="Variant.Text" Min="0" />
-                </MudCardContent>
-                <MudCardActions>
-                    <MudButton ButtonType="ButtonType.Submit"
-                                Variant="Variant.Filled"
-                                Color="Color.Primary" 
-                                Class="ml-auto"
-                                Disabled="@_isSubmitting">
-                                @(_isSubmitting ? "Procesando..." : "Realizar Corte")
-                    </MudButton>
-                </MudCardActions>
-            </MudCard>
-        </MudItem>
-    </MudGrid>
-</EditForm>
+                            else
+                            {
+                                <MudSelectItem T="int" Value="0">-- Seleccione una cajera --</MudSelectItem>
+                                @foreach (var cashier in cashiers)
+                                {
+                                    if (cashier.IsActive)
+                                    {
+                                        <MudSelectItem T="int" Value="@cashier.Id">
+                                            <div class="d-flex align-center">
+                                                <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Size="Size.Small" Color="Color.Success" Class="mr-2"/>
+                                                @cashier.Name
+                                            </div>
+                                        </MudSelectItem>
+                                    }
+                                }
+                            }
+                        </MudSelect>
+
+                        <MudSelect T="int" 
+                                   Label="Seleccione caja" 
+                                   @bind-Value="_selectedCashRegisterId"
+                                   Variant="Variant.Outlined"
+                                   AnchorOrigin="Origin.BottomCenter"
+                                   Disabled="@(_selectedSupervisorId == 0)"
+                                   Adornment="Adornment.Start"
+                                   AdornmentIcon="@Icons.Material.Filled.PointOfSale">
+                            @if (cashRegisters == null || !cashRegisters.Any())
+                            {
+                                <MudSelectItem T="int" Value="0">-- Seleccione una encargada primero --</MudSelectItem>
+                            }
+                            else
+                            {
+                                <MudSelectItem T="int" Value="0">-- Seleccione una caja --</MudSelectItem>
+                                @foreach (var register in cashRegisters)
+                                {
+                                    <MudSelectItem T="int" Value="@register.Id">
+                                        <div class="d-flex align-center">
+                                            <MudIcon Icon="@Icons.Material.Filled.Print" Size="Size.Small" Class="mr-2"/>
+                                            @register.Name
+                                        </div>
+                                    </MudSelectItem>
+                                }
+                            }
+                        </MudSelect>
+                    </MudCardContent>
+                </MudCard>
+            </MudItem>
+
+            <!-- Sección de Totales -->
+            <MudItem xs="12" md="6">
+                <MudCard Elevation="4" Class="pa-4 rounded-lg animate-slide-up" Style="animation-delay: 0.1s;">
+                    <MudCardHeader>
+                        <CardHeaderContent>
+                            <MudText Typo="Typo.h6" Color="Color.Error">
+                                <MudIcon Icon="@Icons.Material.Filled.Receipt" Class="mr-2" />
+                                Totales del Corte
+                            </MudText>
+                        </CardHeaderContent>
+                    </MudCardHeader>
+                    <MudCardContent>
+                        <MudNumericField @bind-Value="model.TotalSlips" 
+                                       Label="Total de Tira (Efectivo)" 
+                                       Variant="Variant.Outlined" 
+                                       Min="0"
+                                       Class="mb-4"
+                                       Adornment="Adornment.Start"
+                                       AdornmentIcon="@Icons.Material.Filled.Receipt"
+                                       AdornmentColor="Color.Info"
+                                       Format="N2"
+                                       HelperText="Ingrese el total mostrado en la tira de la caja registradora" />
+
+                        <MudNumericField @bind-Value="model.TotalCards" 
+                                       Label="Total Cobrado con Tarjeta" 
+                                       Variant="Variant.Outlined" 
+                                       Min="0"
+                                       Adornment="Adornment.Start"
+                                       AdornmentIcon="@Icons.Material.Filled.CreditCard"
+                                       AdornmentColor="Color.Warning"
+                                       Format="N2"
+                                       HelperText="Ingrese el total de pagos con tarjeta del día" />
+
+                        <MudDivider Class="my-4" />
+
+                        <div class="d-flex justify-center flex-column align-center">
+                            <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-2">Total General</MudText>
+                            <MudPaper Elevation="3" Class="pa-4 rounded-lg" Style="background: linear-gradient(135deg, #d32f2f 0%, #f44336 100%);">
+                                <MudText Typo="Typo.h4" Class="font-weight-bold" Style="color: white;">
+                                    $ @CalculateGrandTotal().ToString("N2")
+                                </MudText>
+                            </MudPaper>
+                        </div>
+                    </MudCardContent>
+                    <MudCardActions Class="d-flex justify-center pa-4">
+                        <MudButton ButtonType="ButtonType.Submit"
+                                   Variant="Variant.Filled"
+                                   Color="Color.Error"
+                                   Disabled="@_isSubmitting"
+                                   Size="Size.Large"
+                                   StartIcon="@Icons.Material.Filled.ContentCut"
+                                   FullWidth="true"
+                                   Class="py-3 elevation-4">
+                            @if (_isSubmitting)
+                            {
+                                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                                <text>Procesando...</text>
+                            }
+                            else
+                            {
+                                <text>Realizar Corte de Caja</text>
+                            }
+                        </MudButton>
+                    </MudCardActions>
+                </MudCard>
+            </MudItem>
+        </MudGrid>
+    </EditForm>
+</MudContainer>
+
+<style>
+    .animate-fade-in {
+        animation: fadeIn 0.5s ease-out;
+    }
+    .animate-slide-up {
+        animation: slideUp 0.5s ease-out;
+    }
+    @@keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+    @@keyframes slideUp {
+        from { transform: translateY(20px); opacity: 0; }
+        to { transform: translateY(0); opacity: 1; }
+    }
+    .rounded-lg {
+        border-radius: 12px !important;
+    }
+</style>
 
 @code {
     private CashCutViewModel model = new CashCutViewModel();
@@ -172,6 +314,11 @@
         _selectedCashierId = 0;
         _selectedCashRegisterId = 0;
         model = new CashCutViewModel();
+    }
+
+    private decimal CalculateGrandTotal()
+    {
+        return model.TotalSlips + model.TotalCards;
     }
 
     public class CashCutViewModel
