@@ -16,121 +16,284 @@
 
 <PageTitle>Configuración - Sistema de Reportes</PageTitle>
 
-    <MudText Typo="Typo.h4" Class="mb-4">
-        <MudIcon Icon="@Icons.Material.Filled.Settings" Class="mr-2" />
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4 animated fadeIn">
+    <MudText Typo="Typo.h4" Class="mb-6 font-weight-bold" Style="background: linear-gradient(45deg, #1e88e5, #5e35b1); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+        <MudIcon Icon="@Icons.Material.Filled.Settings" Class="mr-2" Size="Size.Large" Color="Color.Primary" />
         Configuración del Sistema
     </MudText>
 
     <MudGrid>
         <MudItem xs="12">
-            <MudPaper Elevation="2" Class="pa-4">
-                <MudButton OnClick="ExpandDbfConfig">
-                    <MudText Typo="Typo.h6" Class="mb-4">
-                        <MudIcon Icon="@Icons.Material.Filled.Folder" Class="mr-2" />
-                        Rutas de Archivos DBF
+            <MudCard Elevation="4" Class="rounded-lg animate-slide-up">
+                <MudCardHeader>
+                    <CardHeaderContent>
+                        <MudText Typo="Typo.h6" Color="Color.Primary">
+                            <MudIcon Icon="@Icons.Material.Filled.Folder" Class="mr-2" />
+                            Rutas de Archivos DBF
+                        </MudText>
+                    </CardHeaderContent>
+                    <CardHeaderActions>
+                        <MudIconButton Icon="@(_dbfConfigExpanded ? Icons.Material.Filled.ExpandLess : Icons.Material.Filled.ExpandMore)" 
+                                      Color="Color.Default" 
+                                      OnClick="ExpandDbfConfig" />
+                    </CardHeaderActions>
+                </MudCardHeader>
+                <MudCardContent>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
+                        Configure las rutas de los archivos de base de datos FoxPro necesarios para generar los reportes.
                     </MudText>
-                </MudButton>
-                <MudDivider />
-                <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
-                    Configure las rutas de los archivos de base de datos FoxPro necesarios para generar los reportes.
-                </MudText>
-                <MudCollapse Expanded="_dbfConfigExpanded">
-                    <MudGrid>
-                        <MudItem xs="12" md="4">
-                            <MudCard Outlined="true">
-                                <MudCardContent>
-                                    <MudText Typo="Typo.h6" Class="mb-2">POS10041.DBF</MudText>
-                                    <MudTextField @bind-Value="_configuracion.Pos10041Path" Label="Ruta del archivo" Variant="Variant.Outlined" ReadOnly="true" Adornment="Adornment.End" AdornmentIcon="@Icons.Material.Filled.FolderOpen" OnAdornmentClick="() => AbrirDialogoArchivo(TipoArchivoDbf.Pos10041)" Class="mb-2" />
-                                    @if (!string.IsNullOrEmpty(_configuracion.Pos10041Path)) { <MudChip T="string" Size="Size.Small" Color="@(ValidarRuta(_configuracion.Pos10041Path) ? Color.Success : Color.Error)" Icon="@(ValidarRuta(_configuracion.Pos10041Path) ? Icons.Material.Filled.CheckCircle : Icons.Material.Filled.Error)"> @(ValidarRuta(_configuracion.Pos10041Path) ? "Archivo encontrado" : "Archivo no encontrado") </MudChip> }
-                                </MudCardContent>
-                            </MudCard>
-                        </MudItem>
-                        <MudItem xs="12" md="4">
-                            <MudCard Outlined="true">
-                                <MudCardContent>
-                                    <MudText Typo="Typo.h6" Class="mb-2">POS10042.DBF</MudText>
-                                    <MudTextField @bind-Value="_configuracion.Pos10042Path" Label="Ruta del archivo" Variant="Variant.Outlined" ReadOnly="true" Adornment="Adornment.End" AdornmentIcon="@Icons.Material.Filled.FolderOpen" OnAdornmentClick="() => AbrirDialogoArchivo(TipoArchivoDbf.Pos10042)" Class="mb-2" />
-                                    @if (!string.IsNullOrEmpty(_configuracion.Pos10042Path)) { <MudChip T="string" Size="Size.Small" Color="@(ValidarRuta(_configuracion.Pos10042Path) ? Color.Success : Color.Error)" Icon="@(ValidarRuta(_configuracion.Pos10042Path) ? Icons.Material.Filled.CheckCircle : Icons.Material.Filled.Error)"> @(ValidarRuta(_configuracion.Pos10042Path) ? "Archivo encontrado" : "Archivo no encontrado") </MudChip> }
-                                </MudCardContent>
-                            </MudCard>
-                        </MudItem>
-                        <MudItem xs="12" md="4">
-                            <MudCard Outlined="true">
-                                <MudCardContent>
-                                    <MudText Typo="Typo.h6" Class="mb-2">MGW10008.DBF</MudText>
-                                    <MudTextField @bind-Value="_configuracion.Mgw10008Path" Label="Ruta del archivo" Variant="Variant.Outlined" ReadOnly="true" Adornment="Adornment.End" AdornmentIcon="@Icons.Material.Filled.FolderOpen" OnAdornmentClick="() => AbrirDialogoArchivo(TipoArchivoDbf.Mgw10008)" Class="mb-2" />
-                                    @if (!string.IsNullOrEmpty(_configuracion.Mgw10008Path)) { <MudChip T="string" Size="Size.Small" Color="@(ValidarRuta(_configuracion.Mgw10008Path) ? Color.Success : Color.Error)" Icon="@(ValidarRuta(_configuracion.Mgw10008Path) ? Icons.Material.Filled.CheckCircle : Icons.Material.Filled.Error)"> @(ValidarRuta(_configuracion.Mgw10008Path) ? "Archivo encontrado" : "Archivo no encontrado") </MudChip> }
-                                </MudCardContent>
-                            </MudCard>
-                        </MudItem>
-                        <MudItem xs="12" md="4">
-                            <MudCard Outlined="true">
-                                <MudCardContent>
-                                    <MudText Typo="Typo.h6" Class="mb-2">MGW10005.DBF</MudText>
-                                    <MudTextField @bind-Value="_configuracion.Mgw10005Path" Label="Ruta del archivo" Variant="Variant.Outlined" ReadOnly="true" Adornment="Adornment.End" AdornmentIcon="@Icons.Material.Filled.FolderOpen" OnAdornmentClick="() => AbrirDialogoArchivo(TipoArchivoDbf.Mgw10005)" Class="mb-2" />
-                                    @if (!string.IsNullOrEmpty(_configuracion.Mgw10005Path)) { <MudChip T="string" Size="Size.Small" Color="@(ValidarRuta(_configuracion.Mgw10005Path) ? Color.Success : Color.Error)" Icon="@(ValidarRuta(_configuracion.Mgw10005Path) ? Icons.Material.Filled.CheckCircle : Icons.Material.Filled.Error)"> @(ValidarRuta(_configuracion.Mgw10005Path) ? "Archivo encontrado" : "Archivo no encontrado") </MudChip> }
-                                </MudCardContent>
-                            </MudCard>
-                        </MudItem>
-                    </MudGrid>
-                    <MudDivider Class="my-4" />
-                    <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
-                        <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.BugReport" Color="Color.Info" OnClick="IrADiagnostico">Verificar Conexión</MudButton>
-                        <MudStack Row="true" Spacing="2">
-                             <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Restore" OnClick="LimpiarFormulario">Limpiar</MudButton>
-                             <MudButton Variant="Variant.Filled" StartIcon="@Icons.Material.Filled.Save" Color="Color.Primary" OnClick="GuardarConfiguracion" Disabled="@_guardando">
-                                @if (_guardando) { <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" /> <text>Guardando...</text> } else { <text>Guardar Configuración</text> }
+                    <MudCollapse Expanded="_dbfConfigExpanded">
+                        <MudGrid>
+                            <MudItem xs="12" md="6" lg="3">
+                                <MudCard Outlined="true" Class="pa-3">
+                                    <MudText Typo="Typo.subtitle1" Class="mb-2 font-weight-bold">
+                                        <MudIcon Icon="@Icons.Material.Filled.Description" Size="Size.Small" Class="mr-1" />
+                                        POS10041.DBF
+                                    </MudText>
+                                    <MudTextField @bind-Value="_configuracion.Pos10041Path" 
+                                                 Label="Ruta del archivo" 
+                                                 Variant="Variant.Outlined" 
+                                                 ReadOnly="true" 
+                                                 Adornment="Adornment.End" 
+                                                 AdornmentIcon="@Icons.Material.Filled.FolderOpen" 
+                                                 OnAdornmentClick="() => AbrirDialogoArchivo(TipoArchivoDbf.Pos10041)" 
+                                                 Class="mb-2"
+                                                 Margin="Margin.Dense" />
+                                    @if (!string.IsNullOrEmpty(_configuracion.Pos10041Path)) 
+                                    { 
+                                        <MudChip T="string" 
+                                                Size="Size.Small" 
+                                                Color="@(ValidarRuta(_configuracion.Pos10041Path) ? Color.Success : Color.Error)" 
+                                                Icon="@(ValidarRuta(_configuracion.Pos10041Path) ? Icons.Material.Filled.CheckCircle : Icons.Material.Filled.Error)">
+                                            @(ValidarRuta(_configuracion.Pos10041Path) ? "Archivo encontrado" : "Archivo no encontrado")
+                                        </MudChip> 
+                                    }
+                                </MudCard>
+                            </MudItem>
+                            <MudItem xs="12" md="6" lg="3">
+                                <MudCard Outlined="true" Class="pa-3">
+                                    <MudText Typo="Typo.subtitle1" Class="mb-2 font-weight-bold">
+                                        <MudIcon Icon="@Icons.Material.Filled.Description" Size="Size.Small" Class="mr-1" />
+                                        POS10042.DBF
+                                    </MudText>
+                                    <MudTextField @bind-Value="_configuracion.Pos10042Path" 
+                                                 Label="Ruta del archivo" 
+                                                 Variant="Variant.Outlined" 
+                                                 ReadOnly="true" 
+                                                 Adornment="Adornment.End" 
+                                                 AdornmentIcon="@Icons.Material.Filled.FolderOpen" 
+                                                 OnAdornmentClick="() => AbrirDialogoArchivo(TipoArchivoDbf.Pos10042)" 
+                                                 Class="mb-2"
+                                                 Margin="Margin.Dense" />
+                                    @if (!string.IsNullOrEmpty(_configuracion.Pos10042Path)) 
+                                    { 
+                                        <MudChip T="string" 
+                                                Size="Size.Small" 
+                                                Color="@(ValidarRuta(_configuracion.Pos10042Path) ? Color.Success : Color.Error)" 
+                                                Icon="@(ValidarRuta(_configuracion.Pos10042Path) ? Icons.Material.Filled.CheckCircle : Icons.Material.Filled.Error)">
+                                            @(ValidarRuta(_configuracion.Pos10042Path) ? "Archivo encontrado" : "Archivo no encontrado")
+                                        </MudChip> 
+                                    }
+                                </MudCard>
+                            </MudItem>
+                            <MudItem xs="12" md="6" lg="3">
+                                <MudCard Outlined="true" Class="pa-3">
+                                    <MudText Typo="Typo.subtitle1" Class="mb-2 font-weight-bold">
+                                        <MudIcon Icon="@Icons.Material.Filled.Description" Size="Size.Small" Class="mr-1" />
+                                        MGW10008.DBF
+                                    </MudText>
+                                    <MudTextField @bind-Value="_configuracion.Mgw10008Path" 
+                                                 Label="Ruta del archivo" 
+                                                 Variant="Variant.Outlined" 
+                                                 ReadOnly="true" 
+                                                 Adornment="Adornment.End" 
+                                                 AdornmentIcon="@Icons.Material.Filled.FolderOpen" 
+                                                 OnAdornmentClick="() => AbrirDialogoArchivo(TipoArchivoDbf.Mgw10008)" 
+                                                 Class="mb-2"
+                                                 Margin="Margin.Dense" />
+                                    @if (!string.IsNullOrEmpty(_configuracion.Mgw10008Path)) 
+                                    { 
+                                        <MudChip T="string" 
+                                                Size="Size.Small" 
+                                                Color="@(ValidarRuta(_configuracion.Mgw10008Path) ? Color.Success : Color.Error)" 
+                                                Icon="@(ValidarRuta(_configuracion.Mgw10008Path) ? Icons.Material.Filled.CheckCircle : Icons.Material.Filled.Error)">
+                                            @(ValidarRuta(_configuracion.Mgw10008Path) ? "Archivo encontrado" : "Archivo no encontrado")
+                                        </MudChip> 
+                                    }
+                                </MudCard>
+                            </MudItem>
+                            <MudItem xs="12" md="6" lg="3">
+                                <MudCard Outlined="true" Class="pa-3">
+                                    <MudText Typo="Typo.subtitle1" Class="mb-2 font-weight-bold">
+                                        <MudIcon Icon="@Icons.Material.Filled.Description" Size="Size.Small" Class="mr-1" />
+                                        MGW10005.DBF
+                                    </MudText>
+                                    <MudTextField @bind-Value="_configuracion.Mgw10005Path" 
+                                                 Label="Ruta del archivo" 
+                                                 Variant="Variant.Outlined" 
+                                                 ReadOnly="true" 
+                                                 Adornment="Adornment.End" 
+                                                 AdornmentIcon="@Icons.Material.Filled.FolderOpen" 
+                                                 OnAdornmentClick="() => AbrirDialogoArchivo(TipoArchivoDbf.Mgw10005)" 
+                                                 Class="mb-2"
+                                                 Margin="Margin.Dense" />
+                                    @if (!string.IsNullOrEmpty(_configuracion.Mgw10005Path)) 
+                                    { 
+                                        <MudChip T="string" 
+                                                Size="Size.Small" 
+                                                Color="@(ValidarRuta(_configuracion.Mgw10005Path) ? Color.Success : Color.Error)" 
+                                                Icon="@(ValidarRuta(_configuracion.Mgw10005Path) ? Icons.Material.Filled.CheckCircle : Icons.Material.Filled.Error)">
+                                            @(ValidarRuta(_configuracion.Mgw10005Path) ? "Archivo encontrado" : "Archivo no encontrado")
+                                        </MudChip> 
+                                    }
+                                </MudCard>
+                            </MudItem>
+                        </MudGrid>
+                        <MudDivider Class="my-4" />
+                        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                            <MudButton Variant="Variant.Outlined" 
+                                      StartIcon="@Icons.Material.Filled.BugReport" 
+                                      Color="Color.Info" 
+                                      OnClick="IrADiagnostico">
+                                Verificar Conexión
                             </MudButton>
+                            <MudStack Row="true" Spacing="2">
+                                <MudButton Variant="Variant.Outlined" 
+                                          StartIcon="@Icons.Material.Filled.Restore" 
+                                          OnClick="LimpiarFormulario">
+                                    Limpiar
+                                </MudButton>
+                                <MudButton Variant="Variant.Filled" 
+                                          StartIcon="@Icons.Material.Filled.Save" 
+                                          Color="Color.Primary" 
+                                          OnClick="GuardarConfiguracion" 
+                                          Disabled="@_guardando"
+                                          Size="Size.Medium">
+                                    @if (_guardando) 
+                                    { 
+                                        <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" /> 
+                                        <text>Guardando...</text> 
+                                    } 
+                                    else 
+                                    { 
+                                        <text>Guardar Configuración</text> 
+                                    }
+                                </MudButton>
+                            </MudStack>
                         </MudStack>
-                    </MudStack>
-                </MudCollapse>
-            </MudPaper>
+                    </MudCollapse>
+                </MudCardContent>
+            </MudCard>
         </MudItem>
 
         <MudItem xs="12">
-            <MudPaper Elevation="2" Class="pa-4">
-                <MudButton OnClick="ExpandZebraConfig">
-                    <MudText Typo="Typo.h6" Class="mb-4">
-                        <MudIcon Icon="@Icons.Material.Filled.Print" Class="mr-2" />
-                        Zebra
+            <MudCard Elevation="4" Class="rounded-lg animate-slide-up" Style="animation-delay: 0.1s;">
+                <MudCardHeader>
+                    <CardHeaderContent>
+                        <MudText Typo="Typo.h6" Color="Color.Primary">
+                            <MudIcon Icon="@Icons.Material.Filled.Print" Class="mr-2" />
+                            Impresoras Zebra
+                        </MudText>
+                    </CardHeaderContent>
+                    <CardHeaderActions>
+                        <MudIconButton Icon="@(_zebraConfigExpanded ? Icons.Material.Filled.ExpandLess : Icons.Material.Filled.ExpandMore)" 
+                                      Color="Color.Default" 
+                                      OnClick="ExpandZebraConfig" />
+                    </CardHeaderActions>
+                </MudCardHeader>
+                <MudCardContent>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
+                        Configure las impresoras Zebra para la impresión de etiquetas.
                     </MudText>
-                </MudButton>
-                <MudDivider />
-                <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
-                    Configure las impresoras Zebra.
-                </MudText>
-                <MudCollapse Expanded="_zebraConfigExpanded">
-                    <MudTable Items="@_printers" Hover="true" Breakpoint="Breakpoint.Sm" Loading="@_loadingPrinters" LoadingProgressColor="Color.Info" Elevation="0">
-                        <ToolBarContent>
-                            <MudText Typo="Typo.h6">Impresoras Registradas</MudText>
-                            <MudSpacer />
-                            <MudButton Variant="Variant.Filled" StartIcon="@Icons.Material.Filled.Add" Color="Color.Primary" OnClick="() => AbrirDialogoImpresora()">
-                                Nueva Impresora
-                            </MudButton>
-                        </ToolBarContent>
-                        <HeaderContent>
-                            <MudTh>Nombre</MudTh>
-                            <MudTh>IP</MudTh>
-                            <MudTh>Puerto</MudTh>
-                            <MudTh>Acciones</MudTh>
-                        </HeaderContent>
-                        <RowTemplate>
-                            <MudTd DataLabel="Nombre">@context.Name</MudTd>
-                            <MudTd DataLabel="IP">@context.IpAddress</MudTd>
-                            <MudTd DataLabel="Puerto">@context.Port</MudTd>
-                            <MudTd DataLabel="Acciones">
-                                <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small" Color="Color.Primary" OnClick="() => AbrirDialogoImpresora(context)" />
-                                <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error" OnClick="() => EliminarImpresora(context)" />
-                            </MudTd>
-                        </RowTemplate>
-                        <NoRecordsContent>
-                            <MudText>No hay impresoras configuradas.</MudText>
-                        </NoRecordsContent>
-                    </MudTable>
-                </MudCollapse>
-            </MudPaper>
+                    <MudCollapse Expanded="_zebraConfigExpanded">
+                        <MudTable Items="@_printers" 
+                                 Hover="true" 
+                                 Breakpoint="Breakpoint.Sm" 
+                                 Loading="@_loadingPrinters" 
+                                 LoadingProgressColor="Color.Info" 
+                                 Elevation="0"
+                                 Striped="true">
+                            <ToolBarContent>
+                                <MudText Typo="Typo.h6">
+                                    <MudIcon Icon="@Icons.Material.Filled.Print" Size="Size.Small" Class="mr-2" />
+                                    Impresoras Registradas
+                                </MudText>
+                                <MudSpacer />
+                                <MudButton Variant="Variant.Filled" 
+                                          StartIcon="@Icons.Material.Filled.Add" 
+                                          Color="Color.Primary" 
+                                          OnClick="() => AbrirDialogoImpresora()">
+                                    Nueva Impresora
+                                </MudButton>
+                            </ToolBarContent>
+                            <HeaderContent>
+                                <MudTh>Nombre</MudTh>
+                                <MudTh>Dirección IP</MudTh>
+                                <MudTh>Puerto</MudTh>
+                                <MudTh Style="text-align: center;">Acciones</MudTh>
+                            </HeaderContent>
+                            <RowTemplate>
+                                <MudTd DataLabel="Nombre">
+                                    <div class="d-flex align-center">
+                                        <MudIcon Icon="@Icons.Material.Filled.Print" Size="Size.Small" Class="mr-2" />
+                                        <MudText Typo="Typo.body2" Class="font-weight-bold">@context.Name</MudText>
+                                    </div>
+                                </MudTd>
+                                <MudTd DataLabel="IP">
+                                    <MudChip T="string" Color="Color.Info" Size="Size.Small" Variant="Variant.Text">@context.IpAddress</MudChip>
+                                </MudTd>
+                                <MudTd DataLabel="Puerto">
+                                    <MudText Typo="Typo.body2">@context.Port</MudText>
+                                </MudTd>
+                                <MudTd DataLabel="Acciones" Style="text-align: center;">
+                                    <MudTooltip Text="Editar impresora">
+                                        <MudIconButton Icon="@Icons.Material.Filled.Edit" 
+                                                      Size="Size.Small" 
+                                                      Color="Color.Primary" 
+                                                      OnClick="() => AbrirDialogoImpresora(context)" />
+                                    </MudTooltip>
+                                    <MudTooltip Text="Eliminar impresora">
+                                        <MudIconButton Icon="@Icons.Material.Filled.Delete" 
+                                                      Size="Size.Small" 
+                                                      Color="Color.Error" 
+                                                      OnClick="() => EliminarImpresora(context)" />
+                                    </MudTooltip>
+                                </MudTd>
+                            </RowTemplate>
+                            <NoRecordsContent>
+                                <MudPaper Elevation="0" Class="pa-12 d-flex flex-column align-center justify-center bg-transparent">
+                                    <MudIcon Icon="@Icons.Material.Filled.PrintDisabled" Size="Size.Large" Color="Color.Default" Style="font-size: 4rem; opacity: 0.2;" />
+                                    <MudText Typo="Typo.h6" Class="mt-4 text-muted">No hay impresoras configuradas</MudText>
+                                    <MudText Typo="Typo.body2" Class="text-muted">Agregue una nueva impresora para comenzar</MudText>
+                                </MudPaper>
+                            </NoRecordsContent>
+                        </MudTable>
+                    </MudCollapse>
+                </MudCardContent>
+            </MudCard>
         </MudItem>
     </MudGrid>
+</MudContainer>
+
+<style>
+    .animate-fade-in {
+        animation: fadeIn 0.5s ease-out;
+    }
+    .animate-slide-up {
+        animation: slideUp 0.5s ease-out;
+    }
+    @@keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+    @@keyframes slideUp {
+        from { transform: translateY(20px); opacity: 0; }
+        to { transform: translateY(0); opacity: 1; }
+    }
+    .rounded-lg {
+        border-radius: 12px !important;
+    }
+</style>
 
 @code {
     private ConfiguracionDto _configuracion = new();
