@@ -1,0 +1,213 @@
+﻿@page "/añadir-encargada"
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize]
+@using System.ComponentModel.DataAnnotations
+@using Blanquita.Application.DTOs
+@using Blanquita.Application.Interfaces
+@inject ISupervisorService SupervisorService
+@inject IBranchService BranchService
+@inject ILogger<AñadirEncargada> Logger
+@inject ISnackbar Snackbar
+
+<MudText Typo="Typo.h3" Align="Align.Center">Añadir encargada</MudText>
+<EditForm Model="model" OnValidSubmit="GuardarEncargada">
+    <DataAnnotationsValidator />
+    <MudGrid Justify="Justify.Center">
+        <MudItem xs="12" sm="7">
+            <MudCard>
+                <MudCardContent>
+                    <MudTextField @bind-Value="model.Name" Label="Nombre de encargada" Variant="Variant.Text"></MudTextField>
+                    <MudSelect T="int" Label="Seleccione sucursal" @bind-Value="model.BranchId">
+                        @foreach (var sucursal in branches)
+                        {
+                            <MudSelectItem T="int" Value="@sucursal.Id">@sucursal.Name</MudSelectItem>
+                        }
+                    </MudSelect>
+                    <MudSwitch @bind-Value="model.IsActive" Label="Activa:" LabelPlacement="Placement.Start" Color="Color.Primary"></MudSwitch>
+                </MudCardContent>
+                <MudCardActions>
+                    @if (isEditing)
+                    {
+                        <MudButton Variant="Variant.Text" Color="Color.Error" OnClick="CancelEdit">Cancelar</MudButton>
+                    }
+                    <MudButton ButtonType="ButtonType.Submit"
+                               Variant="Variant.Filled"
+                               Color="Color.Primary"
+                               Class="ml-auto">
+                        @(isEditing ? "Actualizar" : "Guardar")
+                    </MudButton>
+                </MudCardActions>
+            </MudCard>
+        </MudItem>
+    </MudGrid>
+</EditForm>
+<MudTable ServerData="ServerReload" Dense="true" Hover="true" @ref="table">
+    <ToolBarContent>
+        <MudText Typo="Typo.h6">Encargadas</MudText>
+        <MudSpacer />
+        <MudTextField T="string" ValueChanged="@(s=>OnSearch(s))" Placeholder="Buscar" Adornment="Adornment.Start"
+                      AdornmentIcon="@Icons.Material.Filled.Search" IconSize="Size.Medium" Class="mt-0"></MudTextField>
+    </ToolBarContent>
+    <HeaderContent>
+        <MudTh><MudTableSortLabel SortLabel="Id" T="SupervisorDto">Id</MudTableSortLabel></MudTh>
+        <MudTh><MudTableSortLabel SortLabel="Name" T="SupervisorDto">Nombre</MudTableSortLabel></MudTh>
+        <MudTh><MudTableSortLabel SortLabel="BranchId" T="SupervisorDto">Sucursal</MudTableSortLabel></MudTh>
+        <MudTh>Activa</MudTh>
+        <MudTh>Acciones</MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd DataLabel="Id">@context.Id</MudTd>
+        <MudTd DataLabel="Name">@context.Name</MudTd>
+        <MudTd DataLabel="BranchId">@GetSucursalName(context.BranchId)</MudTd>
+        <MudTd DataLabel="Activa">@(context.IsActive ? "Sí" : "No")</MudTd>
+        <MudTd>
+            <MudIconButton Icon="@Icons.Material.Filled.Edit"
+                           Color="Color.Primary"
+                           Class="pa-0 ma-0 min-width-auto"
+                           OnClick="@(() => EditEncargada(context))" />
+        </MudTd>
+    </RowTemplate>
+    <NoRecordsContent>
+        <MudText>No matching records found</MudText>
+    </NoRecordsContent>
+    <LoadingContent>
+        <MudText>Loading...</MudText>
+    </LoadingContent>
+    <PagerContent>
+        <MudTablePager />
+    </PagerContent>
+</MudTable>
+
+@code {
+    private SupervisorViewModel model = new() { BranchId = 0, IsActive = true };
+    private bool isEditing = false;
+    private int editingId = 0;
+    
+    private IEnumerable<BranchDto> branches = new List<BranchDto>();
+    
+    private MudTable<SupervisorDto> table;
+    private string searchString = null;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            branches = await BranchService.GetAllAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error loading branches");
+            Snackbar.Add("Error al cargar sucursales", Severity.Error);
+        }
+    }
+    
+    private string GetSucursalName(int id) => branches.FirstOrDefault(s => s.Id == id)?.Name ?? id.ToString();
+
+    private void EditEncargada(SupervisorDto selected)
+    {
+        editingId = selected.Id;
+        model = new SupervisorViewModel
+        {
+            Name = selected.Name,
+            BranchId = selected.BranchId,
+            IsActive = selected.IsActive
+        };
+        isEditing = true;
+        StateHasChanged();
+    }
+
+    private void CancelEdit()
+    {
+        model = new SupervisorViewModel { BranchId = 0, IsActive = true };
+        isEditing = false;
+        editingId = 0;
+        StateHasChanged();
+    }
+
+    private async Task<TableData<SupervisorDto>> ServerReload(TableState state, CancellationToken token)
+    {
+        try 
+        {
+            var data = await SupervisorService.GetAllAsync(token);
+            
+            if (!string.IsNullOrWhiteSpace(searchString))
+            {
+                data = data.Where(c => c.Name.Contains(searchString, StringComparison.OrdinalIgnoreCase));
+            }
+
+            var totalItems = data.Count();
+            
+            // Sorting
+            switch (state.SortLabel)
+            {
+                case "Name":
+                    data = data.OrderByDirection(state.SortDirection, o => o.Name);
+                    break;
+                 case "Id":
+                    data = data.OrderByDirection(state.SortDirection, o => o.Id);
+                    break;
+            }
+
+            var pagedData = data.Skip(state.Page * state.PageSize).Take(state.PageSize).ToArray();
+            
+            return new TableData<SupervisorDto>() { TotalItems = totalItems, Items = pagedData };
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error loading supervisors");
+            return new TableData<SupervisorDto>() { TotalItems = 0, Items = Array.Empty<SupervisorDto>() };
+        }
+    }
+
+    private void OnSearch(string text)
+    {
+        searchString = text;
+        table.ReloadServerData();
+    }
+
+    private async Task GuardarEncargada()
+    {
+        try
+        {
+            if (isEditing)
+            {
+                var updateDto = new UpdateSupervisorDto
+                {
+                    Id = editingId,
+                    Name = model.Name,
+                    BranchId = model.BranchId,
+                    IsActive = model.IsActive
+                };
+                await SupervisorService.UpdateAsync(updateDto);
+                Snackbar.Add("Encargada actualizada exitosamente", Severity.Success);
+            }
+            else
+            {
+                var createDto = new CreateSupervisorDto
+                {
+                    Name = model.Name,
+                    BranchId = model.BranchId,
+                    IsActive = model.IsActive
+                };
+                await SupervisorService.CreateAsync(createDto);
+                Snackbar.Add("Encargada registrada exitosamente", Severity.Success);
+            }
+
+            await table.ReloadServerData();
+            CancelEdit();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error al guardar la encargada");
+            Snackbar.Add($"Error: {ex.Message}", Severity.Error);
+        }
+    }
+
+    public class SupervisorViewModel
+    {
+        [Required]
+        public string Name { get; set; } = string.Empty;
+        public int BranchId { get; set; }
+        public bool IsActive { get; set; } = true;
+    }
+}

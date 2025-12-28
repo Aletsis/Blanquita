@@ -1,0 +1,377 @@
+﻿@page "/diagnostico"
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize]
+@using Blanquita.Web.Components.Layout
+@using Blanquita.Application.Interfaces
+@using Blanquita.Application.DTOs
+@using Blanquita.Infrastructure.Models
+@inject IConfiguracionService ConfigService
+@inject IFoxProReportService FoxProService
+@inject ISnackbar Snackbar
+
+<PageTitle>Diagnóstico - Sistema de Reportes</PageTitle>
+
+<MudText Typo="Typo.h4" Class="mb-4">
+    <MudIcon Icon="@Icons.Material.Filled.BugReport" Class="mr-2" />
+    Diagnóstico del Sistema
+</MudText>
+
+<MudText Typo="Typo.body1" Color="Color.Secondary" Class="mb-4">
+    Ejecute pruebas de diagnóstico para verificar la configuración y conexión con los archivos DBF.
+</MudText>
+
+<MudGrid>
+    <!-- Card para POS10041 -->
+    <MudItem xs="12">
+        <MudPaper Elevation="2" Class="pa-4">
+            <MudGrid>
+                <MudItem xs="12" md="8">
+                    <MudText Typo="Typo.h6" Class="mb-2">
+                        <MudIcon Icon="@Icons.Material.Filled.Description" Class="mr-2" />
+                        POS10041.DBF
+                    </MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">
+                        @if (!string.IsNullOrEmpty(config.Pos10041Path))
+                        {
+                            <text>@config.Pos10041Path</text>
+                        }
+                        else
+                        {
+                            <MudChip T="string" Color="Color.Warning" Size="Size.Small">No configurado</MudChip>
+                        }
+                    </MudText>
+                </MudItem>
+                <MudItem xs="12" md="4" Class="d-flex align-end justify-end">
+                    <MudButton Variant="Variant.Filled"
+                               Color="Color.Primary"
+                               StartIcon="@Icons.Material.Filled.PlayArrow"
+                               OnClick="() => EjecutarDiagnostico(1)"
+                               Disabled="@(ejecutando1 || string.IsNullOrEmpty(config.Pos10041Path))">
+                        @if (ejecutando1)
+                        {
+                            <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                            <text>Ejecutando...</text>
+                        }
+                        else
+                        {
+                            <text>Ejecutar Diagnóstico</text>
+                        }
+                    </MudButton>
+                </MudItem>
+            </MudGrid>
+
+            @if (resultado1 != null)
+            {
+                <MudDivider Class="my-4" />
+                <ComponenteDiagnostico Resultado="@resultado1" />
+            }
+        </MudPaper>
+    </MudItem>
+
+    <!-- Card para POS10042 -->
+    <MudItem xs="12">
+        <MudPaper Elevation="2" Class="pa-4">
+            <MudGrid>
+                <MudItem xs="12" md="8">
+                    <MudText Typo="Typo.h6" Class="mb-2">
+                        <MudIcon Icon="@Icons.Material.Filled.Description" Class="mr-2" />
+                        POS10042.DBF
+                    </MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">
+                        @if (!string.IsNullOrEmpty(config.Pos10042Path))
+                        {
+                            <text>@config.Pos10042Path</text>
+                        }
+                        else
+                        {
+                            <MudChip T="string" Color="Color.Warning" Size="Size.Small">No configurado</MudChip>
+                        }
+                    </MudText>
+                </MudItem>
+                <MudItem xs="12" md="4" Class="d-flex align-end justify-end">
+                    <MudButton Variant="Variant.Filled"
+                               Color="Color.Primary"
+                               StartIcon="@Icons.Material.Filled.PlayArrow"
+                               OnClick="() => EjecutarDiagnostico(2)"
+                               Disabled="@(ejecutando2 || string.IsNullOrEmpty(config.Pos10042Path))">
+                        @if (ejecutando2)
+                        {
+                            <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                            <text>Ejecutando...</text>
+                        }
+                        else
+                        {
+                            <text>Ejecutar Diagnóstico</text>
+                        }
+                    </MudButton>
+                </MudItem>
+            </MudGrid>
+
+            @if (resultado2 != null)
+            {
+                <MudDivider Class="my-4" />
+                <ComponenteDiagnostico Resultado="@resultado2" />
+            }
+        </MudPaper>
+    </MudItem>
+
+    <!-- Card para MGW10008 -->
+    <MudItem xs="12">
+        <MudPaper Elevation="2" Class="pa-4">
+            <MudGrid>
+                <MudItem xs="12" md="8">
+                    <MudText Typo="Typo.h6" Class="mb-2">
+                        <MudIcon Icon="@Icons.Material.Filled.Description" Class="mr-2" />
+                        MGW10008.DBF
+                    </MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">
+                        @if (!string.IsNullOrEmpty(config.Mgw10008Path))
+                        {
+                            <text>@config.Mgw10008Path</text>
+                        }
+                        else
+                        {
+                            <MudChip T="string" Color="Color.Warning" Size="Size.Small">No configurado</MudChip>
+                        }
+                    </MudText>
+                </MudItem>
+                <MudItem xs="12" md="4" Class="d-flex align-end justify-end">
+                    <MudButton Variant="Variant.Filled"
+                               Color="Color.Primary"
+                               StartIcon="@Icons.Material.Filled.PlayArrow"
+                               OnClick="() => EjecutarDiagnostico(3)"
+                               Disabled="@(ejecutando3 || string.IsNullOrEmpty(config.Mgw10008Path))">
+                        @if (ejecutando3)
+                        {
+                            <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                            <text>Ejecutando...</text>
+                        }
+                        else
+                        {
+                            <text>Ejecutar Diagnóstico</text>
+                        }
+                    </MudButton>
+                </MudItem>
+            </MudGrid>
+
+            @if (resultado3 != null)
+            {
+                <MudDivider Class="my-4" />
+                <ComponenteDiagnostico Resultado="@resultado3" />
+            }
+        </MudPaper>
+    </MudItem>
+
+    <!-- Card para MGW10005 -->
+    <MudItem xs="12">
+        <MudPaper Elevation="2" Class="pa-4">
+            <MudGrid>
+                <MudItem xs="12" md="8">
+                    <MudText Typo="Typo.h6" Class="mb-2">
+                        <MudIcon Icon="@Icons.Material.Filled.Description" Class="mr-2" />
+                        MGW10005.DBF
+                    </MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">
+                        @if (!string.IsNullOrEmpty(config.Mgw10005Path))
+                        {
+                            <text>@config.Mgw10005Path</text>
+                        }
+                        else
+                        {
+                            <MudChip T="string" Color="Color.Warning" Size="Size.Small">No configurado</MudChip>
+                        }
+                    </MudText>
+                </MudItem>
+                <MudItem xs="12" md="4" Class="d-flex align-end justify-end">
+                    <MudButton Variant="Variant.Filled"
+                               Color="Color.Primary"
+                               StartIcon="@Icons.Material.Filled.PlayArrow"
+                               OnClick="() => EjecutarDiagnostico(4)"
+                               Disabled="@(ejecutando4 || string.IsNullOrEmpty(config.Mgw10005Path))">
+                        @if (ejecutando4)
+                        {
+                            <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                            <text>Ejecutando...</text>
+                        }
+                        else
+                        {
+                            <text>Ejecutar Diagnóstico</text>
+                        }
+                    </MudButton>
+                </MudItem>
+            </MudGrid>
+
+            @if (resultado4 != null)
+            {
+                <MudDivider Class="my-4" />
+                <ComponenteDiagnostico Resultado="@resultado4" />
+            }
+        </MudPaper>
+    </MudItem>
+
+    <!-- Botón de ejecutar todos -->
+    <MudItem xs="12">
+        <MudPaper Elevation="2" Class="pa-4">
+            <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                <MudText Typo="Typo.h6">
+                    Ejecutar diagnóstico completo
+                </MudText>
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Secondary"
+                           StartIcon="@Icons.Material.Filled.Speed"
+                           OnClick="EjecutarTodos"
+                           Disabled="@ejecutandoTodos"
+                           Size="Size.Large">
+                    @if (ejecutandoTodos)
+                    {
+                        <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                        <text>Ejecutando todos...</text>
+                    }
+                    else
+                    {
+                        <text>Ejecutar Todos los Diagnósticos</text>
+                    }
+                </MudButton>
+            </MudStack>
+        </MudPaper>
+    </MudItem>
+</MudGrid>
+
+@code {
+    private bool ejecutando1, ejecutando2, ejecutando3, ejecutando4, ejecutandoTodos;
+    private DiagnosticoResultado? resultado1, resultado2, resultado3, resultado4;
+    private ConfiguracionDto config = new();
+
+    // Columnas esperadas según el uso en el sistema
+    private readonly List<string> colsPos10041 = new() { "CIDCAJA", "CSERIENOTA" };
+    private readonly List<string> colsPos10042 = new() { "CFECHACOR", "CIDCAJA", "CFACTURA", "CDEVOLUCIO" };
+    private readonly List<string> colsMgw10008 = new() { "CFECHA", "CIDDOCUM02", "CTOTAL", "CSERIEDO01", "CFOLIO", "CTEXTOEX03" };
+    private readonly List<string> colsMgw10005 = new() { "CCODIGOP01", "CNOMBREP01", "CPRECIO1", "CIMPUESTO1" };
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            config = await ConfigService.ObtenerConfiguracionAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error al cargar configuración: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task EjecutarDiagnostico(int archivo)
+    {
+        try
+        {
+            string ruta = "";
+            List<string> columnasEsperadas = new();
+
+            switch (archivo)
+            {
+                case 1:
+                    ruta = config.Pos10041Path;
+                    columnasEsperadas = colsPos10041;
+                    break;
+                case 2:
+                    ruta = config.Pos10042Path;
+                    columnasEsperadas = colsPos10042;
+                    break;
+                case 3:
+                    ruta = config.Mgw10008Path;
+                    columnasEsperadas = colsMgw10008;
+                    break;
+                case 4:
+                    ruta = config.Mgw10005Path;
+                    columnasEsperadas = colsMgw10005;
+                    break;
+            }
+
+            if (string.IsNullOrEmpty(ruta))
+            {
+                Snackbar.Add("No hay ruta configurada para este archivo", Severity.Warning);
+                return;
+            }
+
+            switch (archivo)
+            {
+                case 1:
+                    ejecutando1 = true;
+                    resultado1 = null;
+                    break;
+                case 2:
+                    ejecutando2 = true;
+                    resultado2 = null;
+                    break;
+                case 3:
+                    ejecutando3 = true;
+                    resultado3 = null;
+                    break;
+                case 4:
+                    ejecutando4 = true;
+                    resultado4 = null;
+                    break;
+            }
+
+            StateHasChanged();
+
+            var resultado = await FoxProService.DiagnosticarArchivoAsync(ruta, columnasEsperadas);
+
+            switch (archivo)
+            {
+                case 1:
+                    resultado1 = resultado;
+                    break;
+                case 2:
+                    resultado2 = resultado;
+                    break;
+                case 3:
+                    resultado3 = resultado;
+                    break;
+                case 4:
+                    resultado4 = resultado;
+                    break;
+            }
+
+            var mensaje = resultado.Exitoso ? "Diagnóstico completado exitosamente" : "Diagnóstico completado con errores";
+            var severidad = resultado.Exitoso ? Severity.Success : Severity.Error;
+            Snackbar.Add(mensaje, severidad);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error al ejecutar diagnóstico: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            switch (archivo)
+            {
+                case 1:
+                    ejecutando1 = false;
+                    break;
+                case 2:
+                    ejecutando2 = false;
+                    break;
+                case 3:
+                    ejecutando3 = false;
+                    break;
+                case 4:
+                    ejecutando4 = false;
+                    break;
+            }
+        }
+    }
+
+    private async Task EjecutarTodos()
+    {
+        ejecutandoTodos = true;
+
+        await EjecutarDiagnostico(1);
+        await EjecutarDiagnostico(2);
+        await EjecutarDiagnostico(3);
+        await EjecutarDiagnostico(4);
+
+        ejecutandoTodos = false;
+
+        Snackbar.Add("Todos los diagnósticos completados", Severity.Info);
+    }
+}

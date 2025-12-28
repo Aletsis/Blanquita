@@ -1,0 +1,12 @@
+@inject NavigationManager Navigation
+@code {
+    protected override void OnInitialized()
+    {
+        var returnUrl = Navigation.Uri;
+        // Avoid loop if already on login
+        if (!returnUrl.Contains("login"))
+        {
+            Navigation.NavigateTo($"login?returnUrl={Uri.EscapeDataString(returnUrl)}", forceLoad: true);
+        }
+    }
+}

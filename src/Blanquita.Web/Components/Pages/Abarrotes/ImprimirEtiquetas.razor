@@ -1,0 +1,340 @@
+﻿@page "/etiquetas"
+@using Blanquita.Application.Interfaces
+@using Blanquita.Application.DTOs
+@inject IPrinterService PrinterService
+@inject IFoxProReportService FoxProService
+@inject ISnackbar Snackbar
+@inject IPrintingService PrintingService
+@inject IDialogService DialogService
+@inject ILogger<ImprimirEtiquetas> Logger
+
+<PageTitle>Imprimir Etiquetas</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-4 animated fadeIn">
+    <MudText Typo="Typo.h4" Class="mb-6 font-weight-bold" Style="background: linear-gradient(45deg, #1e88e5, #5e35b1); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+        <MudIcon Icon="@Icons.Material.Filled.Receipt" Class="mr-2" Size="Size.Large" Color="Color.Primary" />
+        Impresión de Etiquetas
+    </MudText>
+
+    <MudGrid>
+        <MudItem xs="12" md="5">
+            <MudCard Elevation="4" Class="pa-4 rounded-lg">
+                <MudCardHeader>
+                    <CardHeaderContent>
+                        <MudText Typo="Typo.h6" Color="Color.Primary">
+                            <MudIcon Icon="@Icons.Material.Filled.Settings" Class="mr-2" />
+                            Configuración de Impresión
+                        </MudText>
+                    </CardHeaderContent>
+                </MudCardHeader>
+                <MudCardContent>
+                    <MudTextField @bind-Value="barcodeText"
+                                  @ref="barcodeInput"
+                                  Label="Código del Producto"
+                                  Variant="Variant.Outlined"
+                                  Adornment="Adornment.End"
+                                  AdornmentIcon="@Icons.Material.Filled.QrCodeScanner"
+                                  OnKeyUp="HandleBarcodeKeyUp"
+                                  Immediate="true"
+                                  Class="mb-4" />
+
+                    <MudButton Variant="Variant.Filled"
+                               Color="Color.Primary"
+                               FullWidth="true"
+                               StartIcon="@Icons.Material.Filled.Search"
+                               OnClick="BuscarProducto"
+                               Disabled="@(buscando || string.IsNullOrEmpty(barcodeText))"
+                               Class="mb-4 py-2">
+                        @if (buscando)
+                        {
+                            <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                            <text>Buscando...</text>
+                        }
+                        else
+                        {
+                            <text>Buscar Producto</text>
+                        }
+                    </MudButton>
+
+                    @if (productoEncontrado)
+                    {
+                        <div class="animate-fade-in">
+                            <MudDivider Class="my-4" />
+                            
+                            <MudSelect T="int" Label="Seleccionar Impresora" @bind-Value="selectedPrinterId" Variant="Variant.Outlined" AnchorOrigin="Origin.BottomCenter" Class="mb-4">
+                                @foreach (var printer in printers)
+                                {
+                                    <MudSelectItem Value="@printer.Id">
+                                        <div class="d-flex align-center">
+                                            <MudIcon Icon="@Icons.Material.Filled.Print" Size="Size.Small" Class="mr-2"/>
+                                            @printer.Name
+                                            <MudText Typo="Typo.caption" Class="ml-2 text-muted">(@printer.IpAddress)</MudText>
+                                        </div>
+                                    </MudSelectItem>
+                                }
+                            </MudSelect>
+
+                            <MudNumericField @bind-Value="cantidadEtiquetas"
+                                             @ref="quantityInput"
+                                             Label="Cantidad de Etiquetas"
+                                             Variant="Variant.Outlined"
+                                             Min="1"
+                                             Max="100"
+                                             Adornment="Adornment.Start"
+                                             AdornmentIcon="@Icons.Material.Filled.ContentCopy"
+                                             OnKeyUp="HandleQuantityKeyUp"
+                                             Class="mb-4" />
+
+                            <MudButton Variant="Variant.Filled"
+                                       StartIcon="@Icons.Material.Filled.Print"
+                                       Color="Color.Success"
+                                       OnClick="Imprimir"
+                                       FullWidth="true"
+                                       Size="Size.Large"
+                                       Class="py-2 elevation-4">
+                                Imprimir Etiquetas
+                            </MudButton>
+                            
+                            <MudButton Variant="Variant.Text" 
+                                       Color="Color.Error" 
+                                       FullWidth="true" 
+                                       OnClick="LimpiarBusqueda" 
+                                       Class="mt-2">
+                                Cancelar / Nueva Búsqueda
+                            </MudButton>
+                        </div>
+                    }
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+
+        <MudItem xs="12" md="7">
+            @if (buscando)
+            {
+                <MudPaper Elevation="0" Class="pa-12 d-flex flex-column align-center justify-center h-100 bg-transparent">
+                    <MudProgressCircular Size="Size.Large" Color="Color.Primary" Indeterminate="true" />
+                    <MudText Typo="Typo.h6" Class="mt-4 text-muted">Consultando base de datos...</MudText>
+                </MudPaper>
+            }
+            else if (productoEncontrado && producto != null)
+            {
+                <MudCard Elevation="4" Class="rounded-lg h-100 animate-slide-up" Style="background: linear-gradient(135deg, #ffffff 0%, #f5f5f5 100%);">
+                    <MudCardHeader>
+                        <CardHeaderContent>
+                            <MudText Typo="Typo.overline" Color="Color.Secondary">Detalles del Producto</MudText>
+                            <MudText Typo="Typo.h5" Class="font-weight-bold">@producto.Name</MudText>
+                            <MudChip T="string" Color="Color.Info" Size="Size.Small" Class="mt-1">@producto.Code</MudChip>
+                        </CardHeaderContent>
+                        <CardHeaderActions>
+                             <MudIcon Icon="@Icons.Material.Filled.Verified" Color="Color.Success" Size="Size.Large" />
+                        </CardHeaderActions>
+                    </MudCardHeader>
+                    <MudCardContent>
+                        <MudGrid>
+                            <MudItem xs="6">
+                                <MudText Typo="Typo.caption">Precio Base</MudText>
+                                <MudText Typo="Typo.h6">$@producto.BasePrice.ToString("F2")</MudText>
+                            </MudItem>
+                            <MudItem xs="6">
+                                <MudText Typo="Typo.caption">Impuesto</MudText>
+                                <MudText Typo="Typo.h6">@producto.TaxRate%</MudText>
+                            </MudItem>
+                            <MudItem xs="12">
+                                <MudDivider Class="my-2"/>
+                            </MudItem>
+                            <MudItem xs="12" Class="d-flex justify-center flex-column align-center mt-4">
+                                <MudText Typo="Typo.h4" Color="Color.Primary" Class="font-weight-bold">$@producto.PriceWithTax.ToString("F2")</MudText>
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">Precio Final</MudText>
+                            </MudItem>
+                        </MudGrid>
+                        
+                        <div class="d-flex justify-center mt-8">
+                             <MudIcon Icon="@Icons.Material.Filled.QrCode2" Size="Size.Large" Style="font-size: 6rem; opacity: 0.1;" />
+                        </div>
+                    </MudCardContent>
+                </MudCard>
+            }
+            else
+            {
+                <MudPaper Elevation="0" Class="pa-12 d-flex flex-column align-center justify-center h-100 bg-transparent border-dashed">
+                    <MudIcon Icon="@Icons.Material.Filled.Search" Size="Size.Large" Color="Color.Default" Style="font-size: 5rem; opacity: 0.2;" />
+                    <MudText Typo="Typo.h6" Class="mt-4 text-muted">Ingrese un código para comenzar</MudText>
+                    <MudText Typo="Typo.body2" Class="text-muted">Puede escanear el código de barras o escribirlo manualmente.</MudText>
+                </MudPaper>
+            }
+        </MudItem>
+    </MudGrid>
+</MudContainer>
+
+<style>
+    .animate-fade-in {
+        animation: fadeIn 0.5s ease-out;
+    }
+    .animate-slide-up {
+        animation: slideUp 0.5s ease-out;
+    }
+    @@keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+    @@keyframes slideUp {
+        from { transform: translateY(20px); opacity: 0; }
+        to { transform: translateY(0); opacity: 1; }
+    }
+    .border-dashed {
+        border: 2px dashed rgba(0,0,0,0.1);
+        border-radius: 8px;
+    }
+</style>
+
+@code {
+    private string barcodeText = "";
+    private bool buscando = false;
+    private bool productoEncontrado = false;
+    private int cantidadEtiquetas = 1;
+    private ProductDto? producto;
+    private List<PrinterDto> printers = new();
+    private int selectedPrinterId;
+    
+    // Refs for focus management
+    private MudTextField<string>? barcodeInput;
+    private MudNumericField<int>? quantityInput;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            printers = await PrinterService.GetAllAsync();
+            if (printers.Any())
+            {
+                selectedPrinterId = printers.First().Id;
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error al cargar impresoras");
+            Snackbar.Add("Error al cargar impresoras", Severity.Error);
+        }
+    }
+
+    private async Task BuscarProducto()
+    {
+        if (string.IsNullOrWhiteSpace(barcodeText)) return;
+
+        productoEncontrado = false;
+        buscando = true;
+        producto = null;
+        
+        Logger.LogInformation("Iniciando búsqueda de producto con código: {CodigoProducto}", barcodeText);
+        
+        try
+        {
+            producto = await FoxProService.GetProductByCodeAsync(barcodeText);
+            
+            if (producto != null)
+            {
+                productoEncontrado = true;
+                Logger.LogInformation("Producto encontrado: {NombreProducto}", producto.Name);
+                cantidadEtiquetas = 1;
+                
+                // Yield to let UI update before focusing
+                await Task.Delay(100);
+                if(quantityInput != null) await quantityInput.FocusAsync();
+            }
+            else
+            {
+                Logger.LogWarning("Producto no encontrado para código: {CodigoProducto}", barcodeText);
+                Snackbar.Add("Producto no encontrado", Severity.Error);
+                if(barcodeInput != null) await barcodeInput.SelectAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error al buscar producto con código: {CodigoProducto}", barcodeText);
+            Snackbar.Add($"Error al buscar producto: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            buscando = false;
+        }
+    }
+
+    private async Task HandleBarcodeKeyUp(KeyboardEventArgs args)
+    {
+        if (args.Key == "Enter")
+        {
+            await BuscarProducto();
+        }
+        else if (args.Key == "Escape")
+        {
+            LimpiarBusqueda();
+        }
+    }
+    
+    private async Task HandleQuantityKeyUp(KeyboardEventArgs args)
+    {
+        if (args.Key == "Enter")
+        {
+            await Imprimir();
+        }
+    }
+
+    private void LimpiarBusqueda()
+    {
+        barcodeText = "";
+        productoEncontrado = false;
+        producto = null;
+        cantidadEtiquetas = 1;
+        StateHasChanged();
+        // Focus back to barcode input effectively acts as "Ready for next one"
+         // Need to call this via InvokeAsync usually but here we are in event handler
+         if(barcodeInput != null) barcodeInput.FocusAsync();
+    }
+
+    private async Task Imprimir()
+    {
+        if (cantidadEtiquetas <= 0)
+        {
+            Snackbar.Add("Cantidad de etiquetas debe ser mayor a 0", Severity.Warning);
+            return;
+        }
+
+        var printer = printers.FirstOrDefault(p => p.Id == selectedPrinterId);
+        if (printer == null)
+        {
+            Snackbar.Add("Seleccione una impresora válida", Severity.Warning);
+            return;
+        }
+
+        Logger.LogInformation("Iniciando impresión de {Cantidad} etiquetas para producto {CodigoProducto}", 
+            cantidadEtiquetas, barcodeText);
+        
+        try
+        {
+            var label = new ZebraLabelDto
+            {
+                ProductCode = barcodeText,
+                ProductName = producto?.Name ?? "",
+                Price = producto?.PriceWithTax ?? 0,
+                PrinterIp = printer.IpAddress,
+                PrinterPort = printer.Port,
+                Quantity = cantidadEtiquetas
+            };
+
+            await PrintingService.PrintZebraLabelAsync(label);
+            
+            Snackbar.Add($"{cantidadEtiquetas} etiquetas enviadas a {printer.Name}", Severity.Success);
+            
+            // Optional: Reset after print or keep for reprint?
+            // Usually keep for reprint, or clear if user flow is rapid scanning.
+            // Let's keep it but focus back on quantity or barcode?
+            // User might want to scan next item immediately.
+            LimpiarBusqueda();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error al imprimir etiquetas");
+            Snackbar.Add($"Error al imprimir etiquetas: {ex.Message}", Severity.Error);
+        }
+    }
+}

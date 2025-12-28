@@ -1,0 +1,37 @@
+@using Blanquita.Application.DTOs
+@using Microsoft.AspNetCore.Components.Forms
+@inject ISnackbar Snackbar
+
+<MudDialog>
+    <DialogContent>
+        <MudForm @ref="form" Model="@Model" @bind-IsValid="@success">
+            <MudTextField @bind-Value="Model.Name" Label="Nombre" Required="true" RequiredError="El nombre es obligatorio" Variant="Variant.Outlined" Class="mb-3" />
+            <MudTextField @bind-Value="Model.IpAddress" Label="Dirección IP" Required="true" RequiredError="La IP es obligatoria" Variant="Variant.Outlined" Class="mb-3" />
+            <MudNumericField @bind-Value="Model.Port" Label="Puerto" Required="true" Variant="Variant.Outlined" Class="mb-3" Min="1" Max="65535" />
+        </MudForm>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancelar</MudButton>
+        <MudButton Color="Color.Primary" OnClick="Submit">Guardar</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] IMudDialogInstance MudDialog { get; set; }
+
+    [Parameter] public PrinterDto Model { get; set; } = new();
+
+    private MudForm form;
+    private bool success;
+
+    private void Cancel() => MudDialog.Cancel();
+
+    private async Task Submit()
+    {
+        await form.Validate();
+        if (form.IsValid)
+        {
+            MudDialog.Close(DialogResult.Ok(Model));
+        }
+    }
+}

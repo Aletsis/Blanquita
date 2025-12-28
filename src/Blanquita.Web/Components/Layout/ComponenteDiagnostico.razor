@@ -1,0 +1,324 @@
+﻿@using Blanquita.Application.Interfaces
+@using Blanquita.Application.DTOs
+@inject IFoxProReportService FoxProService
+
+<MudGrid>
+    <!-- Resumen del resultado -->
+    <MudItem xs="12">
+        <MudAlert Severity="@(Resultado.Exitoso ? Severity.Success : Severity.Error)" 
+                  Variant="Variant.Filled"
+                  Icon="@(Resultado.Exitoso ? Icons.Material.Filled.CheckCircle : Icons.Material.Filled.Error)">
+            <MudText Typo="Typo.h6">
+                @if (Resultado.Exitoso)
+                {
+                    <text>✓ Diagnóstico Exitoso</text>
+                }
+                else
+                {
+                    <text>✗ Diagnóstico con Errores</text>
+                }
+            </MudText>
+            <MudText Typo="Typo.body2">
+                Tiempo de ejecución: @Resultado.TiempoEjecucion.TotalSeconds.ToString("F2")s
+            </MudText>
+        </MudAlert>
+    </MudItem>
+
+    <!-- Errores -->
+    @if (Resultado.Errores.Any())
+    {
+        <MudItem xs="12">
+            <MudPaper Elevation="0" Class="pa-3" Style="background-color: #ffebee;">
+                <MudText Typo="Typo.subtitle1" Color="Color.Error" Class="mb-2">
+                    <MudIcon Icon="@Icons.Material.Filled.Error" Size="Size.Small" Class="mr-1" />
+                    Errores Encontrados
+                </MudText>
+                @foreach (var error in Resultado.Errores)
+                {
+                    <MudText Typo="Typo.body2" Color="Color.Error">• @error</MudText>
+                }
+            </MudPaper>
+        </MudItem>
+    }
+
+    <!-- Advertencias -->
+    @if (Resultado.Advertencias.Any())
+    {
+        <MudItem xs="12">
+            <MudPaper Elevation="0" Class="pa-3" Style="background-color: #fff3e0;">
+                <MudText Typo="Typo.subtitle1" Color="Color.Warning" Class="mb-2">
+                    <MudIcon Icon="@Icons.Material.Filled.Warning" Size="Size.Small" Class="mr-1" />
+                    Advertencias
+                </MudText>
+                @foreach (var advertencia in Resultado.Advertencias)
+                {
+                    <MudText Typo="Typo.body2" Color="Color.Warning">• @advertencia</MudText>
+                }
+            </MudPaper>
+        </MudItem>
+    }
+
+    <!-- Información del Archivo -->
+    <MudItem xs="12" md="6">
+        <MudPaper Elevation="1" Class="pa-3">
+            <MudText Typo="Typo.subtitle1" Class="mb-3">
+                <MudIcon Icon="@Icons.Material.Filled.Info" Size="Size.Small" Class="mr-1" />
+                Información del Archivo
+            </MudText>
+            
+            <MudList T="string" Dense="true">
+                <MudListItem>
+                    <div class="d-flex justify-space-between">
+                        <MudText Typo="Typo.body2"><strong>Nombre:</strong></MudText>
+                        <MudText Typo="Typo.body2">@Resultado.NombreArchivo</MudText>
+                    </div>
+                </MudListItem>
+                <MudListItem>
+                    <div class="d-flex justify-space-between">
+                        <MudText Typo="Typo.body2"><strong>Existe:</strong></MudText>
+                        <MudChip Size="Size.Small" 
+                                 Color="@(Resultado.ArchivoExiste ? Color.Success : Color.Error)">
+                            @(Resultado.ArchivoExiste ? "Sí" : "No")
+                        </MudChip>
+                    </div>
+                </MudListItem>
+                <MudListItem>
+                    <div class="d-flex justify-space-between">
+                        <MudText Typo="Typo.body2"><strong>Tamaño:</strong></MudText>
+                        <MudText Typo="Typo.body2">@FormatBytes(Resultado.TamañoBytes)</MudText>
+                    </div>
+                </MudListItem>
+                <MudListItem>
+                    <div class="d-flex justify-space-between">
+                        <MudText Typo="Typo.body2"><strong>Última modificación:</strong></MudText>
+                        <MudText Typo="Typo.body2">@Resultado.FechaModificacion?.ToString("dd/MM/yyyy HH:mm")</MudText>
+                    </div>
+                </MudListItem>
+            </MudList>
+        </MudPaper>
+    </MudItem>
+
+    <!-- Información de la Base de Datos -->
+    <MudItem xs="12" md="6">
+        <MudPaper Elevation="1" Class="pa-3">
+            <MudText Typo="Typo.subtitle1" Class="mb-3">
+                <MudIcon Icon="@Icons.Material.Filled.Storage" Size="Size.Small" Class="mr-1" />
+                Información de la Base de Datos
+            </MudText>
+            
+            <MudList T="string" Dense="true">
+                <MudListItem>
+                    <div class="d-flex justify-space-between">
+                        <MudText Typo="Typo.body2"><strong>Conexión:</strong></MudText>
+                        <MudChip Size="Size.Small" 
+                                 Color="@(Resultado.ConexionExitosa ? Color.Success : Color.Error)">
+                            @(Resultado.ConexionExitosa ? "Exitosa" : "Fallida")
+                        </MudChip>
+                    </div>
+                </MudListItem>
+                <MudListItem>
+                    <div class="d-flex justify-space-between">
+                        <MudText Typo="Typo.body2"><strong>Registros:</strong></MudText>
+                        <MudText Typo="Typo.body2">@Resultado.NumeroRegistros.ToString("N0")</MudText>
+                    </div>
+                </MudListItem>
+                <MudListItem>
+                    <div class="d-flex justify-space-between">
+                        <MudText Typo="Typo.body2"><strong>Columnas encontradas:</strong></MudText>
+                        <MudText Typo="Typo.body2">@Resultado.Columnas.Count</MudText>
+                    </div>
+                </MudListItem>
+                <MudListItem>
+                    <div class="d-flex justify-space-between">
+                        <MudText Typo="Typo.body2"><strong>Columnas esperadas:</strong></MudText>
+                        <MudText Typo="Typo.body2">@Resultado.ColumnasEsperadas.Count</MudText>
+                    </div>
+                </MudListItem>
+            </MudList>
+        </MudPaper>
+    </MudItem>
+
+    <!-- Estructura de Columnas -->
+    @if (Resultado.Columnas.Any())
+    {
+        <MudItem xs="12">
+            <MudExpansionPanels>
+                <MudExpansionPanel Text="Estructura de Columnas" Icon="@Icons.Material.Filled.TableChart">
+                    <MudTable Items="@Resultado.Columnas" Dense="true" Hover="true" Striped="true">
+                        <HeaderContent>
+                            <MudTh>Nombre</MudTh>
+                            <MudTh>Tipo de Dato</MudTh>
+                            <MudTh>Tamaño</MudTh>
+                            <MudTh>Permite Nulos</MudTh>
+                            <MudTh>Estado</MudTh>
+                        </HeaderContent>
+                        <RowTemplate>
+                            <MudTd DataLabel="Nombre">
+                                <MudText Typo="Typo.body2">@context.Nombre</MudText>
+                            </MudTd>
+                            <MudTd DataLabel="Tipo">
+                                <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined">@context.TipoDato</MudChip>
+                            </MudTd>
+                            <MudTd DataLabel="Tamaño">
+                                <MudText Typo="Typo.body2">@(context.Tamaño?.ToString() ?? "N/A")</MudText>
+                            </MudTd>
+                            <MudTd DataLabel="Nulos">
+                                <MudText Typo="Typo.body2">@(context.PermiteNulos ? "Sí" : "No")</MudText>
+                            </MudTd>
+                            <MudTd DataLabel="Estado">
+                                @if (Resultado.ColumnasEsperadas.Any(ce => ce.Equals(context.Nombre, StringComparison.OrdinalIgnoreCase)))
+                                {
+                                    <MudChip T="string" Size="Size.Small" Color="Color.Success" Icon="@Icons.Material.Filled.CheckCircle">
+                                        Esperada
+                                    </MudChip>
+                                }
+                                else
+                                {
+                                    <MudChip T="string" Size="Size.Small" Color="Color.Default" Icon="@Icons.Material.Filled.Info">
+                                        Adicional
+                                    </MudChip>
+                                }
+                            </MudTd>
+                        </RowTemplate>
+                    </MudTable>
+                </MudExpansionPanel>
+            </MudExpansionPanels>
+        </MudItem>
+    }
+
+    <!-- Registros de Muestra -->
+    @if (Resultado.ConexionExitosa && Resultado.NumeroRegistros > 0)
+    {
+        <MudItem xs="12">
+            <MudExpansionPanels>
+                <MudExpansionPanel Text="Registros de Muestra (5 primeros)" 
+                                   Icon="@Icons.Material.Filled.Preview"
+                                   @bind-IsExpanded="@mostrarMuestra" ExpandedChanged="OnMuestraExpandChanged">
+                    @if (mostrarMuestra && !cargandoMuestra)
+                    {
+                        @if (registrosMuestra != null && registrosMuestra.Any())
+                        {
+                            <MudPaper Elevation="0" Class="pa-2" Style="overflow-x: auto;">
+                                <MudSimpleTable Dense="true" Hover="true" Striped="true" Style="white-space: nowrap;">
+                                    <thead>
+                                        <tr>
+                                            <th style="font-weight: bold; background-color: #f5f5f5;">#</th>
+                                            @foreach (var columna in registrosMuestra.First().Keys)
+                                            {
+                                                <th style="font-weight: bold; background-color: #f5f5f5;">@columna</th>
+                                            }
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @for (int i = 0; i < registrosMuestra.Count; i++)
+                                        {
+                                            var registro = registrosMuestra[i];
+                                            <tr>
+                                                <td style="font-weight: bold;">@(i + 1)</td>
+                                                @foreach (var valor in registro.Values)
+                                                {
+                                                    <td>
+                                                        <MudText Typo="Typo.body2">
+                                                            @(valor?.ToString() ?? "(NULL)")
+                                                        </MudText>
+                                                    </td>
+                                                }
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </MudSimpleTable>
+                            </MudPaper>
+                        }
+                        else
+                        {
+                            <MudText Typo="Typo.body2" Color="Color.Secondary">
+                                No se pudieron cargar registros de muestra
+                            </MudText>
+                        }
+                    }
+                    else if (cargandoMuestra)
+                    {
+                        <div class="d-flex justify-center pa-4">
+                            <MudProgressCircular Indeterminate="true" />
+                        </div>
+                    }
+                </MudExpansionPanel>
+            </MudExpansionPanels>
+        </MudItem>
+    }
+
+    <!-- Logs Detallados -->
+    <MudItem xs="12">
+        <MudExpansionPanels>
+            <MudExpansionPanel Text="Logs Detallados" Icon="@Icons.Material.Filled.Article">
+                <MudPaper Elevation="0" Class="pa-3" Style="background-color: #263238; color: #aed581; font-family: 'Courier New', monospace; max-height: 400px; overflow-y: auto;">
+                    @foreach (var log in Resultado.Logs)
+                    {
+                        <MudText Typo="Typo.body2" Style="color: #aed581; margin-bottom: 4px;">@log</MudText>
+                    }
+                </MudPaper>
+            </MudExpansionPanel>
+        </MudExpansionPanels>
+    </MudItem>
+</MudGrid>
+
+@code {
+    [Parameter]
+    public DiagnosticoResultado Resultado { get; set; } = default!;
+
+    private bool mostrarMuestra = false;
+    private bool cargandoMuestra = false;
+    private List<Dictionary<string, object>>? registrosMuestra;
+
+    protected override void OnParametersSet()
+    {
+        // Reset cuando cambia el resultado
+        registrosMuestra = null;
+        mostrarMuestra = false;
+    }
+
+    private async Task OnMuestraExpandChanged(bool expanded)
+    {
+        mostrarMuestra = expanded;
+
+        if (expanded && registrosMuestra == null && Resultado.ConexionExitosa && Resultado.NumeroRegistros > 0)
+        {
+            await CargarRegistrosMuestra();
+        }
+    }
+
+    private async Task CargarRegistrosMuestra()
+    {
+        cargandoMuestra = true;
+        StateHasChanged();
+
+        try
+        {
+            registrosMuestra = await FoxProService.ObtenerRegistrosMuestraAsync(Resultado.RutaCompleta, 5);
+        }
+        catch
+        {
+            registrosMuestra = new List<Dictionary<string, object>>();
+        }
+        finally
+        {
+            cargandoMuestra = false;
+            StateHasChanged();
+        }
+    }
+
+    private string FormatBytes(long bytes)
+    {
+        string[] sizes = { "B", "KB", "MB", "GB" };
+        double len = bytes;
+        int order = 0;
+        
+        while (len >= 1024 && order < sizes.Length - 1)
+        {
+            order++;
+            len = len / 1024;
+        }
+
+        return $"{len:0.##} {sizes[order]}";
+    }
+}

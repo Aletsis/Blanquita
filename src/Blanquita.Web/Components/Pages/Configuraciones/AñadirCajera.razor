@@ -1,0 +1,209 @@
+﻿@page "/añadir-cajera"
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize]
+@using System.ComponentModel.DataAnnotations
+@using Blanquita.Application.DTOs
+@using Blanquita.Application.Interfaces
+@inject ICashierService CashierService
+@inject IBranchService BranchService
+@inject ILogger<AñadirCajera> Logger
+@inject ISnackbar Snackbar
+
+<MudText Typo="Typo.h3" Align="Align.Center">Añadir cajera</MudText>
+<EditForm Model="model" OnValidSubmit="GuardarCajera">
+    <DataAnnotationsValidator />
+    <MudGrid Justify="Justify.Center">
+        <MudItem xs="12" sm="7">
+            <MudCard>
+                <MudCardContent>
+                    <MudTextField @bind-Value="model.Name" Label="Nombre de cajera" Variant="Variant.Text"></MudTextField>
+                    <MudNumericField @bind-Value="model.EmployeeNumber" Label="Numero de nomina" Variant="Variant.Text"></MudNumericField>
+                    <MudSelect T="int" Label="Seleccione sucursal" @bind-Value="model.BranchId">
+                        @foreach (var sucursal in sucursales)
+                        {
+                            <MudSelectItem T="int" Value="@sucursal.Id">@sucursal.Name</MudSelectItem>
+                        }
+                    </MudSelect>
+                    <MudSwitch @bind-Value="model.IsActive" Label="Activa:" LabelPlacement="Placement.Start" Color="Color.Primary"></MudSwitch>
+                </MudCardContent>
+                <MudCardActions>
+                    @if (isEditing)
+                    {
+                        <MudButton Variant="Variant.Text" Color="Color.Error" OnClick="CancelEdit">Cancelar</MudButton>
+                    }
+                    <MudButton ButtonType="ButtonType.Submit"
+                               Variant="Variant.Filled"
+                               Color="Color.Primary"
+                               Class="ml-auto">
+                        @(isEditing ? "Actualizar" : "Guardar")
+                    </MudButton>
+                </MudCardActions>
+            </MudCard>
+        </MudItem>
+    </MudGrid>
+</EditForm>
+<MudTable ServerData="ServerReload" Dense="true" Hover="true" @ref="table">
+    <ToolBarContent>
+        <MudText Typo="Typo.h6">Cajeras</MudText>
+        <MudSpacer />
+        <MudTextField T="string" ValueChanged="@(s=>OnSearch(s))" Placeholder="Buscar" Adornment="Adornment.Start"
+                      AdornmentIcon="@Icons.Material.Filled.Search" IconSize="Size.Medium" Class="mt-0"></MudTextField>
+    </ToolBarContent>
+    <HeaderContent>
+        <MudTh><MudTableSortLabel SortLabel="Id" T="CashierDto">Id</MudTableSortLabel></MudTh>
+        <MudTh><MudTableSortLabel SortLabel="EmployeeNumber" T="CashierDto">Nomina</MudTableSortLabel></MudTh>
+        <MudTh><MudTableSortLabel SortLabel="Name" T="CashierDto">Nombre</MudTableSortLabel></MudTh>
+        <MudTh><MudTableSortLabel SortLabel="BranchId" T="CashierDto">Sucursal</MudTableSortLabel></MudTh>
+        <MudTh>Activa</MudTh>
+        <MudTh>Acciones</MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd DataLabel="Id">@context.Id</MudTd>
+        <MudTd DataLabel="EmployeeNumber">@context.EmployeeNumber</MudTd>
+        <MudTd DataLabel="Name">@context.Name</MudTd>
+        <MudTd DataLabel="BranchId">@GetSucursalName(context.BranchId)</MudTd>
+        <MudTd DataLabel="Activa">@(context.IsActive ? "Sí" : "No")</MudTd>
+        <MudTd>
+            <MudIconButton Icon="@Icons.Material.Filled.Edit"
+                           Color="Color.Primary"
+                           Class="pa-0 ma-0 min-width-auto"
+                           OnClick="@(() => EditCajera(context))" />
+        </MudTd>
+    </RowTemplate>
+    <NoRecordsContent>
+        <MudText>No matching records found</MudText>
+    </NoRecordsContent>
+    <LoadingContent>
+        <MudText>Loading...</MudText>
+    </LoadingContent>
+    <PagerContent>
+        <MudTablePager />
+    </PagerContent>
+</MudTable>
+
+@code {
+    private CashierViewModel model = new() { BranchId = 0, IsActive = true };
+    private bool isEditing = false;
+    private int editingId = 0;
+    
+    private IEnumerable<BranchDto> sucursales = Enumerable.Empty<BranchDto>();
+
+    private MudTable<CashierDto>? table;
+    private string searchString = "";
+    
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            sucursales = await BranchService.GetAllAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error loading branches");
+            Snackbar.Add("Error al cargar sucursales", Severity.Error);
+        }
+    }
+    
+    private string GetSucursalName(int id) => sucursales.FirstOrDefault(s => s.Id == id)?.Name ?? id.ToString();
+
+    private void EditCajera(CashierDto selected)
+    {
+        editingId = selected.Id;
+        model = new CashierViewModel
+        {
+            Name = selected.Name,
+            EmployeeNumber = selected.EmployeeNumber,
+            BranchId = selected.BranchId,
+            IsActive = selected.IsActive
+        };
+        isEditing = true;
+        StateHasChanged();
+    }
+
+    private void CancelEdit()
+    {
+        model = new CashierViewModel { BranchId = 0, IsActive = true };
+        isEditing = false;
+        editingId = 0;
+        StateHasChanged();
+    }
+
+    private async Task<TableData<CashierDto>> ServerReload(TableState state, CancellationToken token)
+    {
+        try 
+        {
+            var request = new SearchCashierRequest
+            {
+                SearchTerm = searchString,
+                Page = state.Page + 1, // MudTable usa índice basado en 0, DTO usa basado en 1
+                PageSize = state.PageSize,
+                SortColumn = state.SortLabel,
+                SortAscending = state.SortDirection != SortDirection.Descending
+            };
+
+            var result = await CashierService.GetPagedAsync(request, token);
+            
+            return new TableData<CashierDto>() { TotalItems = result.TotalCount, Items = result.Items };
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error loading cashiers");
+            return new TableData<CashierDto>() { TotalItems = 0, Items = Array.Empty<CashierDto>() };
+        }
+    }
+
+    private void OnSearch(string text)
+    {
+        searchString = text;
+        table.ReloadServerData();
+    }
+
+    private async Task GuardarCajera()
+    {
+        try
+        {
+            if (isEditing)
+            {
+                var updateDto = new UpdateCashierDto
+                {
+                    Id = editingId,
+                    Name = model.Name,
+                    EmployeeNumber = model.EmployeeNumber,
+                    BranchId = model.BranchId,
+                    IsActive = model.IsActive
+                };
+                await CashierService.UpdateAsync(updateDto);
+                Snackbar.Add("Cajera actualizada exitosamente", Severity.Success);
+            }
+            else
+            {
+                var createDto = new CreateCashierDto
+                {
+                    Name = model.Name,
+                    EmployeeNumber = model.EmployeeNumber,
+                    BranchId = model.BranchId,
+                    IsActive = model.IsActive
+                };
+                await CashierService.CreateAsync(createDto);
+                Snackbar.Add("Cajera registrada exitosamente", Severity.Success);
+            }
+
+            await table.ReloadServerData();
+            CancelEdit();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error al guardar la cajera");
+            Snackbar.Add($"Error: {ex.Message}", Severity.Error);
+        }
+    }
+
+    public class CashierViewModel
+    {
+        [Required]
+        public string Name { get; set; } = string.Empty;
+        public int EmployeeNumber { get; set; }
+        public int BranchId { get; set; }
+        public bool IsActive { get; set; } = true;
+    }
+}

@@ -1,0 +1,182 @@
+﻿@page "/corte-caja"
+@using Blanquita.Application.DTOs
+@using Blanquita.Application.Interfaces
+@inject ICashRegisterService CashRegisterService
+@inject IPrintingService PrintingService
+@inject ISnackbar Snackbar
+@inject ISupervisorService SupervisorService
+@inject ICashierService CashierService
+@inject ICashCutService CashCutService
+
+<PageTitle>Corte de Caja</PageTitle>
+
+<MudText Typo="Typo.h3" Align="Align.Center">Corte de caja</MudText>
+<EditForm Model="model" OnValidSubmit="HacerCorte">
+    <MudGrid Justify="Justify.Center">
+        <MudItem xs="12" sm="7">
+            <MudCard>
+                <MudCardContent>
+                    <MudSelect T="int" Label="Seleccione encargada" Value="_selectedSupervisorId" ValueChanged="@(async (int value) => await OnSupervisorChanged(value))">
+                        @if (supervisors == null)
+                        {
+                            <MudSelectItem T="int" Value="0">Cargando...</MudSelectItem>
+                        }
+                        else
+                        {
+                            @foreach (var supervisor in supervisors)
+                            {
+                                <MudSelectItem T="int" Value="@supervisor.Id">@supervisor.Name</MudSelectItem>
+                            }
+                        }
+                    </MudSelect>
+                    <MudSelect T="int" Label="Seleccione cajera" @bind-Value="_selectedCashierId">
+                        @if (cashiers == null)
+                        {
+                            <MudSelectItem T="int" Value="0">Cargando...</MudSelectItem>
+                        }
+                        else
+                        {
+                            @foreach (var cashier in cashiers)
+                            {
+                                if (cashier.IsActive)
+                                {
+                                    <MudSelectItem T="int" Value="@cashier.Id">@cashier.Name</MudSelectItem>
+                                }
+                            }
+                        }
+                    </MudSelect>
+                    <MudSelect T="int" Label="Seleccione caja" @bind-Value="_selectedCashRegisterId">
+                        @if (cashRegisters == null)
+                        {
+                            <MudSelectItem T="int" Value="0">Cargando...</MudSelectItem>
+                        }
+                        else
+                        {
+                            @foreach (var register in cashRegisters)
+                            {
+                                <MudSelectItem T="int" Value="@register.Id">@register.Name</MudSelectItem>
+                            }
+                        }
+                    </MudSelect>
+                    <MudNumericField @bind-Value="model.TotalSlips" Label="Ingrese total de tira" Variant="Variant.Text" Min="0" />
+                    <MudNumericField @bind-Value="model.TotalCards" Label="Ingrese total cobrado con tarjeta" Variant="Variant.Text" Min="0" />
+                </MudCardContent>
+                <MudCardActions>
+                    <MudButton ButtonType="ButtonType.Submit"
+                                Variant="Variant.Filled"
+                                Color="Color.Primary" 
+                                Class="ml-auto"
+                                Disabled="@_isSubmitting">
+                                @(_isSubmitting ? "Procesando..." : "Realizar Corte")
+                    </MudButton>
+                </MudCardActions>
+            </MudCard>
+        </MudItem>
+    </MudGrid>
+</EditForm>
+
+@code {
+    private CashCutViewModel model = new CashCutViewModel();
+    private int _selectedCashRegisterId = 0;
+    private List<CashRegisterDto>? cashRegisters;
+    private int _selectedSupervisorId = 0;
+    private int _selectedCashierId = 0;
+    private List<SupervisorDto>? supervisors;
+    private List<CashierDto>? cashiers;
+    private SupervisorDto? _selectedSupervisor;
+    private bool _isSubmitting = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        supervisors = (await SupervisorService.GetAllAsync()).ToList();
+        cashiers = new List<CashierDto>();
+        cashRegisters = new List<CashRegisterDto>();
+    }
+
+    private async Task OnSupervisorChanged(int supervisorId)
+    {
+        _selectedSupervisorId = supervisorId;
+        _selectedCashierId = 0; 
+        _selectedCashRegisterId = 0;
+
+        if (supervisorId > 0)
+        {
+            _selectedSupervisor = await SupervisorService.GetByIdAsync(supervisorId);
+            
+            // Usar GetByBranchAsync que aún existe en los servicios
+            cashRegisters = (await CashRegisterService.GetByBranchAsync(_selectedSupervisor.BranchId)).ToList();
+            cashiers = (await CashierService.GetByBranchAsync(_selectedSupervisor.BranchId)).ToList(); 
+        }
+        else
+        {
+            cashRegisters = new List<CashRegisterDto>();
+            cashiers = new List<CashierDto>();
+        }
+
+        StateHasChanged();
+    }
+
+    private async Task HacerCorte()
+    {
+        if (_isSubmitting) return;
+        if (_selectedSupervisorId == 0 || _selectedCashierId == 0 || _selectedCashRegisterId == 0)
+        {
+            Snackbar.Add("❗ Debe seleccionar encargada, cajera y caja.", Severity.Warning);
+            return;
+        }
+        _isSubmitting = true;
+        try
+        {
+            // 1. Prepare Request
+            var request = new ProcessCashCutRequest
+            {
+                SupervisorId = _selectedSupervisorId,
+                CashierId = _selectedCashierId,
+                CashRegisterId = _selectedCashRegisterId,
+                TotalSlips = model.TotalSlips,
+                TotalCards = model.TotalCards
+            };
+
+            // 2. Delegate Business Logic to Service
+            var savedCut = await CashCutService.ProcessCashCutAsync(request);
+
+            // 3. Print (Presentation/Side-effect)
+            // We need printer info, so we fetch the register
+            // Optimization: Could request printer info as part of the service result wrap, but redundant for DTO.
+            var register = await CashRegisterService.GetByIdAsync(_selectedCashRegisterId);
+
+            try
+            {
+                await PrintingService.PrintCashCutAsync(savedCut, register.PrinterIp, register.PrinterPort);
+                Snackbar.Add("✅ Corte impreso correctamente", Severity.Success);
+            }
+            catch (Exception)
+            {
+                 Snackbar.Add("❌ Error al imprimir corte.", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"❌ Error general al realizar el corte: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            ResetForm();
+            _isSubmitting = false;
+        }
+    }
+
+    private void ResetForm()
+    {
+        _selectedSupervisorId = 0;
+        _selectedCashierId = 0;
+        _selectedCashRegisterId = 0;
+        model = new CashCutViewModel();
+    }
+
+    public class CashCutViewModel
+    {
+        public decimal TotalSlips { get; set; }
+        public decimal TotalCards { get; set; }
+    }
+}

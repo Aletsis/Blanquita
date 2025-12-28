@@ -1,0 +1,98 @@
+﻿@page "/recoleccion"
+@using Blanquita.Application.DTOs
+
+<PageTitle>Recoleccion</PageTitle>
+
+<MudText Typo="Typo.h3">Recoleccion de efectivo</MudText>
+<MudGrid>
+    @if (_isError && !string.IsNullOrEmpty(_errorMessage))
+    {
+        <MudItem xs="12">
+            <MudAlert Severity="Severity.Error">@_errorMessage</MudAlert>
+        </MudItem>
+    }
+
+    <!-- Mostrar mensaje de éxito -->
+    @if (!_isError && _isSubmitting)
+    {
+        <MudItem xs="12">
+            <MudAlert Severity="Severity.Info">Procesando recolección...</MudAlert>
+        </MudItem>
+    }
+    <MudItem xs="12" sm="6">
+        <MudCard>
+            <MudCardContent>
+                <MudSelect T="int" Label="Seleccione encargada" Value="_selectedSupervisorId" ValueChanged="@(async (int value) => await OnSupervisorChanged(value))">
+                    @if (supervisors == null)
+                    {
+                        <MudSelectItem T="int" Value="0">Cargando...</MudSelectItem>
+                    }
+                    else
+                    {
+                        @foreach (var sup in supervisors)
+                        {
+                            <MudSelectItem T="int" Value="@sup.Id">@sup.Name</MudSelectItem>
+                        }
+                    }
+                </MudSelect>
+                <MudSelect T="int" Label="Seleccione cajera" @bind-Value="_selectedCashierId">
+                    @if (cashiers == null)
+                    {
+                        <MudSelectItem T="int" Value="0">Cargando...</MudSelectItem>
+                    }
+                    else
+                    {
+                        @foreach (var cashier in cashiers)
+                        {
+                            if (cashier.IsActive)
+                            {
+                                <MudSelectItem T="int" Value="@cashier.Id">@cashier.Name</MudSelectItem>
+                            }
+                        }
+                    }
+                </MudSelect>
+                <MudSelect T="int" Label="Seleccione caja" @bind-Value="_selectedCashRegisterId">
+                    @if (cashRegisters == null)
+                    {
+                        <MudSelectItem T="int" Value="0">Cargando...</MudSelectItem>
+                    }
+                    else
+                    {
+                        @foreach (var reg in cashRegisters)
+                        {
+                            <MudSelectItem T="int" Value="@reg.Id">@reg.Name</MudSelectItem>
+                        }
+                    }
+                </MudSelect>
+            </MudCardContent>
+        </MudCard>
+    </MudItem>
+    <MudItem xs="12" sm="6">
+        <MudCard>
+            <MudCardContent>
+                <MudNumericField @bind-Value="_c1000" Label="$1000" Variant="Variant.Text" Min="0" />
+                <MudNumericField @bind-Value="_c500" Label="$500" Variant="Variant.Text" Min="0" />
+                <MudNumericField @bind-Value="_c200" Label="$200" Variant="Variant.Text" Min="0" />
+                <MudNumericField @bind-Value="_c100" Label="$100" Variant="Variant.Text" Min="0" />
+                <MudNumericField @bind-Value="_c50" Label="$50" Variant="Variant.Text" Min="0" />
+                <MudNumericField @bind-Value="_c20" Label="$20" Variant="Variant.Text" Min="0" />
+                <MudStack Spacing="2">
+                    <MudText Typo="Typo.button">Total:</MudText>
+                    <MudPaper Class="pa-3">
+                        <MudText Typo="Typo.button">$ @(_c1000 * 1000 + _c500 * 500 + _c200 * 200 + _c100 * 100 + _c50 * 50 + _c20 * 20).00</MudText>
+                    </MudPaper>
+                </MudStack>
+            </MudCardContent>
+            <MudCardActions>
+                <MudStack Spacing="2">
+                    <MudButton Variant="Variant.Filled"
+                               Color="Color.Primary"
+                               OnClick="@ImprimirReco"
+                               Disabled="@_isSubmitting">
+                        @(_isSubmitting ? "Procesando..." : "Imprimir")
+                    </MudButton>
+                </MudStack>
+            </MudCardActions>
+        </MudCard>
+    </MudItem>
+</MudGrid>

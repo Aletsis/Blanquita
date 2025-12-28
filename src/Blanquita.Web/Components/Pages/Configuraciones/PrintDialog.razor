@@ -1,0 +1,162 @@
+﻿@using Blanquita.Application.DTOs
+@using Blanquita.Application.Interfaces
+@using Microsoft.Extensions.Logging
+@inject ICashRegisterService CashRegisterService
+@inject ICashCollectionService CashCollectionService
+@inject ICashierService CashierService
+@inject ISupervisorService SupervisorService
+@inject IPrintingService PrintingService
+@inject ICashCutService CashCutService
+@inject ISnackbar Snackbar
+@inject ILogger<PrintDialog> Logger
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">
+            <MudIcon Icon="@Icons.Material.Filled.Print" Class="mr-3 mb-n1" />
+            Seleccione una impresora
+        </MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudSelect T="int" Label="Seleccione caja" @bind-Value="_selectedCajaId" Required="true" RequiredError="Debe seleccionar una caja">
+            @if (cashRegisters == null)
+            {
+                <MudSelectItem T="int" Value="0">Cargando...</MudSelectItem>
+            }
+            else
+            {
+                @foreach (var reg in cashRegisters)
+                {
+                    <MudSelectItem T="int" Value="@reg.Id">@reg.Name</MudSelectItem>
+                }
+            }
+        </MudSelect>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancelar</MudButton>
+        <MudButton Color="Color.Primary" OnClick="Imprimir" Disabled="_imprimiendo">
+            @if (_imprimiendo)
+            {
+                <MudProgressCircular Class="mr-2" Size="Size.Small" Indeterminate="true" />
+            }
+            Imprimir
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    private IMudDialogInstance MudDialog { get; set; } = null!;
+    
+    [Parameter]
+    public int idReco { get; set; }
+    
+    [Parameter]
+    public string accion { get; set; } = string.Empty;
+    
+    private int _selectedCajaId = 0;
+    private List<CashRegisterDto>? cashRegisters;
+    private bool _imprimiendo = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            Logger.LogInformation("Cargando cajas registradoras para impresión");
+            var result = await CashRegisterService.GetAllAsync();
+            cashRegisters = result.ToList();
+            Logger.LogInformation("Se cargaron {Count} cajas registradoras", cashRegisters.Count);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error al cargar las cajas registradoras");
+            Snackbar.Add("Error al cargar las cajas registradoras", Severity.Error);
+            cashRegisters = new List<CashRegisterDto>();
+        }
+    }
+    
+    private async Task Imprimir()
+    {
+        if (_selectedCajaId == 0)
+        {
+            Snackbar.Add("Por favor seleccione una caja", Severity.Warning);
+            return;
+        }
+
+        _imprimiendo = true;
+        
+        try
+        {
+            Logger.LogInformation("Obteniendo información de la caja con ID: {CajaId}", _selectedCajaId);
+            var selectedPrinter = await CashRegisterService.GetByIdAsync(_selectedCajaId);
+            
+            if (selectedPrinter == null)
+            {
+                Logger.LogWarning("No se encontró la caja con ID: {CajaId}", _selectedCajaId);
+                Snackbar.Add("No se encontró la caja seleccionada", Severity.Error);
+                return;
+            }
+            
+            if (accion == "Reco")
+            {
+                await ImprimirRecoleccion(selectedPrinter);
+            }
+            else if (accion == "Corte")
+            {
+                await ImprimirCorte(selectedPrinter);
+            }
+            else
+            {
+                Logger.LogWarning("Acción de impresión desconocida: {Accion}", accion);
+                Snackbar.Add("Tipo de impresión no válido", Severity.Error);
+                return;
+            }
+            
+            Snackbar.Add("Impresión enviada correctamente", Severity.Success);
+            MudDialog.Close(DialogResult.Ok(true));
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error al imprimir {Accion} con ID: {Id}", accion, idReco);
+            Snackbar.Add($"Error al imprimir: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _imprimiendo = false;
+        }
+    }
+
+    private async Task ImprimirRecoleccion(CashRegisterDto printer)
+    {
+        Logger.LogInformation("Imprimiendo recolección con ID: {Id}", idReco);
+        var collection = await CashCollectionService.GetByIdAsync(idReco);
+        
+        if (collection == null)
+        {
+            Logger.LogWarning("No se encontró la recolección con ID: {Id}", idReco);
+            Snackbar.Add("No se encontró la recolección", Severity.Error);
+            return;
+        }
+        
+        await PrintingService.PrintCashCollectionAsync(collection, printer.PrinterIp, printer.PrinterPort);
+        Logger.LogInformation("Recolección {Id} impresa exitosamente", idReco);
+    }
+
+    private async Task ImprimirCorte(CashRegisterDto printer)
+    {
+        Logger.LogInformation("Imprimiendo corte con ID: {Id}", idReco);
+        var cut = await CashCutService.GetByIdAsync(idReco);
+        
+        if (cut == null)
+        {
+            Logger.LogWarning("No se encontró el corte con ID: {Id}", idReco);
+            Snackbar.Add("No se encontró el corte", Severity.Error);
+            return;
+        }
+        
+        await PrintingService.PrintCashCutAsync(cut, printer.PrinterIp, printer.PrinterPort);
+        Logger.LogInformation("Corte {Id} impreso exitosamente", idReco);
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+}

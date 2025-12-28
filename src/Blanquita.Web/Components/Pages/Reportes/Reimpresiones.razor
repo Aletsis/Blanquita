@@ -1,0 +1,209 @@
+﻿@page "/reimprimir_CorteReco"
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize]
+@using Blanquita.Application.DTOs
+@using Blanquita.Application.Interfaces
+@using Blanquita.Domain.Enums
+@using Blanquita.Web.Components.Pages.Configuraciones
+@using Microsoft.Extensions.Logging
+@inject ICashCollectionService CashCollectionService
+@inject ICashCutService CashCutService
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+@inject ILogger<Reimpresiones> Logger
+
+<PageTitle>Reimpresión Cortes/Recos - Sistema de Reportes</PageTitle>
+
+<MudText Typo="Typo.h4" Class="mb-4">
+    <MudIcon Icon="@Icons.Material.Filled.History" Class="mr-2" />
+    Histórico de Reportes
+</MudText>
+
+<MudGrid>
+    <MudItem xs="12">
+        <MudPaper Elevation="2" Class="pa-4">
+            <MudGrid>
+                <MudItem xs="12" md="3">
+                    <MudSelect @bind-Value="tipoReporte" Label="Tipo" Variant="Variant.Outlined">
+                        <MudSelectItem Value="@TipoReporte.Recolecciones">Recolecciones</MudSelectItem>
+                        <MudSelectItem Value="@TipoReporte.Cortes">Cortes</MudSelectItem>
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="12" md="3">
+                    <MudDatePicker @bind-Date="fechaInicio" Label="Fecha Inicio" Variant="Variant.Outlined" Clearable="true" />
+                </MudItem>
+                <MudItem xs="12" md="3">
+                    <MudDatePicker @bind-Date="fechaFin" Label="Fecha Fin" Variant="Variant.Outlined" Clearable="true" />
+                </MudItem>
+                <MudItem xs="12" md="3" Class="d-flex align-end">
+                    <MudButton Variant="Variant.Filled" 
+                               Color="Color.Primary" 
+                               StartIcon="@Icons.Material.Filled.Search" 
+                               OnClick="BuscarCortesRecos" 
+                               Disabled="cargando"
+                               FullWidth="true">
+                        Buscar
+                    </MudButton>
+                </MudItem>
+            </MudGrid>
+        </MudPaper>
+    </MudItem>
+    <MudItem xs="12">
+        <MudPaper Elevation="2">
+            @if (cargando)
+            {
+                <div class="pa-8 text-center">
+                    <MudProgressCircular Indeterminate="true" />
+                    <MudText Typo="Typo.body1" Class="mt-4">Cargando reportes...</MudText>
+                </div>
+            }
+            else if (tipoReporte == TipoReporte.Recolecciones && recolecciones != null && recolecciones.Any())
+            {
+                 <MudTable Items="@recolecciones" Hover="true" Striped="true" Dense="true" Elevation="0">
+                    <HeaderContent>
+                        <MudTh>Fecha</MudTh>
+                        <MudTh>Folio</MudTh>
+                        <MudTh>Caja</MudTh>
+                        <MudTh Style="text-align: right;">Cantidad</MudTh>
+                        <MudTh Style="text-align: center;">Acciones</MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd DataLabel="Fecha">@context.CollectionDateTime</MudTd>
+                        <MudTd DataLabel="Folio">@context.Folio</MudTd>
+                        <MudTd DataLabel="Caja">@context.CashRegisterName</MudTd>
+                        <MudTd DataLabel="Cantidad" Style="text-align: right;">@context.TotalAmount.ToString("C2")</MudTd>
+                        <MudTd DataLabel="Acciones" Style="text-align: center;">
+                            <MudIconButton Icon="@Icons.Material.Filled.Print" 
+                                         Color="Color.Primary" 
+                                         OnClick="@(() => ImprimirRecoleccion(context.Id))" 
+                                         Title="Imprimir recolección" />
+                        </MudTd>
+                    </RowTemplate>
+                    <PagerContent>
+                        <MudTablePager />
+                    </PagerContent>
+                </MudTable>
+            }
+            else if (tipoReporte == TipoReporte.Cortes && cortes != null && cortes.Any())
+            {
+                <MudTable Items="@cortes" Hover="true" Striped="true" Dense="true" Elevation="0">
+                    <HeaderContent>
+                        <MudTh>Fecha</MudTh>
+                        <MudTh>Sucursal</MudTh>
+                        <MudTh>Caja</MudTh>
+                        <MudTh Style="text-align: right;">Total</MudTh>
+                        <MudTh Style="text-align: center;">Acciones</MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd DataLabel="Fecha">@context.CutDateTime</MudTd>
+                        <MudTd DataLabel="Sucursal">@context.BranchName</MudTd>
+                        <MudTd DataLabel="Caja">@context.CashRegisterName</MudTd>
+                        <MudTd DataLabel="Total" Style="text-align: right;">@context.GrandTotal.ToString("C2")</MudTd>
+                        <MudTd DataLabel="Acciones" Style="text-align: center;">
+                            <MudIconButton Icon="@Icons.Material.Filled.Print" 
+                                         Color="Color.Primary" 
+                                         OnClick="@(() => ImprimirCorte(context.Id))" 
+                                         Title="Imprimir corte" />
+                        </MudTd>
+                    </RowTemplate>
+                     <PagerContent>
+                        <MudTablePager />
+                    </PagerContent>
+                </MudTable>
+            }
+            else
+            {
+                 <div class="pa-8 text-center">
+                    <MudText Typo="Typo.body1">No se encontraron resultados.</MudText>
+                </div>
+            }
+        </MudPaper>
+    </MudItem>
+</MudGrid>
+
+@code {
+    private TipoReporte tipoReporte = TipoReporte.Recolecciones;
+    private DateTime? fechaInicio = DateTime.Today;
+    private DateTime? fechaFin = DateTime.Today;
+    private bool cargando = false;
+    
+    private List<CashCollectionDto>? recolecciones;
+    private List<CashCutDto>? cortes;
+
+    private async Task BuscarCortesRecos()
+    {
+        cargando = true;
+        recolecciones = null;
+        cortes = null;
+        
+        try
+        {
+            Logger.LogInformation("Iniciando búsqueda de reportes. Tipo: {TipoReporte}, FechaInicio: {FechaInicio}, FechaFin: {FechaFin}", 
+                tipoReporte, fechaInicio, fechaFin);
+
+            if (tipoReporte == TipoReporte.Recolecciones)
+            {
+                var request = new SearchCashCollectionRequest
+                {
+                    FechaInicio = fechaInicio,
+                    FechaFin = fechaFin
+                };
+
+                var result = await CashCollectionService.SearchAsync(request);
+                recolecciones = result.OrderByDescending(x => x.CollectionDateTime).ToList();
+                Logger.LogInformation("Se encontraron {Count} recolecciones", recolecciones.Count);
+            }
+            else
+            {
+                var request = new SearchCashCutRequest
+                {
+                    FechaInicio = fechaInicio,
+                    FechaFin = fechaFin,
+                    SortColumn = "CutDateTime",
+                    SortAscending = false
+                };
+
+                var result = await CashCutService.SearchAsync(request);
+                cortes = result.ToList(); // Ya viene ordenado por el servicio
+                Logger.LogInformation("Se encontraron {Count} cortes", cortes.Count);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            Logger.LogWarning("Búsqueda de reportes cancelada por el usuario");
+            Snackbar.Add("Búsqueda cancelada", Severity.Warning);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error al buscar reportes de tipo {TipoReporte}", tipoReporte);
+            Snackbar.Add($"Error al buscar reportes: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            cargando = false;
+        }
+    }
+
+    private Task ImprimirRecoleccion(int id)
+    {
+        Logger.LogInformation("Iniciando impresión de recolección con ID: {Id}", id);
+        return MostrarDialogoImpresion(id, "Reco");
+    }
+
+    private Task ImprimirCorte(int id)
+    {
+        Logger.LogInformation("Iniciando impresión de corte con ID: {Id}", id);
+        return MostrarDialogoImpresion(id, "Corte");
+    }
+
+    private Task MostrarDialogoImpresion(int id, string tipo)
+    {
+        var parameters = new DialogParameters<PrintDialog>
+        {
+            { x => x.idReco, id },
+            { x => x.accion, tipo }
+        };
+        var options = new DialogOptions { CloseButton = true };
+        return DialogService.ShowAsync<PrintDialog>("Seleccione Impresora", parameters, options);
+    }
+}

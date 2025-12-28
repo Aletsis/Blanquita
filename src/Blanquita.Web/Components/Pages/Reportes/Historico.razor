@@ -1,0 +1,322 @@
+﻿@page "/historico"
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize]
+@using System.ComponentModel.DataAnnotations
+@using Blanquita.Application.Interfaces
+@using Blanquita.Application.DTOs
+@using Blanquita.Domain.Entities
+@using Blanquita.Domain.ValueObjects
+@using Blanquita.Web.Helpers
+@inject IReporteHistoricoService ReporteService
+@inject IExportService ExportService
+@inject IFileDownloadService FileDownloadService
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+@inject ILogger<Historico> Logger
+
+<PageTitle>Histórico - Sistema de Reportes</PageTitle>
+
+    <MudText Typo="Typo.h4" Class="mb-4">
+        <MudIcon Icon="@Icons.Material.Filled.History" Class="mr-2" />
+        Histórico de Reportes
+    </MudText>
+
+    <MudGrid>
+        <MudItem xs="12">
+            <MudPaper Elevation="2" Class="pa-4">
+                <MudGrid>
+                    <MudItem xs="12" md="3">
+                        <MudSelect @bind-Value="sucursalFiltro" Label="Sucursal" Variant="Variant.Outlined"
+                                   Clearable="true" OnClearButtonClick="LimpiarFiltros" ToStringFunc="@(s => s?.Nombre ?? "Todas")">
+                            <MudSelectItem Value="@((Sucursal?)null)">Todas</MudSelectItem>
+                            @foreach (var sucursal in Sucursal.ObtenerTodas())
+                            {
+                                <MudSelectItem Value="@sucursal">@sucursal.Nombre</MudSelectItem>
+                            }
+                        </MudSelect>
+                    </MudItem>
+
+                    <MudItem xs="12" md="3">
+                        <MudDatePicker @bind-Date="fechaInicio" Label="Fecha Inicio" Variant="Variant.Outlined"
+                                       Clearable="true" />
+                    </MudItem>
+
+                    <MudItem xs="12" md="3">
+                        <MudDatePicker @bind-Date="fechaFin" Label="Fecha Fin" Variant="Variant.Outlined"
+                                       Clearable="true" />
+                    </MudItem>
+
+                    <MudItem xs="12" md="3" Class="d-flex align-end">
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Search"
+                                   OnClick="BuscarReportes" FullWidth="true">
+                            Buscar
+                        </MudButton>
+                    </MudItem>
+                </MudGrid>
+            </MudPaper>
+        </MudItem>
+
+        <MudItem xs="12">
+            <MudPaper Elevation="2">
+                @if (cargando)
+                {
+                    <div class="pa-8 text-center">
+                        <MudProgressCircular Indeterminate="true" />
+                        <MudText Typo="Typo.body1" Class="mt-4">Cargando reportes...</MudText>
+                    </div>
+                }
+                else if (reportesFiltrados != null && reportesFiltrados.Any())
+                {
+                    <MudTable Items="@reportesFiltrados" Hover="true" Striped="true" Dense="true" Elevation="0">
+                        <HeaderContent>
+                            <MudTh>Fecha Reporte</MudTh>
+                            <MudTh>Sucursal</MudTh>
+                            <MudTh Style="text-align: right;">Total Sistema</MudTh>
+                            <MudTh Style="text-align: right;">Total Manual</MudTh>
+                            <MudTh Style="text-align: right;">Diferencia</MudTh>
+                            <MudTh>Fecha Generación</MudTh>
+                            <MudTh Style="text-align: center;">Acciones</MudTh>
+                        </HeaderContent>
+                        <RowTemplate>
+                            <MudTd DataLabel="Fecha">@context.Fecha.ToString("dd/MM/yyyy")</MudTd>
+                            <MudTd DataLabel="Sucursal">
+                                <MudChip T="string" Size="Size.Small" Color="Color.Primary">@context.Sucursal</MudChip>
+                            </MudTd>
+                            <MudTd DataLabel="Total Sistema" Style="text-align: right;">
+                                @context.TotalSistema.ToString("C2", new System.Globalization.CultureInfo("es-MX"))
+                            </MudTd>
+                            <MudTd DataLabel="Total Manual" Style="text-align: right;">
+                                @context.TotalCorteManual.ToString("C2", new System.Globalization.CultureInfo("es-MX"))
+                            </MudTd>
+                            <MudTd DataLabel="Diferencia" Style="text-align: right;">
+                                <MudText Color="@ObtenerColorDiferencia(context.Diferencia)">
+                                    <strong>@context.Diferencia.ToString("C2", new System.Globalization.CultureInfo("es-MX"))</strong>
+                                </MudText>
+                            </MudTd>
+                            <MudTd DataLabel="Fecha Generación">
+                                @context.FechaGeneracion.ToString("dd/MM/yyyy HH:mm")
+                            </MudTd>
+                            <MudTd DataLabel="Acciones" Style="text-align: center;">
+                                <MudTooltip Text="Ver Detalles">
+                                    <MudIconButton Icon="@Icons.Material.Filled.Visibility" Size="Size.Small"
+                                                   Color="Color.Info" OnClick="() => VerDetalles(context)" />
+                                </MudTooltip>
+                                <MudTooltip Text="Editar Notas">
+                                    <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small"
+                                                   Color="Color.Warning" OnClick="() => EditarNotas(context)" />
+                                </MudTooltip>
+                                <MudTooltip Text="Exportar Excel">
+                                    <MudIconButton Icon="@Icons.Material.Filled.TableChart" Size="Size.Small"
+                                                   Color="Color.Success" OnClick="() => ExportarExcel(context)" />
+                                </MudTooltip>
+                                <MudTooltip Text="Exportar PDF">
+                                    <MudIconButton Icon="@Icons.Material.Filled.PictureAsPdf" Size="Size.Small"
+                                                   Color="Color.Error" OnClick="() => ExportarPDF(context)" />
+                                </MudTooltip>
+                            </MudTd>
+                        </RowTemplate>
+                    </MudTable>
+                    <MudDivider />
+                    <div class="pa-3">
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">
+                            Total de reportes: @reportesFiltrados.Count
+                        </MudText>
+                    </div>
+                }
+                else
+                {
+                    <div class="pa-8 text-center">
+                        <MudIcon Icon="@Icons.Material.Filled.SearchOff" Size="Size.Large" Color="Color.Secondary" />
+                        <MudText Typo="Typo.h6" Color="Color.Secondary" Class="mt-4">
+                            No se encontraron reportes
+                        </MudText>
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">
+                            Ajusta los filtros o genera un nuevo reporte
+                        </MudText>
+                    </div>
+                }
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+
+@code {
+    private List<ReporteHistorico>? reportesFiltrados;
+    private bool cargando = true;
+
+    private Sucursal? sucursalFiltro = null;
+    private DateTime? fechaInicio;
+    private DateTime? fechaFin;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Logger.LogInformation("Inicializando página de histórico de reportes");
+        await CargarReportes();
+    }
+
+    private async Task CargarReportes()
+    {
+        cargando = true;
+        try
+        {
+            Logger.LogInformation("Iniciando carga de reportes históricos");
+            var todosLosReportes = await ReporteService.ObtenerReportesAsync();
+            reportesFiltrados = todosLosReportes;
+            Logger.LogInformation("Se cargaron {Count} reportes exitosamente", todosLosReportes.Count);
+        }
+        catch (OperationCanceledException)
+        {
+            Logger.LogWarning("Carga de reportes cancelada por el usuario");
+            Snackbar.Add("Carga cancelada", Severity.Warning);
+            reportesFiltrados = new List<ReporteHistorico>();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error al cargar reportes históricos");
+            Snackbar.Add($"Error al cargar reportes: {ex.Message}", Severity.Error);
+            reportesFiltrados = new List<ReporteHistorico>();
+        }
+        finally
+        {
+            cargando = false;
+        }
+    }
+
+    private async Task BuscarReportes()
+    {
+        cargando = true;
+        try
+        {
+            Logger.LogInformation(
+                "Buscando reportes - Sucursal: {Sucursal}, FechaInicio: {FechaInicio}, FechaFin: {FechaFin}",
+                sucursalFiltro?.Nombre ?? "Todas",
+                fechaInicio,
+                fechaFin);
+
+            var request = new BuscarReportesRequest
+            {
+                Sucursal = sucursalFiltro,
+                FechaInicio = fechaInicio,
+                FechaFin = fechaFin
+            };
+
+            reportesFiltrados = await ReporteService.BuscarReportesAsync(request);
+            
+            var mensaje = reportesFiltrados.Any()
+                ? $"Se encontraron {reportesFiltrados.Count} reportes"
+                : "No se encontraron reportes con los filtros especificados";
+            
+            Logger.LogInformation("Búsqueda completada: {Count} reportes encontrados", reportesFiltrados.Count);
+            Snackbar.Add(mensaje, reportesFiltrados.Any() ? Severity.Success : Severity.Info);
+        }
+        catch (OperationCanceledException)
+        {
+            Logger.LogWarning("Búsqueda de reportes cancelada por el usuario");
+            Snackbar.Add("Búsqueda cancelada", Severity.Warning);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error al buscar reportes históricos");
+            Snackbar.Add($"Error al buscar reportes: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            cargando = false;
+        }
+    }
+
+    private void LimpiarFiltros()
+    {
+        Logger.LogInformation("Limpiando filtros de búsqueda");
+        sucursalFiltro = null;
+        fechaInicio = null;
+        fechaFin = null;
+    }
+
+    private Color ObtenerColorDiferencia(decimal diferencia) => 
+        ReporteUIHelper.ObtenerColorDiferencia(diferencia);
+
+    private async Task VerDetalles(ReporteHistorico reporte)
+    {
+        Logger.LogInformation("Mostrando detalles del reporte ID: {Id}, Sucursal: {Sucursal}", reporte.Id, reporte.Sucursal.Nombre);
+        var parameters = new DialogParameters { { "Reporte", reporte } };
+        var options = new DialogOptions { MaxWidth = MaxWidth.ExtraExtraLarge, FullWidth = true, CloseButton = true };
+        await DialogService.ShowAsync<DialogoDetalleReporte>("Detalle del Reporte", parameters, options);
+    }
+
+    private async Task EditarNotas(ReporteHistorico reporte)
+    {
+        Logger.LogInformation("Editando notas del reporte ID: {Id}", reporte.Id);
+        var parameters = new DialogParameters { { "NotasActuales", reporte.Notas } };
+        var dialog = await DialogService.ShowAsync<DialogoEditarNotas>("Editar Notas", parameters);
+        var result = await dialog.Result;
+
+        if (result != null && !result.Canceled && result.Data is string notasNuevas)
+        {
+            try
+            {
+                reporte.ActualizarNotas(notasNuevas);
+                await ReporteService.ActualizarReporteAsync(reporte);
+                Logger.LogInformation("Notas actualizadas exitosamente para reporte ID: {Id}", reporte.Id);
+                Snackbar.Add("Notas actualizadas exitosamente", Severity.Success);
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError(ex, "Error al actualizar notas del reporte ID: {Id}", reporte.Id);
+                Snackbar.Add($"Error al actualizar notas: {ex.Message}", Severity.Error);
+            }
+        }
+    }
+
+    private async Task ExportarExcel(ReporteHistorico reporte)
+    {
+        if (!reporte.TieneDetalles())
+        {
+            Logger.LogWarning("Intento de exportar reporte sin detalles. ID: {Id}", reporte.Id);
+            Snackbar.Add("No hay datos para exportar", Severity.Warning);
+            return;
+        }
+
+        try
+        {
+            Logger.LogInformation("Exportando reporte a Excel. ID: {Id}, Sucursal: {Sucursal}", reporte.Id, reporte.Sucursal.Nombre);
+            var contenido = await ExportService.ExportToExcelAsync(reporte.Detalles, $"Reporte_{reporte.Sucursal.Nombre}");
+            var nombreArchivo = $"Reporte_{reporte.Sucursal.Nombre}_{reporte.Fecha:yyyyMMdd}.xlsx";
+            await FileDownloadService.DescargarArchivoAsync(
+                contenido, 
+                nombreArchivo, 
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+            Logger.LogInformation("Reporte exportado exitosamente a Excel: {FileName}", nombreArchivo);
+            Snackbar.Add("Reporte exportado exitosamente a Excel", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error al exportar reporte a Excel. ID: {Id}", reporte.Id);
+            Snackbar.Add($"Error al exportar a Excel: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task ExportarPDF(ReporteHistorico reporte)
+    {
+         if (!reporte.TieneDetalles())
+        {
+            Logger.LogWarning("Intento de exportar reporte sin detalles. ID: {Id}", reporte.Id);
+            Snackbar.Add("No hay datos para exportar", Severity.Warning);
+            return;
+        }
+
+        try
+        {
+            Logger.LogInformation("Exportando reporte a PDF. ID: {Id}, Sucursal: {Sucursal}", reporte.Id, reporte.Sucursal.Nombre);
+             var contenido = await ExportService.ExportToPdfAsync(reporte.Detalles, $"Reporte - {reporte.Sucursal.Nombre}");
+             var nombreArchivo = $"Reporte_{reporte.Sucursal.Nombre}_{reporte.Fecha:yyyyMMdd}.pdf";
+             await FileDownloadService.DescargarArchivoAsync(contenido, nombreArchivo, "application/pdf");
+             Logger.LogInformation("Reporte exportado exitosamente a PDF: {FileName}", nombreArchivo);
+             Snackbar.Add("Reporte exportado exitosamente a PDF", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error al exportar reporte a PDF. ID: {Id}", reporte.Id);
+            Snackbar.Add($"Error al exportar a PDF: {ex.Message}", Severity.Error);
+        }
+    }
+}

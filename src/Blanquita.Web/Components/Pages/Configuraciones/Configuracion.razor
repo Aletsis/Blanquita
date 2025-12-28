@@ -1,0 +1,340 @@
+﻿@page "/configuracion"
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize]
+@using Blanquita.Application.DTOs
+@using Blanquita.Application.Interfaces
+@using Blanquita.Domain.Enums
+@using Blanquita.Web.Models
+@using Blanquita.Web.Components.Layout
+@using Microsoft.AspNetCore.Components.Forms
+@inject IConfiguracionService ConfigService
+@inject ISnackbar Snackbar
+@inject NavigationManager Navigation
+@inject ILogger<Configuracion> Logger
+@inject IDialogService DialogService
+@inject IPrinterService PrinterService
+
+<PageTitle>Configuración - Sistema de Reportes</PageTitle>
+
+    <MudText Typo="Typo.h4" Class="mb-4">
+        <MudIcon Icon="@Icons.Material.Filled.Settings" Class="mr-2" />
+        Configuración del Sistema
+    </MudText>
+
+    <MudGrid>
+        <MudItem xs="12">
+            <MudPaper Elevation="2" Class="pa-4">
+                <MudButton OnClick="ExpandDbfConfig">
+                    <MudText Typo="Typo.h6" Class="mb-4">
+                        <MudIcon Icon="@Icons.Material.Filled.Folder" Class="mr-2" />
+                        Rutas de Archivos DBF
+                    </MudText>
+                </MudButton>
+                <MudDivider />
+                <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
+                    Configure las rutas de los archivos de base de datos FoxPro necesarios para generar los reportes.
+                </MudText>
+                <MudCollapse Expanded="_dbfConfigExpanded">
+                    <MudGrid>
+                        <MudItem xs="12" md="4">
+                            <MudCard Outlined="true">
+                                <MudCardContent>
+                                    <MudText Typo="Typo.h6" Class="mb-2">POS10041.DBF</MudText>
+                                    <MudTextField @bind-Value="_configuracion.Pos10041Path" Label="Ruta del archivo" Variant="Variant.Outlined" ReadOnly="true" Adornment="Adornment.End" AdornmentIcon="@Icons.Material.Filled.FolderOpen" OnAdornmentClick="() => AbrirDialogoArchivo(TipoArchivoDbf.Pos10041)" Class="mb-2" />
+                                    @if (!string.IsNullOrEmpty(_configuracion.Pos10041Path)) { <MudChip T="string" Size="Size.Small" Color="@(ValidarRuta(_configuracion.Pos10041Path) ? Color.Success : Color.Error)" Icon="@(ValidarRuta(_configuracion.Pos10041Path) ? Icons.Material.Filled.CheckCircle : Icons.Material.Filled.Error)"> @(ValidarRuta(_configuracion.Pos10041Path) ? "Archivo encontrado" : "Archivo no encontrado") </MudChip> }
+                                </MudCardContent>
+                            </MudCard>
+                        </MudItem>
+                        <MudItem xs="12" md="4">
+                            <MudCard Outlined="true">
+                                <MudCardContent>
+                                    <MudText Typo="Typo.h6" Class="mb-2">POS10042.DBF</MudText>
+                                    <MudTextField @bind-Value="_configuracion.Pos10042Path" Label="Ruta del archivo" Variant="Variant.Outlined" ReadOnly="true" Adornment="Adornment.End" AdornmentIcon="@Icons.Material.Filled.FolderOpen" OnAdornmentClick="() => AbrirDialogoArchivo(TipoArchivoDbf.Pos10042)" Class="mb-2" />
+                                    @if (!string.IsNullOrEmpty(_configuracion.Pos10042Path)) { <MudChip T="string" Size="Size.Small" Color="@(ValidarRuta(_configuracion.Pos10042Path) ? Color.Success : Color.Error)" Icon="@(ValidarRuta(_configuracion.Pos10042Path) ? Icons.Material.Filled.CheckCircle : Icons.Material.Filled.Error)"> @(ValidarRuta(_configuracion.Pos10042Path) ? "Archivo encontrado" : "Archivo no encontrado") </MudChip> }
+                                </MudCardContent>
+                            </MudCard>
+                        </MudItem>
+                        <MudItem xs="12" md="4">
+                            <MudCard Outlined="true">
+                                <MudCardContent>
+                                    <MudText Typo="Typo.h6" Class="mb-2">MGW10008.DBF</MudText>
+                                    <MudTextField @bind-Value="_configuracion.Mgw10008Path" Label="Ruta del archivo" Variant="Variant.Outlined" ReadOnly="true" Adornment="Adornment.End" AdornmentIcon="@Icons.Material.Filled.FolderOpen" OnAdornmentClick="() => AbrirDialogoArchivo(TipoArchivoDbf.Mgw10008)" Class="mb-2" />
+                                    @if (!string.IsNullOrEmpty(_configuracion.Mgw10008Path)) { <MudChip T="string" Size="Size.Small" Color="@(ValidarRuta(_configuracion.Mgw10008Path) ? Color.Success : Color.Error)" Icon="@(ValidarRuta(_configuracion.Mgw10008Path) ? Icons.Material.Filled.CheckCircle : Icons.Material.Filled.Error)"> @(ValidarRuta(_configuracion.Mgw10008Path) ? "Archivo encontrado" : "Archivo no encontrado") </MudChip> }
+                                </MudCardContent>
+                            </MudCard>
+                        </MudItem>
+                        <MudItem xs="12" md="4">
+                            <MudCard Outlined="true">
+                                <MudCardContent>
+                                    <MudText Typo="Typo.h6" Class="mb-2">MGW10005.DBF</MudText>
+                                    <MudTextField @bind-Value="_configuracion.Mgw10005Path" Label="Ruta del archivo" Variant="Variant.Outlined" ReadOnly="true" Adornment="Adornment.End" AdornmentIcon="@Icons.Material.Filled.FolderOpen" OnAdornmentClick="() => AbrirDialogoArchivo(TipoArchivoDbf.Mgw10005)" Class="mb-2" />
+                                    @if (!string.IsNullOrEmpty(_configuracion.Mgw10005Path)) { <MudChip T="string" Size="Size.Small" Color="@(ValidarRuta(_configuracion.Mgw10005Path) ? Color.Success : Color.Error)" Icon="@(ValidarRuta(_configuracion.Mgw10005Path) ? Icons.Material.Filled.CheckCircle : Icons.Material.Filled.Error)"> @(ValidarRuta(_configuracion.Mgw10005Path) ? "Archivo encontrado" : "Archivo no encontrado") </MudChip> }
+                                </MudCardContent>
+                            </MudCard>
+                        </MudItem>
+                    </MudGrid>
+                    <MudDivider Class="my-4" />
+                    <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                        <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.BugReport" Color="Color.Info" OnClick="IrADiagnostico">Verificar Conexión</MudButton>
+                        <MudStack Row="true" Spacing="2">
+                             <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Restore" OnClick="LimpiarFormulario">Limpiar</MudButton>
+                             <MudButton Variant="Variant.Filled" StartIcon="@Icons.Material.Filled.Save" Color="Color.Primary" OnClick="GuardarConfiguracion" Disabled="@_guardando">
+                                @if (_guardando) { <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" /> <text>Guardando...</text> } else { <text>Guardar Configuración</text> }
+                            </MudButton>
+                        </MudStack>
+                    </MudStack>
+                </MudCollapse>
+            </MudPaper>
+        </MudItem>
+
+        <MudItem xs="12">
+            <MudPaper Elevation="2" Class="pa-4">
+                <MudButton OnClick="ExpandZebraConfig">
+                    <MudText Typo="Typo.h6" Class="mb-4">
+                        <MudIcon Icon="@Icons.Material.Filled.Print" Class="mr-2" />
+                        Zebra
+                    </MudText>
+                </MudButton>
+                <MudDivider />
+                <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
+                    Configure las impresoras Zebra.
+                </MudText>
+                <MudCollapse Expanded="_zebraConfigExpanded">
+                    <MudTable Items="@_printers" Hover="true" Breakpoint="Breakpoint.Sm" Loading="@_loadingPrinters" LoadingProgressColor="Color.Info" Elevation="0">
+                        <ToolBarContent>
+                            <MudText Typo="Typo.h6">Impresoras Registradas</MudText>
+                            <MudSpacer />
+                            <MudButton Variant="Variant.Filled" StartIcon="@Icons.Material.Filled.Add" Color="Color.Primary" OnClick="() => AbrirDialogoImpresora()">
+                                Nueva Impresora
+                            </MudButton>
+                        </ToolBarContent>
+                        <HeaderContent>
+                            <MudTh>Nombre</MudTh>
+                            <MudTh>IP</MudTh>
+                            <MudTh>Puerto</MudTh>
+                            <MudTh>Acciones</MudTh>
+                        </HeaderContent>
+                        <RowTemplate>
+                            <MudTd DataLabel="Nombre">@context.Name</MudTd>
+                            <MudTd DataLabel="IP">@context.IpAddress</MudTd>
+                            <MudTd DataLabel="Puerto">@context.Port</MudTd>
+                            <MudTd DataLabel="Acciones">
+                                <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small" Color="Color.Primary" OnClick="() => AbrirDialogoImpresora(context)" />
+                                <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error" OnClick="() => EliminarImpresora(context)" />
+                            </MudTd>
+                        </RowTemplate>
+                        <NoRecordsContent>
+                            <MudText>No hay impresoras configuradas.</MudText>
+                        </NoRecordsContent>
+                    </MudTable>
+                </MudCollapse>
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+
+@code {
+    private ConfiguracionDto _configuracion = new();
+    private List<PrinterDto> _printers = new();
+    private bool _guardando = false;
+    private bool _loadingPrinters = false;
+    private bool _zebraConfigExpanded = false;
+    private bool _dbfConfigExpanded = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _configuracion = await ConfigService.ObtenerConfiguracionAsync();
+            await RecargarImpresoras();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error al cargar la configuración inicial");
+            Snackbar.Add("Error al cargar la configuración", Severity.Error);
+        }
+    }
+
+    private void ExpandZebraConfig() => _zebraConfigExpanded = !_zebraConfigExpanded;
+    private void ExpandDbfConfig() => _dbfConfigExpanded = !_dbfConfigExpanded;
+
+    private async Task AbrirDialogoArchivo(TipoArchivoDbf tipoArchivo)
+    {
+        try
+        {
+            var nombreArchivo = ConfigService.ObtenerNombreArchivo(tipoArchivo);
+            var rutaActual = _configuracion.ObtenerRutaPorTipo(tipoArchivo);
+
+            var dialogOptions = new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true };
+            var parameters = new DialogParameters
+            {
+                { "ArchivoActual", rutaActual },
+                { "NombreArchivo", nombreArchivo }
+            };
+
+            var dialog = await DialogService.ShowAsync<DialogoSeleccionArchivo>("Seleccionar Archivo", parameters, dialogOptions);
+            var result = await dialog.Result;
+
+            if (!result.Canceled && result.Data is string rutaSeleccionada)
+            {
+                _configuracion.EstablecerRutaPorTipo(tipoArchivo, rutaSeleccionada);
+                Logger.LogInformation("Ruta actualizada para {TipoArchivo}: {Ruta}", tipoArchivo, rutaSeleccionada);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error al seleccionar archivo para {TipoArchivo}", tipoArchivo);
+            Snackbar.Add($"Error al seleccionar archivo: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task GuardarConfiguracion()
+    {
+        _guardando = true;
+        
+        try
+        {
+            // Validar configuración
+            var validacion = await ConfigService.ValidarConfiguracionAsync(_configuracion);
+            
+            if (!validacion.EsValido)
+            {
+                foreach (var error in validacion.Errores)
+                {
+                    Snackbar.Add(error, Severity.Warning);
+                }
+                return;
+            }
+
+            // Mostrar advertencias si las hay
+            foreach (var advertencia in validacion.Advertencias)
+            {
+                Snackbar.Add(advertencia, Severity.Info);
+            }
+
+            // Guardar configuración
+            await ConfigService.GuardarConfiguracionAsync(_configuracion);
+            
+            Logger.LogInformation("Configuración guardada exitosamente");
+            Snackbar.Add("Configuración guardada exitosamente", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error al guardar la configuración");
+            Snackbar.Add($"Error al guardar la configuración: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _guardando = false;
+        }
+    }
+
+    private async Task LimpiarFormulario()
+    {
+        try
+        {
+            await ConfigService.RestablecerConfiguracionAsync();
+            _configuracion = await ConfigService.ObtenerConfiguracionAsync();
+            
+            Logger.LogInformation("Formulario de configuración restablecido");
+            Snackbar.Add("Configuración restablecida a valores predeterminados", Severity.Info);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error al restablecer la configuración");
+            Snackbar.Add($"Error al restablecer: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task RecargarImpresoras()
+    {
+        _loadingPrinters = true;
+        try
+        {
+            _printers = await PrinterService.GetAllAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error al cargar impresoras: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _loadingPrinters = false;
+        }
+    }
+
+    private async Task AbrirDialogoImpresora(PrinterDto? printer = null)
+    {
+        var parameters = new DialogParameters();
+        if (printer != null)
+        {
+            parameters.Add("Model", new PrinterDto 
+            { 
+                Id = printer.Id, 
+                Name = printer.Name, 
+                IpAddress = printer.IpAddress, 
+                Port = printer.Port,
+                IsActive = printer.IsActive
+            });
+        }
+
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Small, FullWidth = true };
+        var title = printer == null ? "Nueva Impresora" : "Editar Impresora";
+        var dialog = await DialogService.ShowAsync<DialogoImpresora>(title, parameters, options);
+        var result = await dialog.Result;
+
+        if (!result.Canceled && result.Data is PrinterDto printerResult)
+        {
+            try
+            {
+                if (printer == null)
+                {
+                    await PrinterService.CreateAsync(printerResult);
+                    Snackbar.Add("Impresora agregada exitosamente", Severity.Success);
+                }
+                else
+                {
+                    await PrinterService.UpdateAsync(printerResult);
+                    Snackbar.Add("Impresora actualizada exitosamente", Severity.Success);
+                }
+                await RecargarImpresoras();
+            }
+            catch (Exception ex)
+            {
+                Snackbar.Add($"Error al guardar impresora: {ex.Message}", Severity.Error);
+            }
+        }
+    }
+
+    private async Task EliminarImpresora(PrinterDto printer)
+    {
+        bool? result = await DialogService.ShowMessageBox(
+            "Confirmar Eliminación",
+            $"¿Está seguro que desea eliminar la impresora {printer.Name}?",
+            yesText: "Eliminar", cancelText: "Cancelar"
+        );
+
+        if (result == true)
+        {
+            try
+            {
+                await PrinterService.DeleteAsync(printer.Id);
+                Snackbar.Add("Impresora eliminada exitosamente", Severity.Success);
+                await RecargarImpresoras();
+            }
+            catch (Exception ex)
+            {
+                Snackbar.Add($"Error al eliminar impresora: {ex.Message}", Severity.Error);
+            }
+        }
+    }
+
+    private void IrADiagnostico()
+    {
+        Navigation.NavigateTo("/diagnostico");
+    }
+
+    // Métodos auxiliares para la vista
+    private string ObtenerRutaPorTipo(TipoArchivoDbf tipo) => _configuracion.ObtenerRutaPorTipo(tipo);
+    private void EstablecerRutaPorTipo(TipoArchivoDbf tipo, string ruta) => _configuracion.EstablecerRutaPorTipo(tipo, ruta);
+    private bool ValidarRuta(string ruta) => ConfigService.ValidarRutaArchivo(ruta);
+}

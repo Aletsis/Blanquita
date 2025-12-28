@@ -1,0 +1,225 @@
+﻿@page "/reimprimir"
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize]
+@using Blanquita.Application.DTOs
+@using Blanquita.Application.Interfaces
+@using Blanquita.Domain.Enums
+@using Microsoft.Extensions.Logging
+@inject ICashCollectionService CashCollectionService
+@inject ICashCutService CashCutService
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+@inject ILogger<Reimpresiones> Logger
+
+<MudText Typo="Typo.h3" Align="Align.Center">Reimprimir</MudText>
+<MudStack AlignItems="AlignItems.Center" Justify="Justify.Center">
+    <MudToggleGroup T="TipoReporte" Color="Color.Primary" SelectionMode="SelectionMode.SingleSelection" @bind-Value="@accion" CheckMark FixedContent>
+        <MudToggleItem Value="@TipoReporte.Recolecciones">Recolecciones</MudToggleItem>
+        <MudToggleItem Value="@TipoReporte.Cortes">Cortes</MudToggleItem>
+    </MudToggleGroup>
+</MudStack>
+@if (accion == TipoReporte.Recolecciones)
+{
+    <MudTable ServerData="ServerReload" Dense="true" Hover="true" @ref="recosTable">
+        <ToolBarContent>
+            <MudText Typo="Typo.h6">Recolecciones</MudText>
+            <MudSpacer />
+            <MudTextField T="string" ValueChanged="@(s=>OnSearch(s))" Placeholder="Buscar" Adornment="Adornment.Start"
+                          AdornmentIcon="@Icons.Material.Filled.Search" IconSize="Size.Medium" Class="mt-0"></MudTextField>
+        </ToolBarContent>
+        <HeaderContent>
+            <MudTh><MudTableSortLabel SortLabel="Id" T="CashCollectionDto">Id</MudTableSortLabel></MudTh>
+            <MudTh><MudTableSortLabel SortLabel="Folio" T="CashCollectionDto">Folio</MudTableSortLabel></MudTh>
+            <MudTh><MudTableSortLabel SortLabel="CollectionDateTime" T="CashCollectionDto">Fecha Hora</MudTableSortLabel></MudTh>
+            <MudTh><MudTableSortLabel SortLabel="CashRegisterName" T="CashCollectionDto">Caja</MudTableSortLabel></MudTh>
+            <MudTh><MudTableSortLabel SortLabel="TotalAmount" T="CashCollectionDto">Cantidad</MudTableSortLabel></MudTh>
+            <MudTh>Acciones</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd DataLabel="Id">@context.Id</MudTd>
+            <MudTd DataLabel="Folio">@context.Folio</MudTd>
+            <MudTd DataLabel="Fecha_Hora">@context.CollectionDateTime</MudTd>
+            <MudTd DataLabel="Caja">@context.CashRegisterName</MudTd>
+            <MudTd DataLabel="Cantidad">@context.TotalAmount.ToString("C2")</MudTd>
+            <MudTd>
+                <MudIconButton Icon="@Icons.Material.Filled.Print" 
+                             Color="Color.Primary" 
+                             Class="pa-0 ma-0 min-width-auto" 
+                             OnClick="@(() => ImprimirRecoleccion(context.Id))" 
+                             Title="Imprimir recolección" />
+            </MudTd>
+        </RowTemplate>
+        <NoRecordsContent>
+            <MudText>No matching records found</MudText>
+        </NoRecordsContent>
+        <LoadingContent>
+            <MudText>Loading...</MudText>
+        </LoadingContent>
+        <PagerContent>
+            <MudTablePager />
+        </PagerContent>
+    </MudTable>
+}
+else
+{
+    <MudTable ServerData="CargarDatosCortes" Dense="true" Hover="true" @ref="cortesTable">
+        <ToolBarContent>
+            <MudText Typo="Typo.h6">Cortes</MudText>
+            <MudSpacer />
+            <MudTextField T="string" ValueChanged="@(s=>OnSearch(s))" Placeholder="Buscar" Adornment="Adornment.Start"
+                          AdornmentIcon="@Icons.Material.Filled.Search" IconSize="Size.Medium" Class="mt-0"></MudTextField>
+        </ToolBarContent>
+        <HeaderContent>
+            <MudTh><MudTableSortLabel SortLabel="Id" T="CashCutDto">Id</MudTableSortLabel></MudTh>
+            <MudTh><MudTableSortLabel SortLabel="CashRegisterName" T="CashCutDto">Caja</MudTableSortLabel></MudTh>
+            <MudTh><MudTableSortLabel SortLabel="CashierName" T="CashCutDto">Cajera</MudTableSortLabel></MudTh>
+            <MudTh><MudTableSortLabel SortLabel="SupervisorName" T="CashCutDto">Encargada</MudTableSortLabel></MudTh>
+            <MudTh><MudTableSortLabel SortLabel="BranchName" T="CashCutDto">Sucursal</MudTableSortLabel></MudTh>
+            <MudTh><MudTableSortLabel SortLabel="CutDateTime" T="CashCutDto">Fecha y hora</MudTableSortLabel></MudTh>
+            <MudTh>Acciones</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd DataLabel="Id">@context.Id</MudTd>
+            <MudTd DataLabel="Caja">@context.CashRegisterName</MudTd>
+            <MudTd DataLabel="Cajera">@context.CashierName</MudTd>
+            <MudTd DataLabel="Encargada">@context.SupervisorName</MudTd>
+            <MudTd DataLabel="Sucursal">@context.BranchName</MudTd>
+            <MudTd DataLabel="Fecha_Hora">@context.CutDateTime</MudTd>
+            <MudTd>
+                <MudIconButton Icon="@Icons.Material.Filled.Print" 
+                             Color="Color.Primary" 
+                             Class="pa-0 ma-0 min-width-auto" 
+                             OnClick="@(() => ImprimirCorte(context.Id))" 
+                             Title="Imprimir corte" />
+            </MudTd>
+        </RowTemplate>
+        <NoRecordsContent>
+            <MudText>No matching records found</MudText>
+        </NoRecordsContent>
+        <LoadingContent>
+            <MudText>Loading...</MudText>
+        </LoadingContent>
+        <PagerContent>
+            <MudTablePager />
+        </PagerContent>
+    </MudTable>
+}
+
+@code {
+    private TipoReporte accion = TipoReporte.Recolecciones;
+    private MudTable<CashCollectionDto> recosTable = null!;
+    private MudTable<CashCutDto> cortesTable = null!;
+    private string? searchString = null;
+
+    private async Task<TableData<CashCollectionDto>> ServerReload(TableState state, CancellationToken token)
+    {
+        try
+        {
+            Logger.LogInformation("Cargando recolecciones con paginación. Página: {Page}, Tamaño: {PageSize}", 
+                state.Page, state.PageSize);
+                
+            var data = await CashCollectionService.GetAllAsync(token);
+            
+            // Filter
+            if (!string.IsNullOrWhiteSpace(searchString))
+            {
+                data = data.Where(d => 
+                    d.CashRegisterName.Contains(searchString, StringComparison.OrdinalIgnoreCase) || 
+                    d.Folio.ToString().Contains(searchString));
+            }
+            
+            // Sort
+            var items = data.OrderByDescending(x => x.Id).ToList();
+
+            // Paging
+            var paged = items.Skip(state.Page * state.PageSize).Take(state.PageSize).ToArray();
+            
+            Logger.LogInformation("Se cargaron {Count} de {Total} recolecciones", paged.Length, items.Count);
+            
+            return new TableData<CashCollectionDto> { TotalItems = items.Count, Items = paged };
+        }
+        catch (OperationCanceledException)
+        {
+            Logger.LogWarning("Carga de recolecciones cancelada");
+            return new TableData<CashCollectionDto> { TotalItems = 0, Items = Array.Empty<CashCollectionDto>() };
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error al cargar recolecciones");
+            Snackbar.Add("Error al cargar recolecciones", Severity.Error);
+            return new TableData<CashCollectionDto> { TotalItems = 0, Items = Array.Empty<CashCollectionDto>() };
+        }
+    }
+
+    private async Task<TableData<CashCutDto>> CargarDatosCortes(TableState state, CancellationToken token)
+    {
+        try
+        {
+            Logger.LogInformation("Cargando cortes con paginación. Página: {Page}, Tamaño: {PageSize}", 
+                state.Page, state.PageSize);
+                
+            var data = await CashCutService.GetAllAsync(token);
+            
+            if (!string.IsNullOrWhiteSpace(searchString))
+            {
+                data = data.Where(d => d.CashRegisterName.Contains(searchString, StringComparison.OrdinalIgnoreCase));
+            }
+            
+            var items = data.OrderByDescending(x => x.Id).ToList();
+            var paged = items.Skip(state.Page * state.PageSize).Take(state.PageSize).ToArray();
+
+            Logger.LogInformation("Se cargaron {Count} de {Total} cortes", paged.Length, items.Count);
+            
+            return new TableData<CashCutDto> { TotalItems = items.Count, Items = paged };
+        }
+        catch (OperationCanceledException)
+        {
+            Logger.LogWarning("Carga de cortes cancelada");
+            return new TableData<CashCutDto> { TotalItems = 0, Items = Array.Empty<CashCutDto>() };
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error al cargar cortes");
+            Snackbar.Add("Error al cargar cortes", Severity.Error);
+            return new TableData<CashCutDto> { TotalItems = 0, Items = Array.Empty<CashCutDto>() };
+        }
+    }
+
+    private void OnSearch(string text)
+    {
+        searchString = text;
+        Logger.LogInformation("Búsqueda actualizada: {SearchString}", searchString);
+        
+        if (accion == TipoReporte.Recolecciones)
+        {
+            recosTable?.ReloadServerData();
+        }
+        else
+        {
+            cortesTable?.ReloadServerData();
+        }
+    }
+
+    private Task ImprimirRecoleccion(int id)
+    {
+        Logger.LogInformation("Iniciando impresión de recolección con ID: {Id}", id);
+        return MostrarDialogoImpresion(id, "Reco");
+    }
+
+    private Task ImprimirCorte(int id)
+    {
+        Logger.LogInformation("Iniciando impresión de corte con ID: {Id}", id);
+        return MostrarDialogoImpresion(id, "Corte");
+    }
+
+    private Task MostrarDialogoImpresion(int id, string tipo)
+    {
+        var parameters = new DialogParameters<PrintDialog>
+        {
+            { x => x.idReco, id },
+            { x => x.accion, tipo }
+        };
+        var options = new DialogOptions { CloseButton = true };
+        return DialogService.ShowAsync<PrintDialog>("Seleccione Impresora", parameters, options);
+    }
+}
