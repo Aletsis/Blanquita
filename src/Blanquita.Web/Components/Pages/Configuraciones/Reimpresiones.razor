@@ -10,7 +10,7 @@
 @inject IDialogService DialogService
 @inject ISnackbar Snackbar
 @inject ILogger<Reimpresiones> Logger
-
+@using Blanquita.Web.Components.Layout
 <MudText Typo="Typo.h3" Align="Align.Center">Reimprimir</MudText>
 <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center">
     <MudToggleGroup T="TipoReporte" Color="Color.Primary" SelectionMode="SelectionMode.SingleSelection" @bind-Value="@accion" CheckMark FixedContent>
@@ -42,6 +42,11 @@
             <MudTd DataLabel="Caja">@context.CashRegisterName</MudTd>
             <MudTd DataLabel="Cantidad">@context.TotalAmount.ToString("C2")</MudTd>
             <MudTd>
+                <MudIconButton Icon="@Icons.Material.Filled.Visibility" 
+                               Color="Color.Info" 
+                               Class="pa-0 ma-0 min-width-auto mr-2" 
+                               OnClick="@(() => VerDetalleRecoleccion(context))" 
+                               Title="Ver detalle" />
                 <MudIconButton Icon="@Icons.Material.Filled.Print" 
                              Color="Color.Primary" 
                              Class="pa-0 ma-0 min-width-auto" 
@@ -86,6 +91,11 @@ else
             <MudTd DataLabel="Sucursal">@context.BranchName</MudTd>
             <MudTd DataLabel="Fecha_Hora">@context.CutDateTime</MudTd>
             <MudTd>
+                <MudIconButton Icon="@Icons.Material.Filled.Visibility" 
+                               Color="Color.Info" 
+                               Class="pa-0 ma-0 min-width-auto mr-2" 
+                               OnClick="@(() => VerDetalleCorte(context))" 
+                               Title="Ver detalle" />
                 <MudIconButton Icon="@Icons.Material.Filled.Print" 
                              Color="Color.Primary" 
                              Class="pa-0 ma-0 min-width-auto" 
@@ -221,5 +231,19 @@ else
         };
         var options = new DialogOptions { CloseButton = true };
         return DialogService.ShowAsync<PrintDialog>("Seleccione Impresora", parameters, options);
+    }
+
+    private void VerDetalleRecoleccion(CashCollectionDto item)
+    {
+        var parameters = new DialogParameters { ["Recoleccion"] = item };
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Small };
+        DialogService.ShowAsync<DialogoDetalleRecoleccion>("Detalle de Recolección", parameters, options);
+    }
+
+    private void VerDetalleCorte(CashCutDto item)
+    {
+        var parameters = new DialogParameters { ["Corte"] = item };
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Small };
+        DialogService.ShowAsync<DialogoDetalleCorte>("Detalle de Corte", parameters, options);
     }
 }

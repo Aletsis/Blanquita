@@ -1,0 +1,74 @@
+@using Blanquita.Application.DTOs
+
+<MudDialog>
+    <DialogContent>
+        <MudGrid>
+            <MudItem xs="12">
+                <MudSimpleTable Style="overflow-x: auto;">
+                    <thead>
+                        <tr>
+                            <th>Denominación</th>
+                            <th>Cantidad</th>
+                            <th>Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>$1,000</td>
+                            <td>@Recoleccion.Thousands</td>
+                            <td>@((Recoleccion.Thousands * 1000).ToString("C2"))</td>
+                        </tr>
+                        <tr>
+                            <td>$500</td>
+                            <td>@Recoleccion.FiveHundreds</td>
+                            <td>@((Recoleccion.FiveHundreds * 500).ToString("C2"))</td>
+                        </tr>
+                        <tr>
+                            <td>$200</td>
+                            <td>@Recoleccion.TwoHundreds</td>
+                            <td>@((Recoleccion.TwoHundreds * 200).ToString("C2"))</td>
+                        </tr>
+                        <tr>
+                            <td>$100</td>
+                            <td>@Recoleccion.Hundreds</td>
+                            <td>@((Recoleccion.Hundreds * 100).ToString("C2"))</td>
+                        </tr>
+                        <tr>
+                            <td>$50</td>
+                            <td>@Recoleccion.Fifties</td>
+                            <td>@((Recoleccion.Fifties * 50).ToString("C2"))</td>
+                        </tr>
+                        <tr>
+                            <td>$20</td>
+                            <td>@Recoleccion.Twenties</td>
+                            <td>@((Recoleccion.Twenties * 20).ToString("C2"))</td>
+                        </tr>
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <td colspan="2"><strong>Total</strong></td>
+                            <td><strong>@Recoleccion.TotalAmount.ToString("C2")</strong></td>
+                        </tr>
+                    </tfoot>
+                </MudSimpleTable>
+            </MudItem>
+            <MudItem xs="12">
+                <MudText Typo="Typo.body2"><strong>Caja:</strong> @Recoleccion.CashRegisterName</MudText>
+                <MudText Typo="Typo.body2"><strong>Cajera:</strong> @Recoleccion.CashierName</MudText>
+                <MudText Typo="Typo.body2"><strong>Supervisor:</strong> @Recoleccion.SupervisorName</MudText>
+                <MudText Typo="Typo.body2"><strong>Fecha:</strong> @Recoleccion.CollectionDateTime</MudText>
+                <MudText Typo="Typo.body2"><strong>Folio:</strong> @Recoleccion.Folio</MudText>
+            </MudItem>
+        </MudGrid>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Close" Color="Color.Primary">Cerrar</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] IMudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter] public CashCollectionDto Recoleccion { get; set; } = default!;
+
+    private void Close() => MudDialog.Close();
+}

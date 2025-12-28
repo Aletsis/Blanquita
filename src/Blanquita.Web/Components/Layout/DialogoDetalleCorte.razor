@@ -1,0 +1,84 @@
+@using Blanquita.Application.DTOs
+
+<MudDialog>
+    <DialogContent>
+        <MudGrid>
+            <MudItem xs="12">
+                <MudSimpleTable Style="overflow-x: auto;">
+                    <thead>
+                        <tr>
+                            <th>Denominación/Tipo</th>
+                            <th>Cantidad</th>
+                            <th>Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>$1,000</td>
+                            <td>@Corte.TotalThousands</td>
+                            <td>@((Corte.TotalThousands * 1000).ToString("C2"))</td>
+                        </tr>
+                        <tr>
+                            <td>$500</td>
+                            <td>@Corte.TotalFiveHundreds</td>
+                            <td>@((Corte.TotalFiveHundreds * 500).ToString("C2"))</td>
+                        </tr>
+                        <tr>
+                            <td>$200</td>
+                            <td>@Corte.TotalTwoHundreds</td>
+                            <td>@((Corte.TotalTwoHundreds * 200).ToString("C2"))</td>
+                        </tr>
+                        <tr>
+                            <td>$100</td>
+                            <td>@Corte.TotalHundreds</td>
+                            <td>@((Corte.TotalHundreds * 100).ToString("C2"))</td>
+                        </tr>
+                        <tr>
+                            <td>$50</td>
+                            <td>@Corte.TotalFifties</td>
+                            <td>@((Corte.TotalFifties * 50).ToString("C2"))</td>
+                        </tr>
+                        <tr>
+                            <td>$20</td>
+                            <td>@Corte.TotalTwenties</td>
+                            <td>@((Corte.TotalTwenties * 20).ToString("C2"))</td>
+                        </tr>
+                        <tr>
+                            <td>Tira</td>
+                            <td>-</td>
+                            <td>@Corte.TotalSlips.ToString("C2")</td>
+                        </tr>
+                        <tr>
+                            <td>Tarjeta</td>
+                            <td>-</td>
+                            <td>@Corte.TotalCards.ToString("C2")</td>
+                        </tr>
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <td colspan="2"><strong>Total</strong></td>
+                            <td><strong>@Corte.GrandTotal.ToString("C2")</strong></td>
+                        </tr>
+                    </tfoot>
+                </MudSimpleTable>
+            </MudItem>
+            <MudItem xs="12">
+                <MudText Typo="Typo.body2"><strong>Sucursal:</strong> @Corte.BranchName</MudText>
+                <MudText Typo="Typo.body2"><strong>Caja:</strong> @Corte.CashRegisterName</MudText>
+                <MudText Typo="Typo.body2"><strong>Cajera:</strong> @Corte.CashierName</MudText>
+                <MudText Typo="Typo.body2"><strong>Encargada:</strong> @Corte.SupervisorName</MudText>
+                <MudText Typo="Typo.body2"><strong>Fecha:</strong> @Corte.CutDateTime</MudText>
+            </MudItem>
+        </MudGrid>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Close" Color="Color.Primary">Cerrar</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] IMudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter] public CashCutDto Corte { get; set; } = default!;
+
+    private void Close() => MudDialog.Close();
+}
