@@ -18,7 +18,11 @@ public static class CashCutMapper
             TotalTwenties = cashCut.Totals.TotalTwenties,
             TotalSlips = cashCut.Totals.TotalSlips,
             TotalCards = cashCut.Totals.TotalCards,
+            CollectionsTotal = cashCut.Totals.CalculateCollectionsTotal(),
+            CashToDeliver = cashCut.Totals.CalculateCashToDeliver(),
+#pragma warning disable CS0618 // Type or member is obsolete
             GrandTotal = cashCut.GetGrandTotal(),
+#pragma warning restore CS0618 // Type or member is obsolete
             CashRegisterName = cashCut.CashRegisterName,
             SupervisorName = cashCut.SupervisorName,
             CashierName = cashCut.CashierName,

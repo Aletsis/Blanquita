@@ -7,6 +7,7 @@
 @inject ISupervisorService SupervisorService
 @inject ICashierService CashierService
 @inject ICashCutService CashCutService
+@inject ICashCollectionService CashCollectionService
 
 <PageTitle>Corte de Caja</PageTitle>
 
@@ -99,7 +100,8 @@
 
                         <MudSelect T="int" 
                                    Label="Seleccione caja" 
-                                   @bind-Value="_selectedCashRegisterId"
+                                   Value="_selectedCashRegisterId"
+                                   ValueChanged="@(async (int value) => await OnCashRegisterChanged(value))"
                                    Variant="Variant.Outlined"
                                    AnchorOrigin="Origin.BottomCenter"
                                    Disabled="@(_selectedSupervisorId == 0)"
@@ -148,7 +150,7 @@
                                        AdornmentIcon="@Icons.Material.Filled.Receipt"
                                        AdornmentColor="Color.Info"
                                        Format="N2"
-                                       HelperText="Ingrese el total mostrado en la tira de la caja registradora" />
+                                       HelperText="Total general mostrado en la tira de la caja registradora" />
 
                         <MudNumericField @bind-Value="model.TotalCards" 
                                        Label="Total Cobrado con Tarjeta" 
@@ -163,10 +165,10 @@
                         <MudDivider Class="my-4" />
 
                         <div class="d-flex justify-center flex-column align-center">
-                            <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-2">Total General</MudText>
+                            <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-2">Efectivo a Entregar</MudText>
                             <MudPaper Elevation="3" Class="pa-4 rounded-lg" Style="background: linear-gradient(135deg, #d32f2f 0%, #f44336 100%);">
                                 <MudText Typo="Typo.h4" Class="font-weight-bold" Style="color: white;">
-                                    $ @CalculateGrandTotal().ToString("N2")
+                                    $ @CalculateCashToDeliver().ToString("N2")
                                 </MudText>
                             </MudPaper>
                         </div>
@@ -227,6 +229,7 @@
     private List<CashierDto>? cashiers;
     private SupervisorDto? _selectedSupervisor;
     private bool _isSubmitting = false;
+    private decimal _totalCollections = 0;
 
     protected override async Task OnInitializedAsync()
     {
@@ -240,6 +243,7 @@
         _selectedSupervisorId = supervisorId;
         _selectedCashierId = 0; 
         _selectedCashRegisterId = 0;
+        _totalCollections = 0;
 
         if (supervisorId > 0)
         {
@@ -256,6 +260,57 @@
         }
 
         StateHasChanged();
+    }
+
+    private async Task OnCashRegisterChanged(int cashRegisterId)
+    {
+        _selectedCashRegisterId = cashRegisterId;
+        _totalCollections = 0;
+
+        if (cashRegisterId > 0 && cashRegisters != null)
+        {
+            var register = cashRegisters.FirstOrDefault(r => r.Id == cashRegisterId);
+            if (register != null)
+            {
+                // Obtener recolecciones sin corte de esta caja
+                await LoadCollectionsTotal(register.Name);
+            }
+        }
+
+        StateHasChanged();
+    }
+
+    private async Task LoadCollectionsTotal(string cashRegisterName)
+    {
+        try
+        {
+            var today = DateTime.Today;
+            var endOfDay = today.AddDays(1).AddTicks(-1);
+
+            var searchRequest = new SearchCashCollectionRequest
+            {
+                FechaInicio = today,
+                FechaFin = endOfDay,
+                CashRegisterName = cashRegisterName,
+                IsCut = false
+            };
+
+            var collections = await CashCollectionService.SearchAsync(searchRequest);
+            
+            // Calcular el total de las recolecciones (suma de denominaciones)
+            _totalCollections = collections.Sum(c => 
+                (c.Thousands * 1000m) + 
+                (c.FiveHundreds * 500m) + 
+                (c.TwoHundreds * 200m) + 
+                (c.Hundreds * 100m) + 
+                (c.Fifties * 50m) + 
+                (c.Twenties * 20m));
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error al cargar recolecciones: {ex.Message}", Severity.Warning);
+            _totalCollections = 0;
+        }
     }
 
     private async Task HacerCorte()
@@ -313,12 +368,16 @@
         _selectedSupervisorId = 0;
         _selectedCashierId = 0;
         _selectedCashRegisterId = 0;
+        _totalCollections = 0;
         model = new CashCutViewModel();
     }
 
-    private decimal CalculateGrandTotal()
+    /// <summary>
+    /// Calcula el efectivo a entregar: Total Tira - Total Recolecciones - Total Tarjetas
+    /// </summary>
+    private decimal CalculateCashToDeliver()
     {
-        return model.TotalSlips + model.TotalCards;
+        return model.TotalSlips - _totalCollections - model.TotalCards;
     }
 
     public class CashCutViewModel

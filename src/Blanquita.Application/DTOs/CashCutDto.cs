@@ -11,7 +11,23 @@ public record CashCutDto
     public int TotalTwenties { get; init; }
     public decimal TotalSlips { get; init; }
     public decimal TotalCards { get; init; }
+    
+    /// <summary>
+    /// Total de las recolecciones (suma de denominaciones)
+    /// </summary>
+    public decimal CollectionsTotal { get; init; }
+    
+    /// <summary>
+    /// Efectivo a entregar = Total Tira - Total Recolecciones - Total Tarjetas
+    /// </summary>
+    public decimal CashToDeliver { get; init; }
+    
+    /// <summary>
+    /// DEPRECATED: Use CollectionsTotal instead
+    /// </summary>
+    [Obsolete("Use CollectionsTotal instead")]
     public decimal GrandTotal { get; init; }
+    
     public string CashRegisterName { get; init; } = string.Empty;
     public int BranchId { get; init; }
     public string SupervisorName { get; init; } = string.Empty;

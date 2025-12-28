@@ -42,7 +42,10 @@ public record CashCutTotals
             Money.Create(totalSlips), Money.Create(totalCards));
     }
 
-    public Money CalculateGrandTotal()
+    /// <summary>
+    /// Calcula el total de las recolecciones (suma de todas las denominaciones)
+    /// </summary>
+    public Money CalculateCollectionsTotal()
     {
         var cashTotal = (TotalThousands * 1000m) +
                        (TotalFiveHundreds * 500m) +
@@ -52,5 +55,25 @@ public record CashCutTotals
                        (TotalTwenties * 20m);
 
         return Money.Create(cashTotal);
+    }
+
+    /// <summary>
+    /// Calcula el efectivo a entregar: Total Tira - Total Recolecciones - Total Tarjetas
+    /// </summary>
+    public Money CalculateCashToDeliver()
+    {
+        var collectionsTotal = CalculateCollectionsTotal();
+        var cashToDeliver = TotalSlips.Amount - collectionsTotal.Amount - TotalCards.Amount;
+        return Money.Create(cashToDeliver);
+    }
+
+    /// <summary>
+    /// DEPRECATED: Use CalculateCollectionsTotal() instead
+    /// Mantenido por compatibilidad temporal
+    /// </summary>
+    [Obsolete("Use CalculateCollectionsTotal() instead")]
+    public Money CalculateGrandTotal()
+    {
+        return CalculateCollectionsTotal();
     }
 }
