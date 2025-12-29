@@ -194,6 +194,17 @@ public class PrintingService : IPrintingService
         string o = string.IsNullOrEmpty(design.Orientation) ? "N" : design.Orientation;
         int dpi = label.PrinterDpi > 0 ? label.PrinterDpi : 203;
 
+        // Configurar dimensiones de la etiqueta
+        // Generar ^LL (Label Length) y ^PW (Print Width) para asegurar que la impresora use el tamaño correcto
+        int labelHeightDots = MmToDots(design.HeightInMm, dpi);
+        int labelWidthDots = MmToDots(design.WidthInMm, dpi);
+        
+        zplBuilder.AppendLine($"^LL{labelHeightDots}");
+        zplBuilder.AppendLine($"^PW{labelWidthDots}");
+        
+        _logger.LogInformation("Generating ZPL for design '{DesignName}'. Dimensions: {Width}x{Height} mm ({WidthDots}x{HeightDots} dots at {Dpi} DPI)", 
+            design.Name, design.WidthInMm, design.HeightInMm, labelWidthDots, labelHeightDots, dpi);
+
         if (design.Elements != null && design.Elements.Any())
         {
             // Dynamic generation based on elements
