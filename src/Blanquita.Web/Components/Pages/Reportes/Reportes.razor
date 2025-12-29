@@ -16,236 +16,269 @@
 
 <PageTitle>Generar Reportes - Sistema de Reportes</PageTitle>
 
-    <MudText Typo="Typo.h4" Class="mb-4">
-        <MudIcon Icon="@Icons.Material.Filled.Receipt" Class="mr-2" />
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4 animate-fade-in">
+    <MudText Typo="Typo.h4" Class="mb-6 font-weight-bold" Style="background: linear-gradient(45deg, #667eea, #764ba2); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+        <MudIcon Icon="@Icons.Material.Filled.Receipt" Class="mr-2" Size="Size.Large" Color="Color.Primary" />
         Generar Reporte de Facturación
     </MudText>
 
     <MudGrid>
         <!-- Formulario de parámetros -->
         <MudItem xs="12" md="4">
-            <MudPaper Elevation="2" Class="pa-4">
-                <MudText Typo="Typo.h6" Class="mb-4">
-                    <MudIcon Icon="@Icons.Material.Filled.FilterAlt" Size="Size.Small" Class="mr-2" />
-                    Parámetros del Reporte
-                </MudText>
-
-                <MudSelect @bind-Value="sucursalSeleccionada"
-                           Label="Sucursal"
-                           Variant="Variant.Outlined"
-                           Required="true"
-                           Class="mb-3">
-                    <MudSelectItem Value="@("Himno")">Himno</MudSelectItem>
-                    <MudSelectItem Value="@("Pozos")">Pozos</MudSelectItem>
-                    <MudSelectItem Value="@("Soledad")">Soledad</MudSelectItem>
-                    <MudSelectItem Value="@("Saucito")">Saucito</MudSelectItem>
-                    <MudSelectItem Value="@("Chapultepec")">Chapultepec</MudSelectItem>
-                </MudSelect>
-
-                <MudDatePicker @bind-Date="fechaSeleccionada"
-                               Label="Fecha del Reporte"
-                               Variant="Variant.Outlined"
-                               Required="true"
-                               MaxDate="DateTime.Today"
-                               Class="mb-3" />
-
-                <MudDivider Class="my-3" />
-
-                <MudButton Variant="Variant.Filled"
-                           Color="Color.Primary"
-                           FullWidth="true"
-                           StartIcon="@Icons.Material.Filled.PlayArrow"
-                           OnClick="GenerarReporte"
-                           Disabled="@(generando || string.IsNullOrEmpty(sucursalSeleccionada) || fechaSeleccionada == null)"
-                           Size="Size.Large">
-                    @if (generando)
-                    {
-                        <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
-                        <text>Generando...</text>
-                    }
-                    else
-                    {
-                        <text>Generar Reporte</text>
-                    }
-                </MudButton>
-
-                @if (reporteGenerado && datosReporte != null && datosReporte.Any())
-                {
-                    <MudDivider Class="my-3" />
-
-                    <MudText Typo="Typo.subtitle1" Class="mb-2">
-                        <MudIcon Icon="@Icons.Material.Filled.Edit" Size="Size.Small" Class="mr-2" />
-                        Corte Manual
+            <MudCard Elevation="4" Class="rounded-lg">
+                <MudCardContent Class="pa-4">
+                    <MudText Typo="Typo.h6" Class="mb-4" Color="Color.Primary">
+                        <MudIcon Icon="@Icons.Material.Filled.FilterAlt" Size="Size.Small" Class="mr-2" />
+                        Parámetros del Reporte
                     </MudText>
 
-                    <MudNumericField @bind-Value="totalCorteManual"
-                                     Label="Total Corte Manual"
-                                     Variant="Variant.Outlined"
-                                     Format="N2"
-                                     Culture="@(new System.Globalization.CultureInfo("es-MX"))"
-                                     Adornment="Adornment.Start"
-                                     AdornmentIcon="@Icons.Material.Filled.AttachMoney"
-                                     OnBlur="CalcularDiferencia"
-                                     Class="mb-2" />
+                    <MudSelect @bind-Value="sucursalSeleccionada"
+                               Label="Sucursal"
+                               Variant="Variant.Outlined"
+                               Required="true"
+                               Class="mb-3"
+                               AnchorOrigin="Origin.BottomCenter">
+                        <MudSelectItem Value="@("Himno")">Himno</MudSelectItem>
+                        <MudSelectItem Value="@("Pozos")">Pozos</MudSelectItem>
+                        <MudSelectItem Value="@("Soledad")">Soledad</MudSelectItem>
+                        <MudSelectItem Value="@("Saucito")">Saucito</MudSelectItem>
+                        <MudSelectItem Value="@("Chapultepec")">Chapultepec</MudSelectItem>
+                    </MudSelect>
 
-                    @if (totalCorteManual.HasValue)
+                    <MudDatePicker @bind-Date="fechaSeleccionada"
+                                   Label="Fecha del Reporte"
+                                   Variant="Variant.Outlined"
+                                   Required="true"
+                                   MaxDate="DateTime.Today"
+                                   Class="mb-3" />
+
+                    <MudDivider Class="my-3" />
+
+                    <MudButton Variant="Variant.Filled"
+                               Color="Color.Primary"
+                               FullWidth="true"
+                               StartIcon="@Icons.Material.Filled.PlayArrow"
+                               OnClick="GenerarReporte"
+                               Disabled="@(generando || string.IsNullOrEmpty(sucursalSeleccionada) || fechaSeleccionada == null)"
+                               Size="Size.Large"
+                               Class="py-2">
+                        @if (generando)
+                        {
+                            <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                            <text>Generando...</text>
+                        }
+                        else
+                        {
+                            <text>Generar Reporte</text>
+                        }
+                    </MudButton>
+
+                    @if (reporteGenerado && datosReporte != null && datosReporte.Any())
                     {
-                        var diferencia = totalCorteManual.Value - totalSistema;
-                        var colorDiferencia = diferencia == 0 ? Color.Success : (diferencia > 0 ? Color.Info : Color.Warning);
+                        <MudDivider Class="my-3" />
 
-                        <MudAlert Severity="@(diferencia == 0 ? Severity.Success : Severity.Warning)"
-                                  Dense="true"
-                                  Class="mb-2">
-                            <MudText Typo="Typo.body2">
-                                <strong>Diferencia:</strong> @diferencia.ToString("C2", new System.Globalization.CultureInfo("es-MX"))
-                            </MudText>
-                            <MudText Typo="Typo.body2">
-                                <strong>Sistema:</strong> @totalSistema.ToString("C2", new System.Globalization.CultureInfo("es-MX"))
-                            </MudText>
-                        </MudAlert>
+                        <MudText Typo="Typo.subtitle1" Class="mb-2 font-weight-bold">
+                            <MudIcon Icon="@Icons.Material.Filled.Edit" Size="Size.Small" Class="mr-2" />
+                            Corte Manual
+                        </MudText>
+
+                        <MudNumericField @bind-Value="totalCorteManual"
+                                         Label="Total Corte Manual"
+                                         Variant="Variant.Outlined"
+                                         Format="N2"
+                                         Culture="@(new System.Globalization.CultureInfo("es-MX"))"
+                                         Adornment="Adornment.Start"
+                                         AdornmentIcon="@Icons.Material.Filled.AttachMoney"
+                                         OnBlur="CalcularDiferencia"
+                                         Class="mb-2" />
+
+                        @if (totalCorteManual.HasValue)
+                        {
+                            var diferencia = totalCorteManual.Value - totalSistema;
+                            var colorDiferencia = diferencia == 0 ? Color.Success : (diferencia > 0 ? Color.Info : Color.Warning);
+
+                            <MudAlert Severity="@(diferencia == 0 ? Severity.Success : Severity.Warning)"
+                                      Dense="true"
+                                      Class="mb-2 rounded-lg"
+                                      Variant="Variant.Filled">
+                                <MudText Typo="Typo.body2">
+                                    <strong>Diferencia:</strong> @diferencia.ToString("C2", new System.Globalization.CultureInfo("es-MX"))
+                                </MudText>
+                                <MudText Typo="Typo.body2">
+                                    <strong>Sistema:</strong> @totalSistema.ToString("C2", new System.Globalization.CultureInfo("es-MX"))
+                                </MudText>
+                            </MudAlert>
+                        }
+
+                        <MudTextField @bind-Value="notasReporte"
+                                      Label="Notas del Reporte"
+                                      Variant="Variant.Outlined"
+                                      Lines="3"
+                                      Class="mb-3" />
                     }
-
-                    <MudTextField @bind-Value="notasReporte"
-                                  Label="Notas del Reporte"
-                                  Variant="Variant.Outlined"
-                                  Lines="3"
-                                  Class="mb-3" />
-                }
-            </MudPaper>
+                </MudCardContent>
+            </MudCard>
         </MudItem>
 
         <!-- Resultados -->
         <MudItem xs="12" md="8">
             @if (generando)
             {
-                <MudPaper Elevation="2" Class="pa-8 text-center">
-                    <MudProgressCircular Size="Size.Large" Indeterminate="true" />
-                    <MudText Typo="Typo.h6" Class="mt-4">Generando reporte...</MudText>
-                    <MudText Typo="Typo.body2" Color="Color.Secondary">
-                        Procesando datos de @sucursalSeleccionada para @fechaSeleccionada?.ToString("dd/MM/yyyy")
-                    </MudText>
-                </MudPaper>
+                <MudCard Elevation="4" Class="rounded-lg pa-8 text-center animate-fade-in">
+                    <MudCardContent>
+                        <MudProgressCircular Size="Size.Large" Indeterminate="true" Color="Color.Primary" />
+                        <MudText Typo="Typo.h6" Class="mt-4">Generando reporte...</MudText>
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">
+                            Procesando datos de @sucursalSeleccionada para @fechaSeleccionada?.ToString("dd/MM/yyyy")
+                        </MudText>
+                    </MudCardContent>
+                </MudCard>
             }
             else if (reporteGenerado && datosReporte != null)
             {
-                <MudPaper Elevation="2" Class="pa-4">
-                    <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-3">
-                        <MudText Typo="Typo.h6">
-                            <MudIcon Icon="@Icons.Material.Filled.TableChart" Class="mr-2" />
-                            Resultados - @sucursalSeleccionada (@fechaSeleccionada?.ToString("dd/MM/yyyy"))
-                        </MudText>
+                <MudCard Elevation="4" Class="rounded-lg animate-slide-up">
+                    <MudCardContent Class="pa-4">
+                        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-3">
+                            <MudText Typo="Typo.h6" Color="Color.Primary">
+                                <MudIcon Icon="@Icons.Material.Filled.TableChart" Class="mr-2" />
+                                Resultados - @sucursalSeleccionada (@fechaSeleccionada?.ToString("dd/MM/yyyy"))
+                            </MudText>
 
-                        <MudStack Row="true" Spacing="2">
-                            <MudButton Variant="Variant.Outlined"
-                                       StartIcon="@Icons.Material.Filled.Download"
-                                       Color="Color.Success"
-                                       OnClick="ExportarExcel"
-                                       Size="Size.Small">
-                                Excel
-                            </MudButton>
-                            <MudButton Variant="Variant.Outlined"
-                                       StartIcon="@Icons.Material.Filled.PictureAsPdf"
-                                       Color="Color.Error"
-                                       OnClick="ExportarPDF"
-                                       Size="Size.Small">
-                                PDF
-                            </MudButton>
-                            <MudButton Variant="Variant.Filled"
-                                       StartIcon="@Icons.Material.Filled.Save"
-                                       Color="Color.Primary"
-                                       OnClick="GuardarEnHistorico"
-                                       Disabled="@guardando"
-                                       Size="Size.Small">
-                                @if (guardando)
-                                {
-                                    <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-1" />
-                                }
-                                Guardar
-                            </MudButton>
+                            <MudStack Row="true" Spacing="2">
+                                <MudButton Variant="Variant.Outlined"
+                                           StartIcon="@Icons.Material.Filled.Download"
+                                           Color="Color.Success"
+                                           OnClick="ExportarExcel"
+                                           Size="Size.Small">
+                                    Excel
+                                </MudButton>
+                                <MudButton Variant="Variant.Outlined"
+                                           StartIcon="@Icons.Material.Filled.PictureAsPdf"
+                                           Color="Color.Error"
+                                           OnClick="ExportarPDF"
+                                           Size="Size.Small">
+                                    PDF
+                                </MudButton>
+                                <MudButton Variant="Variant.Filled"
+                                           StartIcon="@Icons.Material.Filled.Save"
+                                           Color="Color.Primary"
+                                           OnClick="GuardarEnHistorico"
+                                           Disabled="@guardando"
+                                           Size="Size.Small">
+                                    @if (guardando)
+                                    {
+                                        <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-1" />
+                                    }
+                                    Guardar
+                                </MudButton>
+                            </MudStack>
                         </MudStack>
-                    </MudStack>
 
-                    @if (datosReporte.Any())
-                    {
-                        <MudTable Items="@datosReporte.OrderBy(x => x.Caja)"
-                                  Dense="true"
-                                  Hover="true"
-                                  Striped="true"
-                                  Elevation="0"
-                                  Style="border: 1px solid #e0e0e0;">
-                            <HeaderContent>
-                                <MudTh Style="font-weight: bold;">Fecha</MudTh>
-                                <MudTh Style="font-weight: bold;">Caja</MudTh>
-                                <MudTh Style="font-weight: bold; text-align: right;">Facturado</MudTh>
-                                <MudTh Style="font-weight: bold; text-align: right;">Devolución</MudTh>
-                                <MudTh Style="font-weight: bold; text-align: right;">Venta Global</MudTh>
-                                <MudTh Style="font-weight: bold; text-align: right;">Total</MudTh>
-                            </HeaderContent>
-                            <RowTemplate>
-                                <MudTd DataLabel="Fecha">@context.Fecha</MudTd>
-                                <MudTd DataLabel="Caja">
-                                    <MudChip T="string" Size="Size.Small" Color="Color.Primary">@context.Caja</MudChip>
-                                </MudTd>
-                                <MudTd DataLabel="Facturado" Style="text-align: right;">
-                                    @context.Facturado.ToString("C2", new System.Globalization.CultureInfo("es-MX"))
-                                </MudTd>
-                                <MudTd DataLabel="Devolución" Style="text-align: right;">
-                                    <MudText Color="Color.Error">
-                                        @context.Devolucion.ToString("C2", new System.Globalization.CultureInfo("es-MX"))
-                                    </MudText>
-                                </MudTd>
-                                <MudTd DataLabel="Venta Global" Style="text-align: right;">
-                                    @context.VentaGlobal.ToString("C2", new System.Globalization.CultureInfo("es-MX"))
-                                </MudTd>
-                                <MudTd DataLabel="Total" Style="text-align: right;">
-                                    <strong>@context.Total.ToString("C2", new System.Globalization.CultureInfo("es-MX"))</strong>
-                                </MudTd>
-                            </RowTemplate>
-                            <FooterContent>
-                                <MudTh Style="font-weight: bold; background-color: #f5f5f5;" colspan="2">TOTALES</MudTh>
-                                <MudTh Style="font-weight: bold; text-align: right; background-color: #f5f5f5;">
-                                    @datosReporte.Sum(x => x.Facturado).ToString("C2", new System.Globalization.CultureInfo("es-MX"))
-                                </MudTh>
-                                <MudTh Style="font-weight: bold; text-align: right; background-color: #f5f5f5;">
-                                    <MudText Color="Color.Error">
-                                        @datosReporte.Sum(x => x.Devolucion).ToString("C2", new System.Globalization.CultureInfo("es-MX"))
-                                    </MudText>
-                                </MudTh>
-                                <MudTh Style="font-weight: bold; text-align: right; background-color: #f5f5f5;">
-                                    @datosReporte.Sum(x => x.VentaGlobal).ToString("C2", new System.Globalization.CultureInfo("es-MX"))
-                                </MudTh>
-                                <MudTh Style="font-weight: bold; text-align: right; background-color: #f5f5f5;">
-                                    @totalSistema.ToString("C2", new System.Globalization.CultureInfo("es-MX"))
-                                </MudTh>
-                            </FooterContent>
-                        </MudTable>
+                        @if (datosReporte.Any())
+                        {
+                            <MudTable Items="@datosReporte.OrderBy(x => x.Caja)"
+                                      Dense="true"
+                                      Hover="true"
+                                      Striped="true"
+                                      Elevation="0"
+                                      Bordered="true">
+                                <HeaderContent>
+                                    <MudTh Style="font-weight: bold;">Fecha</MudTh>
+                                    <MudTh Style="font-weight: bold;">Caja</MudTh>
+                                    <MudTh Style="font-weight: bold; text-align: right;">Facturado</MudTh>
+                                    <MudTh Style="font-weight: bold; text-align: right;">Devolución</MudTh>
+                                    <MudTh Style="font-weight: bold; text-align: right;">Venta Global</MudTh>
+                                    <MudTh Style="font-weight: bold; text-align: right;">Total</MudTh>
+                                </HeaderContent>
+                                <RowTemplate>
+                                    <MudTd DataLabel="Fecha">@context.Fecha</MudTd>
+                                    <MudTd DataLabel="Caja">
+                                        <MudChip T="string" Size="Size.Small" Color="Color.Primary" Variant="Variant.Outlined">@context.Caja</MudChip>
+                                    </MudTd>
+                                    <MudTd DataLabel="Facturado" Style="text-align: right;">
+                                        @context.Facturado.ToString("C2", new System.Globalization.CultureInfo("es-MX"))
+                                    </MudTd>
+                                    <MudTd DataLabel="Devolución" Style="text-align: right;">
+                                        <MudText Color="Color.Error">
+                                            @context.Devolucion.ToString("C2", new System.Globalization.CultureInfo("es-MX"))
+                                        </MudText>
+                                    </MudTd>
+                                    <MudTd DataLabel="Venta Global" Style="text-align: right;">
+                                        @context.VentaGlobal.ToString("C2", new System.Globalization.CultureInfo("es-MX"))
+                                    </MudTd>
+                                    <MudTd DataLabel="Total" Style="text-align: right;">
+                                        <strong>@context.Total.ToString("C2", new System.Globalization.CultureInfo("es-MX"))</strong>
+                                    </MudTd>
+                                </RowTemplate>
+                                <FooterContent>
+                                    <MudTh Style="font-weight: bold; background-color: #f5f5f5;" colspan="2">TOTALES</MudTh>
+                                    <MudTh Style="font-weight: bold; text-align: right; background-color: #f5f5f5;">
+                                        @datosReporte.Sum(x => x.Facturado).ToString("C2", new System.Globalization.CultureInfo("es-MX"))
+                                    </MudTh>
+                                    <MudTh Style="font-weight: bold; text-align: right; background-color: #f5f5f5;">
+                                        <MudText Color="Color.Error">
+                                            @datosReporte.Sum(x => x.Devolucion).ToString("C2", new System.Globalization.CultureInfo("es-MX"))
+                                        </MudText>
+                                    </MudTh>
+                                    <MudTh Style="font-weight: bold; text-align: right; background-color: #f5f5f5;">
+                                        @datosReporte.Sum(x => x.VentaGlobal).ToString("C2", new System.Globalization.CultureInfo("es-MX"))
+                                    </MudTh>
+                                    <MudTh Style="font-weight: bold; text-align: right; background-color: #f5f5f5;">
+                                        @totalSistema.ToString("C2", new System.Globalization.CultureInfo("es-MX"))
+                                    </MudTh>
+                                </FooterContent>
+                            </MudTable>
 
-                        <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mt-2">
-                            Total de registros: @datosReporte.Count
-                        </MudText>
-                    }
-                    else
-                    {
-                        <MudAlert Severity="Severity.Info" Class="mt-2">
-                            No se encontraron datos para la sucursal <strong>@sucursalSeleccionada</strong> en la fecha <strong>@fechaSeleccionada?.ToString("dd/MM/yyyy")</strong>
-                        </MudAlert>
-                    }
-                </MudPaper>
+                            <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mt-2 d-block text-right">
+                                Total de registros: @datosReporte.Count
+                            </MudText>
+                        }
+                        else
+                        {
+                            <MudAlert Severity="Severity.Info" Class="mt-2 rounded-lg">
+                                No se encontraron datos para la sucursal <strong>@sucursalSeleccionada</strong> en la fecha <strong>@fechaSeleccionada?.ToString("dd/MM/yyyy")</strong>
+                            </MudAlert>
+                        }
+                    </MudCardContent>
+                </MudCard>
             }
             else
             {
-                <MudPaper Elevation="2" Class="pa-8 text-center" Style="min-height: 400px; display: flex; flex-direction: column; justify-content: center; align-items: center;">
-                    <MudIcon Icon="@Icons.Material.Filled.Assessment" Size="Size.Large" Color="Color.Secondary" />
-                    <MudText Typo="Typo.h6" Color="Color.Secondary" Class="mt-4">
-                        Seleccione los parámetros y genere un reporte
-                    </MudText>
-                    <MudText Typo="Typo.body2" Color="Color.Secondary">
-                        Elija una sucursal y fecha para comenzar
-                    </MudText>
-                </MudPaper>
+                <MudCard Elevation="4" Class="rounded-lg pa-8 text-center animate-fade-in" Style="min-height: 400px; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+                    <MudCardContent>
+                        <MudIcon Icon="@Icons.Material.Filled.Assessment" Size="Size.Large" Color="Color.Secondary" Style="font-size: 4rem; opacity: 0.3;" />
+                        <MudText Typo="Typo.h6" Color="Color.Secondary" Class="mt-4 font-weight-bold">
+                            Seleccione los parámetros y genere un reporte
+                        </MudText>
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">
+                            Elija una sucursal y fecha para comenzar
+                        </MudText>
+                    </MudCardContent>
+                </MudCard>
             }
         </MudItem>
     </MudGrid>
+</MudContainer>
+
+<style>
+    .animate-fade-in {
+        animation: fadeIn 0.5s ease-out;
+    }
+    .animate-slide-up {
+        animation: slideUp 0.5s ease-out;
+    }
+    @@keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+    @@keyframes slideUp {
+        from { transform: translateY(20px); opacity: 0; }
+        to { transform: translateY(0); opacity: 1; }
+    }
+    .rounded-lg {
+        border-radius: 12px !important;
+    }
+</style>
 
 
 @code {

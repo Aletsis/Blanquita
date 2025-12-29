@@ -16,128 +16,167 @@
 
 <PageTitle>Histórico - Sistema de Reportes</PageTitle>
 
-    <MudText Typo="Typo.h4" Class="mb-4">
-        <MudIcon Icon="@Icons.Material.Filled.History" Class="mr-2" />
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4 animate-fade-in">
+    <MudText Typo="Typo.h4" Class="mb-6 font-weight-bold" Style="background: linear-gradient(45deg, #667eea, #764ba2); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+        <MudIcon Icon="@Icons.Material.Filled.History" Class="mr-2" Size="Size.Large" Color="Color.Primary" />
         Histórico de Reportes
     </MudText>
 
     <MudGrid>
         <MudItem xs="12">
-            <MudPaper Elevation="2" Class="pa-4">
-                <MudGrid>
-                    <MudItem xs="12" md="3">
-                        <MudSelect @bind-Value="sucursalFiltro" Label="Sucursal" Variant="Variant.Outlined"
-                                   Clearable="true" OnClearButtonClick="LimpiarFiltros" ToStringFunc="@(s => s?.Nombre ?? "Todas")">
-                            <MudSelectItem Value="@((Sucursal?)null)">Todas</MudSelectItem>
-                            @foreach (var sucursal in Sucursal.ObtenerTodas())
-                            {
-                                <MudSelectItem Value="@sucursal">@sucursal.Nombre</MudSelectItem>
-                            }
-                        </MudSelect>
-                    </MudItem>
+            <MudCard Elevation="4" Class="rounded-lg mb-4">
+                <MudCardContent Class="pa-4">
+                    <MudText Typo="Typo.h6" Class="mb-4" Color="Color.Primary">
+                        <MudIcon Icon="@Icons.Material.Filled.FilterAlt" Size="Size.Small" Class="mr-2" />
+                        Filtros de Búsqueda
+                    </MudText>
+                    <MudGrid>
+                        <MudItem xs="12" md="3">
+                            <MudSelect @bind-Value="sucursalFiltro" Label="Sucursal" Variant="Variant.Outlined"
+                                       Clearable="true" OnClearButtonClick="LimpiarFiltros" ToStringFunc="@(s => s?.Nombre ?? "Todas")"
+                                       AnchorOrigin="Origin.BottomCenter">
+                                <MudSelectItem Value="@((Sucursal?)null)">Todas</MudSelectItem>
+                                @foreach (var sucursal in Sucursal.ObtenerTodas())
+                                {
+                                    <MudSelectItem Value="@sucursal">@sucursal.Nombre</MudSelectItem>
+                                }
+                            </MudSelect>
+                        </MudItem>
 
-                    <MudItem xs="12" md="3">
-                        <MudDatePicker @bind-Date="fechaInicio" Label="Fecha Inicio" Variant="Variant.Outlined"
-                                       Clearable="true" />
-                    </MudItem>
+                        <MudItem xs="12" md="3">
+                            <MudDatePicker @bind-Date="fechaInicio" Label="Fecha Inicio" Variant="Variant.Outlined"
+                                           Clearable="true" />
+                        </MudItem>
 
-                    <MudItem xs="12" md="3">
-                        <MudDatePicker @bind-Date="fechaFin" Label="Fecha Fin" Variant="Variant.Outlined"
-                                       Clearable="true" />
-                    </MudItem>
+                        <MudItem xs="12" md="3">
+                            <MudDatePicker @bind-Date="fechaFin" Label="Fecha Fin" Variant="Variant.Outlined"
+                                           Clearable="true" />
+                        </MudItem>
 
-                    <MudItem xs="12" md="3" Class="d-flex align-end">
-                        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Search"
-                                   OnClick="BuscarReportes" FullWidth="true">
-                            Buscar
-                        </MudButton>
-                    </MudItem>
-                </MudGrid>
-            </MudPaper>
+                        <MudItem xs="12" md="3" Class="d-flex align-end">
+                            <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Search"
+                                       OnClick="BuscarReportes" FullWidth="true" Size="Size.Large">
+                                Buscar
+                            </MudButton>
+                        </MudItem>
+                    </MudGrid>
+                </MudCardContent>
+            </MudCard>
         </MudItem>
 
         <MudItem xs="12">
-            <MudPaper Elevation="2">
-                @if (cargando)
-                {
-                    <div class="pa-8 text-center">
-                        <MudProgressCircular Indeterminate="true" />
-                        <MudText Typo="Typo.body1" Class="mt-4">Cargando reportes...</MudText>
-                    </div>
-                }
-                else if (reportesFiltrados != null && reportesFiltrados.Any())
-                {
-                    <MudTable Items="@reportesFiltrados" Hover="true" Striped="true" Dense="true" Elevation="0">
-                        <HeaderContent>
-                            <MudTh>Fecha Reporte</MudTh>
-                            <MudTh>Sucursal</MudTh>
-                            <MudTh Style="text-align: right;">Total Sistema</MudTh>
-                            <MudTh Style="text-align: right;">Total Manual</MudTh>
-                            <MudTh Style="text-align: right;">Diferencia</MudTh>
-                            <MudTh>Fecha Generación</MudTh>
-                            <MudTh Style="text-align: center;">Acciones</MudTh>
-                        </HeaderContent>
-                        <RowTemplate>
-                            <MudTd DataLabel="Fecha">@context.Fecha.ToString("dd/MM/yyyy")</MudTd>
-                            <MudTd DataLabel="Sucursal">
-                                <MudChip T="string" Size="Size.Small" Color="Color.Primary">@context.Sucursal</MudChip>
-                            </MudTd>
-                            <MudTd DataLabel="Total Sistema" Style="text-align: right;">
-                                @context.TotalSistema.ToString("C2", new System.Globalization.CultureInfo("es-MX"))
-                            </MudTd>
-                            <MudTd DataLabel="Total Manual" Style="text-align: right;">
-                                @context.TotalCorteManual.ToString("C2", new System.Globalization.CultureInfo("es-MX"))
-                            </MudTd>
-                            <MudTd DataLabel="Diferencia" Style="text-align: right;">
-                                <MudText Color="@ObtenerColorDiferencia(context.Diferencia)">
-                                    <strong>@context.Diferencia.ToString("C2", new System.Globalization.CultureInfo("es-MX"))</strong>
-                                </MudText>
-                            </MudTd>
-                            <MudTd DataLabel="Fecha Generación">
-                                @context.FechaGeneracion.ToString("dd/MM/yyyy HH:mm")
-                            </MudTd>
-                            <MudTd DataLabel="Acciones" Style="text-align: center;">
-                                <MudTooltip Text="Ver Detalles">
-                                    <MudIconButton Icon="@Icons.Material.Filled.Visibility" Size="Size.Small"
-                                                   Color="Color.Info" OnClick="() => VerDetalles(context)" />
-                                </MudTooltip>
-                                <MudTooltip Text="Editar Notas">
-                                    <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small"
-                                                   Color="Color.Warning" OnClick="() => EditarNotas(context)" />
-                                </MudTooltip>
-                                <MudTooltip Text="Exportar Excel">
-                                    <MudIconButton Icon="@Icons.Material.Filled.TableChart" Size="Size.Small"
-                                                   Color="Color.Success" OnClick="() => ExportarExcel(context)" />
-                                </MudTooltip>
-                                <MudTooltip Text="Exportar PDF">
-                                    <MudIconButton Icon="@Icons.Material.Filled.PictureAsPdf" Size="Size.Small"
-                                                   Color="Color.Error" OnClick="() => ExportarPDF(context)" />
-                                </MudTooltip>
-                            </MudTd>
-                        </RowTemplate>
-                    </MudTable>
-                    <MudDivider />
-                    <div class="pa-3">
-                        <MudText Typo="Typo.caption" Color="Color.Secondary">
-                            Total de reportes: @reportesFiltrados.Count
-                        </MudText>
-                    </div>
-                }
-                else
-                {
-                    <div class="pa-8 text-center">
-                        <MudIcon Icon="@Icons.Material.Filled.SearchOff" Size="Size.Large" Color="Color.Secondary" />
-                        <MudText Typo="Typo.h6" Color="Color.Secondary" Class="mt-4">
-                            No se encontraron reportes
-                        </MudText>
-                        <MudText Typo="Typo.body2" Color="Color.Secondary">
-                            Ajusta los filtros o genera un nuevo reporte
-                        </MudText>
-                    </div>
-                }
-            </MudPaper>
+            <MudCard Elevation="4" Class="rounded-lg animate-slide-up">
+                <MudCardContent Class="pa-0">
+                    @if (cargando)
+                    {
+                        <div class="pa-12 text-center">
+                            <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" />
+                            <MudText Typo="Typo.h6" Class="mt-4">Cargando reportes...</MudText>
+                        </div>
+                    }
+                    else if (reportesFiltrados != null && reportesFiltrados.Any())
+                    {
+                        <MudTable Items="@reportesFiltrados" Hover="true" Striped="true" Dense="true" Elevation="0">
+                            <HeaderContent>
+                                <MudTh>Fecha Reporte</MudTh>
+                                <MudTh>Sucursal</MudTh>
+                                <MudTh Style="text-align: right;">Total Sistema</MudTh>
+                                <MudTh Style="text-align: right;">Total Manual</MudTh>
+                                <MudTh Style="text-align: right;">Diferencia</MudTh>
+                                <MudTh>Fecha Generación</MudTh>
+                                <MudTh Style="text-align: center;">Acciones</MudTh>
+                            </HeaderContent>
+                            <RowTemplate>
+                                <MudTd DataLabel="Fecha">
+                                    <div class="d-flex align-center">
+                                        <MudIcon Icon="@Icons.Material.Filled.CalendarToday" Size="Size.Small" Class="mr-2" />
+                                        @context.Fecha.ToString("dd/MM/yyyy")
+                                    </div>
+                                </MudTd>
+                                <MudTd DataLabel="Sucursal">
+                                    <MudChip T="string" Size="Size.Small" Color="Color.Primary" Variant="Variant.Outlined">@context.Sucursal</MudChip>
+                                </MudTd>
+                                <MudTd DataLabel="Total Sistema" Style="text-align: right;">
+                                    @context.TotalSistema.ToString("C2", new System.Globalization.CultureInfo("es-MX"))
+                                </MudTd>
+                                <MudTd DataLabel="Total Manual" Style="text-align: right;">
+                                    @context.TotalCorteManual.ToString("C2", new System.Globalization.CultureInfo("es-MX"))
+                                </MudTd>
+                                <MudTd DataLabel="Diferencia" Style="text-align: right;">
+                                    <MudText Color="@ObtenerColorDiferencia(context.Diferencia)" Class="font-weight-bold">
+                                        @context.Diferencia.ToString("C2", new System.Globalization.CultureInfo("es-MX"))
+                                    </MudText>
+                                </MudTd>
+                                <MudTd DataLabel="Fecha Generación">
+                                    <MudText Typo="Typo.caption">@context.FechaGeneracion.ToString("dd/MM/yyyy HH:mm")</MudText>
+                                </MudTd>
+                                <MudTd DataLabel="Acciones" Style="text-align: center;">
+                                    <MudTooltip Text="Ver Detalles">
+                                        <MudIconButton Icon="@Icons.Material.Filled.Visibility" Size="Size.Small"
+                                                       Color="Color.Info" OnClick="() => VerDetalles(context)" />
+                                    </MudTooltip>
+                                    <MudTooltip Text="Editar Notas">
+                                        <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small"
+                                                       Color="Color.Warning" OnClick="() => EditarNotas(context)" />
+                                    </MudTooltip>
+                                    <MudTooltip Text="Exportar Excel">
+                                        <MudIconButton Icon="@Icons.Material.Filled.TableChart" Size="Size.Small"
+                                                       Color="Color.Success" OnClick="() => ExportarExcel(context)" />
+                                    </MudTooltip>
+                                    <MudTooltip Text="Exportar PDF">
+                                        <MudIconButton Icon="@Icons.Material.Filled.PictureAsPdf" Size="Size.Small"
+                                                       Color="Color.Error" OnClick="() => ExportarPDF(context)" />
+                                    </MudTooltip>
+                                </MudTd>
+                            </RowTemplate>
+                             <PagerContent>
+                                <MudTablePager />
+                            </PagerContent>
+                        </MudTable>
+                        <MudDivider />
+                        <div class="pa-4 d-flex justify-end">
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                Total de reportes: @reportesFiltrados.Count
+                            </MudText>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="pa-12 text-center">
+                            <MudIcon Icon="@Icons.Material.Filled.SearchOff" Size="Size.Large" Color="Color.Default" Style="font-size: 4rem; opacity: 0.2;" />
+                            <MudText Typo="Typo.h6" Color="Color.Secondary" Class="mt-4">
+                                No se encontraron reportes
+                            </MudText>
+                            <MudText Typo="Typo.body2" Color="Color.Secondary">
+                                Ajusta los filtros o genera un nuevo reporte
+                            </MudText>
+                        </div>
+                    }
+                </MudCardContent>
+            </MudCard>
         </MudItem>
     </MudGrid>
+</MudContainer>
+
+<style>
+    .animate-fade-in {
+        animation: fadeIn 0.5s ease-out;
+    }
+    .animate-slide-up {
+        animation: slideUp 0.5s ease-out;
+    }
+    @@keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+    @@keyframes slideUp {
+        from { transform: translateY(20px); opacity: 0; }
+        to { transform: translateY(0); opacity: 1; }
+    }
+    .rounded-lg {
+        border-radius: 12px !important;
+    }
+</style>
 
 @code {
     private List<ReporteHistorico>? reportesFiltrados;
