@@ -6,5 +6,6 @@ public class PrinterDto
     public string Name { get; set; } = string.Empty;
     public string IpAddress { get; set; } = string.Empty;
     public int Port { get; set; }
+    public int Dpi { get; set; }
     public bool IsActive { get; set; }
 }

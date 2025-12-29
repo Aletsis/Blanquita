@@ -22,6 +22,8 @@ public class BlanquitaDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<SystemConfiguration> SystemConfigurations { get; set; } = null!;
     public DbSet<LabelDesign> LabelDesigns { get; set; } = null!;
     public DbSet<LabelElement> LabelElements { get; set; } = null!;
+    public DbSet<ReporteHistorico> ReportesHistoricos { get; set; } = null!;
+    public DbSet<DetalleReporte> DetallesReporte { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -210,6 +212,46 @@ public class BlanquitaDbContext : IdentityDbContext<ApplicationUser>
             entity.Property(e => e.HeightMm).HasColumnName("AltoMm").HasColumnType("decimal(18,2)");
             entity.Property(e => e.BarWidth).HasColumnName("AnchoBarra");
             entity.Property(e => e.LabelDesignId).HasColumnName("DiseñoId");
+        });
+
+        var sucursalConverter = new ValueConverter<Sucursal, string>(
+            v => v.Codigo,
+            v => Sucursal.FromCodigo(v) ?? Sucursal.Himno);
+
+        // Configure ReporteHistorico
+        modelBuilder.Entity<ReporteHistorico>(entity =>
+        {
+            entity.ToTable("ReportesHistoricos");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Sucursal).HasColumnName("Sucursal").HasConversion(sucursalConverter).IsRequired().HasMaxLength(10);
+            entity.Property(e => e.Fecha).HasColumnName("Fecha").IsRequired();
+            entity.Property(e => e.TotalSistema).HasColumnName("TotalSistema").HasColumnType("decimal(18,2)").IsRequired();
+            entity.Property(e => e.TotalCorteManual).HasColumnName("TotalCorteManual").HasColumnType("decimal(18,2)").IsRequired();
+            entity.Property(e => e.Notas).HasColumnName("Notas").HasMaxLength(1000);
+            entity.Property(e => e.FechaGeneracion).HasColumnName("FechaGeneracion").IsRequired();
+
+            entity.Ignore(e => e.Diferencia); 
+
+            entity.HasMany(e => e.Detalles)
+                .WithOne()
+                .HasForeignKey(d => d.ReporteHistoricoId)
+                .OnDelete(DeleteBehavior.Cascade);
+                
+            entity.Navigation(e => e.Detalles)
+                .UsePropertyAccessMode(PropertyAccessMode.Field);
+        });
+
+        // Configure DetalleReporte
+        modelBuilder.Entity<DetalleReporte>(entity =>
+        {
+            entity.ToTable("DetallesReporte");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Fecha).HasColumnName("Fecha").IsRequired().HasMaxLength(50);
+            entity.Property(e => e.Caja).HasColumnName("Caja").IsRequired().HasMaxLength(100);
+            entity.Property(e => e.Facturado).HasColumnName("Facturado").HasColumnType("decimal(18,2)").IsRequired();
+            entity.Property(e => e.Devolucion).HasColumnName("Devolucion").HasColumnType("decimal(18,2)").IsRequired();
+            entity.Property(e => e.VentaGlobal).HasColumnName("VentaGlobal").HasColumnType("decimal(18,2)").IsRequired();
+            entity.Property(e => e.Total).HasColumnName("Total").HasColumnType("decimal(18,2)").IsRequired();
         });
     }
 }

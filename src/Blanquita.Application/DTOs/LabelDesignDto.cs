@@ -91,45 +91,4 @@ public class LabelDesignDto
     /// Indica si la configuración está activa.
     /// </summary>
     public bool IsActive { get; set; } = true;
-    
-    /// <summary>
-    /// Convierte milímetros a puntos (dots) usando el DPI estándar.
-    /// </summary>
-    public static int MmToDots(decimal mm, int dpi = StandardDPI)
-    {
-        return (int)Math.Round(mm / (decimal)MmPerInch * dpi);
-    }
-    
-    /// <summary>
-    /// Convierte puntos (dots) a milímetros usando el DPI estándar.
-    /// </summary>
-    public static decimal DotsToMm(int dots, int dpi = StandardDPI)
-    {
-        return Math.Round((decimal)dots * (decimal)MmPerInch / dpi, 2);
-    }
-    
-    /// <summary>
-    /// Obtiene el ancho en puntos para la impresora.
-    /// </summary>
-    public int GetWidthInDots() => MmToDots(WidthInMm);
-    
-    /// <summary>
-    /// Obtiene el alto en puntos para la impresora.
-    /// </summary>
-    public int GetHeightInDots() => MmToDots(HeightInMm);
-    
-    /// <summary>
-    /// Obtiene el margen superior en puntos para la impresora.
-    /// </summary>
-    public int GetMarginTopInDots() => MmToDots(MarginTopInMm);
-    
-    /// <summary>
-    /// Obtiene el margen izquierdo en puntos para la impresora.
-    /// </summary>
-    public int GetMarginLeftInDots() => MmToDots(MarginLeftInMm);
-    
-    /// <summary>
-    /// Obtiene la altura del código de barras en puntos para la impresora.
-    /// </summary>
-    public int GetBarcodeHeightInDots() => MmToDots(BarcodeHeightInMm);
 }

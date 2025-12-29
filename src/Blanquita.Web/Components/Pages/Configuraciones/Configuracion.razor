@@ -233,6 +233,7 @@
                                 <MudTh>Nombre</MudTh>
                                 <MudTh>Dirección IP</MudTh>
                                 <MudTh>Puerto</MudTh>
+                                <MudTh>DPI</MudTh>
                                 <MudTh Style="text-align: center;">Acciones</MudTh>
                             </HeaderContent>
                             <RowTemplate>
@@ -247,6 +248,9 @@
                                 </MudTd>
                                 <MudTd DataLabel="Puerto">
                                     <MudText Typo="Typo.body2">@context.Port</MudText>
+                                </MudTd>
+                                <MudTd DataLabel="DPI">
+                                    <MudText Typo="Typo.body2">@context.Dpi</MudText>
                                 </MudTd>
                                 <MudTd DataLabel="Acciones" Style="text-align: center;">
                                     <MudTooltip Text="Editar impresora">
@@ -567,6 +571,7 @@
                 Name = printer.Name, 
                 IpAddress = printer.IpAddress, 
                 Port = printer.Port,
+                Dpi = printer.Dpi,
                 IsActive = printer.IsActive
             });
         }

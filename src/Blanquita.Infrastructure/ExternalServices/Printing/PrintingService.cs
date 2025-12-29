@@ -192,25 +192,26 @@ public class PrintingService : IPrintingService
         zplBuilder.AppendLine("^CI28"); 
 
         string o = string.IsNullOrEmpty(design.Orientation) ? "N" : design.Orientation;
+        int dpi = label.PrinterDpi > 0 ? label.PrinterDpi : 203;
 
         if (design.Elements != null && design.Elements.Any())
         {
             // Dynamic generation based on elements
             foreach (var element in design.Elements)
             {
-                int x = element.GetXInDots();
-                int y = element.GetYInDots();
+                int x = MmToDots(element.XMm, dpi);
+                int y = MmToDots(element.YMm, dpi);
                 string content = ResolveContent(element.Content, label);
 
                 if (element.ElementType == "Text")
                 {
                     // ^A0o,h,w (using font 0 scalable)
-                    // Assuming width scales with height if 0 passed? Or pass same size.
-                    zplBuilder.AppendLine($"^FO{x},{y}^A0{o},{element.FontSize},{element.FontSize}^FD{content}^FS");
+                    int scaledFontSize = ScaleFont(element.FontSize, dpi);
+                    zplBuilder.AppendLine($"^FO{x},{y}^A0{o},{scaledFontSize},{scaledFontSize}^FD{content}^FS");
                 }
                 else if (element.ElementType == "Barcode")
                 {
-                    int h = element.GetHeightInDots();
+                    int h = element.HeightMm.HasValue ? MmToDots(element.HeightMm.Value, dpi) : ScaleFont(50, dpi); // Falback height if null
                     int w = element.BarWidth ?? design.BarcodeWidth;
                     
                     // ^BY width, ratio, height
@@ -225,28 +226,31 @@ public class PrintingService : IPrintingService
             // Legacy / Fallback Mode (Hardcoded positions)
             
             // Calcular posiciones base en dots
-            int curX = design.GetMarginLeftInDots();
-            int curY = design.GetMarginTopInDots();
+            int curX = MmToDots(design.MarginLeftInMm, dpi);
+            int curY = MmToDots(design.MarginTopInMm, dpi);
             
             // Espaciado entre elementos basado en milímetros (2mm)
-            int gap = LabelDesignDto.MmToDots(2); 
+            int gap = MmToDots(2, dpi); 
 
             // 1. Nombre del Producto
-            zplBuilder.AppendLine($"^FO{curX},{curY}^A0{o},{design.ProductNameFontSize},{design.ProductNameFontSize}^FD{label.ProductName}^FS");
+            int pNameSize = ScaleFont(design.ProductNameFontSize, dpi);
+            zplBuilder.AppendLine($"^FO{curX},{curY}^A0{o},{pNameSize},{pNameSize}^FD{label.ProductName}^FS");
             
             // Actualizar Y
-            curY += design.ProductNameFontSize + gap;
+            curY += pNameSize + gap;
 
             // 2. Código (Texto)
-            zplBuilder.AppendLine($"^FO{curX},{curY}^A0{o},{design.ProductCodeFontSize},{design.ProductCodeFontSize}^FDCodigo: {label.ProductCode}^FS");
-            curY += design.ProductCodeFontSize + gap;
+            int pCodeSize = ScaleFont(design.ProductCodeFontSize, dpi);
+            zplBuilder.AppendLine($"^FO{curX},{curY}^A0{o},{pCodeSize},{pCodeSize}^FDCodigo: {label.ProductCode}^FS");
+            curY += pCodeSize + gap;
 
             // 3. Precio
-            zplBuilder.AppendLine($"^FO{curX},{curY}^A0{o},{design.PriceFontSize},{design.PriceFontSize}^FDPrecio: ${label.Price:F2}^FS");
-            curY += design.PriceFontSize + gap;
+            int priceSize = ScaleFont(design.PriceFontSize, dpi);
+            zplBuilder.AppendLine($"^FO{curX},{curY}^A0{o},{priceSize},{priceSize}^FDPrecio: ${label.Price:F2}^FS");
+            curY += priceSize + gap;
 
             // 4. Código de Barras
-            int barcodeHeightDots = design.GetBarcodeHeightInDots();
+            int barcodeHeightDots = MmToDots(design.BarcodeHeightInMm, dpi);
             zplBuilder.AppendLine($"^BY{design.BarcodeWidth},3,{barcodeHeightDots}");
             zplBuilder.AppendLine($"^FO{curX},{curY}^BC{o},{barcodeHeightDots},Y,N,N^FD{label.ProductCode}^FS");
         }
@@ -256,6 +260,17 @@ public class PrintingService : IPrintingService
         zplBuilder.AppendLine("^XZ");
 
         return System.Text.Encoding.UTF8.GetBytes(zplBuilder.ToString());
+    }
+
+    private static int MmToDots(decimal mm, int dpi)
+    {
+        return (int)Math.Round(mm / 25.4m * dpi);
+    }
+
+    private int ScaleFont(int fontSize, int printerDpi)
+    {
+        // Assuming fontSize is based on StandardDPI (300)
+        return (int)Math.Round(fontSize * (printerDpi / 300.0));
     }
 
     private string ResolveContent(string template, ZebraLabelDto label)

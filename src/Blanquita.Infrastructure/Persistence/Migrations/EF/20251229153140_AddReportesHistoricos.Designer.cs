@@ -4,6 +4,7 @@ using Blanquita.Infrastructure.Persistence.Context;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Blanquita.Infrastructure.Persistence.Migrations.EF
 {
     [DbContext(typeof(BlanquitaDbContext))]
-    partial class BlanquitaDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251229153140_AddReportesHistoricos")]
+    partial class AddReportesHistoricos
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -355,9 +358,6 @@ namespace Blanquita.Infrastructure.Persistence.Migrations.EF
                         .HasColumnType("int");
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<int>("Dpi")
-                        .HasColumnType("int");
 
                     b.Property<string>("IpAddress")
                         .IsRequired()

@@ -5,7 +5,9 @@
 @using Blanquita.Application.Interfaces
 @using Blanquita.Application.Interfaces.Repositories
 @using Blanquita.Application.DTOs
-@inject IReporteService ReporteService
+@using Blanquita.Domain.Entities
+@using Blanquita.Domain.ValueObjects
+@inject IReporteHistoricoService ReporteService
 @inject IReportGeneratorService ReportGeneratorService
 @inject IFoxProDiagnosticService DiagnosticService
 @inject IExportService ExportService
@@ -397,17 +399,27 @@
 
         try
         {
-            var reporte = new ReporteDto
+            var sucursal = Sucursal.FromNombre(sucursalSeleccionada) ?? Sucursal.Himno;
+            var detalles = datosReporte.Select(d => DetalleReporte.Crear(
+                d.Fecha, 
+                d.Caja, 
+                d.Facturado, 
+                d.Devolucion, 
+                d.VentaGlobal, 
+                d.Total)).ToList();
+
+            var reporte = ReporteHistorico.Crear(
+                sucursal,
+                fechaSeleccionada.Value,
+                totalSistema,
+                totalCorteManual ?? 0,
+                detalles
+            );
+
+            if (!string.IsNullOrEmpty(notasReporte))
             {
-                Sucursal = sucursalSeleccionada,
-                Fecha = fechaSeleccionada.Value,
-                TotalSistema = totalSistema,
-                TotalCorteManual = totalCorteManual ?? 0,
-                Diferencia = (totalCorteManual ?? 0) - totalSistema,
-                Notas = notasReporte,
-                FechaGeneracion = DateTime.Now,
-                Detalles = datosReporte
-            };
+                reporte.ActualizarNotas(notasReporte);
+            }
 
             await ReporteService.GuardarReporteAsync(reporte);
             Snackbar.Add("Reporte guardado exitosamente en el histórico", Severity.Success);

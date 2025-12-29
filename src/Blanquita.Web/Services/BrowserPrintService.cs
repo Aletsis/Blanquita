@@ -7,12 +7,12 @@ public class BrowserPrintService
 {
     public string ConvertZplToHtml(string zpl, LabelDesignDto design)
     {
-        //convertir medidas de puntos a pixeles(aproximacion)
-        int scaleFactor = 3; //Ajustar a necesidad
-        int widthPx = design.GetWidthInDots() / scaleFactor;
-        int heightPx = design.GetHeightInDots() / scaleFactor;
-        int marginTopPx = design.GetMarginTopInDots() / scaleFactor;
-        int marginLeftPx = design.GetMarginLeftInDots() / scaleFactor;
+        //convertir medidas de mm a pixeles (96 DPI: 1mm ~ 3.78px)
+        double pxPerMm = 3.78; 
+        int widthPx = (int)(design.WidthInMm * (decimal)pxPerMm);
+        int heightPx = (int)(design.HeightInMm * (decimal)pxPerMm);
+        int marginTopPx = (int)(design.MarginTopInMm * (decimal)pxPerMm);
+        int marginLeftPx = (int)(design.MarginLeftInMm * (decimal)pxPerMm);
 
         //Extraer contenido de zpl
         var title = ExtractField(zpl, @"^FO\d+,\d+\^A\w+,\d+,\d+\^FD(.+?)\^FS");

@@ -11,9 +11,4 @@ public class LabelElementDto
     public int FontSize { get; set; } = 30;
     public decimal? HeightMm { get; set; }
     public int? BarWidth { get; set; }
-    
-    // Helpers for conversion to dots
-    public int GetXInDots() => LabelDesignDto.MmToDots(XMm);
-    public int GetYInDots() => LabelDesignDto.MmToDots(YMm);
-    public int GetHeightInDots() => HeightMm.HasValue ? LabelDesignDto.MmToDots(HeightMm.Value) : 0;
 }

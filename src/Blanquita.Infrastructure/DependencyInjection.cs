@@ -1,11 +1,9 @@
 using Blanquita.Application.Interfaces;
 using Blanquita.Domain.Repositories;
-using Blanquita.Infrastructure.Adapters;
 using Blanquita.Infrastructure.ExternalServices.Export;
 using Blanquita.Infrastructure.ExternalServices.FoxPro;
 using Blanquita.Infrastructure.ExternalServices.FoxPro.Common;
 using Blanquita.Infrastructure.ExternalServices.Printing;
-using Blanquita.Infrastructure.Persistence;
 using Blanquita.Infrastructure.Persistence.Context;
 using Blanquita.Infrastructure.Persistence.Migrations;
 using Blanquita.Infrastructure.Persistence.Repositories;
@@ -97,11 +95,15 @@ public static class DependencyInjection
 
         // Report Services
         // Report Services
-        services.AddSingleton<IReporteService, ReporteService>();
+        // Report Services
+        // services.AddSingleton<IReporteService, ReporteService>(); // Legacy JSON service
         services.AddScoped<IReportGeneratorService, ReportGeneratorService>();
         services.AddScoped<IDbfStringParser, DbfStringParser>();
         services.AddScoped<IFoxProReaderFactory, FoxProReaderFactory>();
-        services.AddScoped<IReporteHistoricoService, ReporteHistoricoServiceAdapter>();
+        // services.AddScoped<IReporteHistoricoService, ReporteHistoricoServiceAdapter>(); // Legacy Adapter
+        
+        services.AddScoped<IReporteHistoricoRepository, EfReporteHistoricoRepository>();
+        services.AddScoped<IReporteHistoricoService, ReporteHistoricoService>();
 
         // Configure FoxPro settings
         services.Configure<FoxProConfiguration>(configuration.GetSection("FoxPro"));

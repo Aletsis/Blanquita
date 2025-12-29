@@ -8,6 +8,7 @@
             <MudTextField @bind-Value="Model.Name" Label="Nombre" Required="true" RequiredError="El nombre es obligatorio" Variant="Variant.Outlined" Class="mb-3" />
             <MudTextField @bind-Value="Model.IpAddress" Label="Dirección IP" Required="true" RequiredError="La IP es obligatoria" Variant="Variant.Outlined" Class="mb-3" />
             <MudNumericField @bind-Value="Model.Port" Label="Puerto" Required="true" Variant="Variant.Outlined" Class="mb-3" Min="1" Max="65535" />
+            <MudNumericField @bind-Value="Model.Dpi" Label="DPI" Required="true" Variant="Variant.Outlined" Class="mb-3" Min="150" Max="1200" HelperText="Ejemplo: 203, 300, 600" />
         </MudForm>
     </DialogContent>
     <DialogActions>
@@ -20,6 +21,11 @@
     [CascadingParameter] IMudDialogInstance MudDialog { get; set; }
 
     [Parameter] public PrinterDto Model { get; set; } = new();
+
+    protected override void OnInitialized()
+    {
+        if (Model.Dpi == 0) Model.Dpi = 203;
+    }
 
     private MudForm form;
     private bool success;
