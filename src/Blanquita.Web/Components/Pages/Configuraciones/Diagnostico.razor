@@ -11,231 +11,294 @@
 
 <PageTitle>Diagnóstico - Sistema de Reportes</PageTitle>
 
-<MudText Typo="Typo.h4" Class="mb-4">
-    <MudIcon Icon="@Icons.Material.Filled.BugReport" Class="mr-2" />
-    Diagnóstico del Sistema
-</MudText>
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-4 animated fadeIn">
+    <MudText Typo="Typo.h4" Class="mb-6 font-weight-bold" Style="background: linear-gradient(45deg, #1e88e5, #5e35b1); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+        <MudIcon Icon="@Icons.Material.Filled.BugReport" Class="mr-2" Size="Size.Large" Color="Color.Primary" />
+        Diagnóstico del Sistema
+    </MudText>
 
-<MudText Typo="Typo.body1" Color="Color.Secondary" Class="mb-4">
-    Ejecute pruebas de diagnóstico para verificar la configuración y conexión con los archivos DBF.
-</MudText>
-
-<MudGrid>
-    <!-- Card para POS10041 -->
-    <MudItem xs="12">
-        <MudPaper Elevation="2" Class="pa-4">
-            <MudGrid>
-                <MudItem xs="12" md="8">
-                    <MudText Typo="Typo.h6" Class="mb-2">
-                        <MudIcon Icon="@Icons.Material.Filled.Description" Class="mr-2" />
-                        POS10041.DBF
-                    </MudText>
-                    <MudText Typo="Typo.body2" Color="Color.Secondary">
-                        @if (!string.IsNullOrEmpty(config.Pos10041Path))
-                        {
-                            <text>@config.Pos10041Path</text>
-                        }
-                        else
-                        {
-                            <MudChip T="string" Color="Color.Warning" Size="Size.Small">No configurado</MudChip>
-                        }
-                    </MudText>
-                </MudItem>
-                <MudItem xs="12" md="4" Class="d-flex align-end justify-end">
-                    <MudButton Variant="Variant.Filled"
-                               Color="Color.Primary"
-                               StartIcon="@Icons.Material.Filled.PlayArrow"
-                               OnClick="() => EjecutarDiagnostico(1)"
-                               Disabled="@(ejecutando1 || string.IsNullOrEmpty(config.Pos10041Path))">
-                        @if (ejecutando1)
-                        {
-                            <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
-                            <text>Ejecutando...</text>
-                        }
-                        else
-                        {
-                            <text>Ejecutar Diagnóstico</text>
-                        }
-                    </MudButton>
-                </MudItem>
-            </MudGrid>
-
-            @if (resultado1 != null)
-            {
-                <MudDivider Class="my-4" />
-                <ComponenteDiagnostico Resultado="@resultado1" />
-            }
-        </MudPaper>
-    </MudItem>
-
-    <!-- Card para POS10042 -->
-    <MudItem xs="12">
-        <MudPaper Elevation="2" Class="pa-4">
-            <MudGrid>
-                <MudItem xs="12" md="8">
-                    <MudText Typo="Typo.h6" Class="mb-2">
-                        <MudIcon Icon="@Icons.Material.Filled.Description" Class="mr-2" />
-                        POS10042.DBF
-                    </MudText>
-                    <MudText Typo="Typo.body2" Color="Color.Secondary">
-                        @if (!string.IsNullOrEmpty(config.Pos10042Path))
-                        {
-                            <text>@config.Pos10042Path</text>
-                        }
-                        else
-                        {
-                            <MudChip T="string" Color="Color.Warning" Size="Size.Small">No configurado</MudChip>
-                        }
-                    </MudText>
-                </MudItem>
-                <MudItem xs="12" md="4" Class="d-flex align-end justify-end">
-                    <MudButton Variant="Variant.Filled"
-                               Color="Color.Primary"
-                               StartIcon="@Icons.Material.Filled.PlayArrow"
-                               OnClick="() => EjecutarDiagnostico(2)"
-                               Disabled="@(ejecutando2 || string.IsNullOrEmpty(config.Pos10042Path))">
-                        @if (ejecutando2)
-                        {
-                            <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
-                            <text>Ejecutando...</text>
-                        }
-                        else
-                        {
-                            <text>Ejecutar Diagnóstico</text>
-                        }
-                    </MudButton>
-                </MudItem>
-            </MudGrid>
-
-            @if (resultado2 != null)
-            {
-                <MudDivider Class="my-4" />
-                <ComponenteDiagnostico Resultado="@resultado2" />
-            }
-        </MudPaper>
-    </MudItem>
-
-    <!-- Card para MGW10008 -->
-    <MudItem xs="12">
-        <MudPaper Elevation="2" Class="pa-4">
-            <MudGrid>
-                <MudItem xs="12" md="8">
-                    <MudText Typo="Typo.h6" Class="mb-2">
-                        <MudIcon Icon="@Icons.Material.Filled.Description" Class="mr-2" />
-                        MGW10008.DBF
-                    </MudText>
-                    <MudText Typo="Typo.body2" Color="Color.Secondary">
-                        @if (!string.IsNullOrEmpty(config.Mgw10008Path))
-                        {
-                            <text>@config.Mgw10008Path</text>
-                        }
-                        else
-                        {
-                            <MudChip T="string" Color="Color.Warning" Size="Size.Small">No configurado</MudChip>
-                        }
-                    </MudText>
-                </MudItem>
-                <MudItem xs="12" md="4" Class="d-flex align-end justify-end">
-                    <MudButton Variant="Variant.Filled"
-                               Color="Color.Primary"
-                               StartIcon="@Icons.Material.Filled.PlayArrow"
-                               OnClick="() => EjecutarDiagnostico(3)"
-                               Disabled="@(ejecutando3 || string.IsNullOrEmpty(config.Mgw10008Path))">
-                        @if (ejecutando3)
-                        {
-                            <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
-                            <text>Ejecutando...</text>
-                        }
-                        else
-                        {
-                            <text>Ejecutar Diagnóstico</text>
-                        }
-                    </MudButton>
-                </MudItem>
-            </MudGrid>
-
-            @if (resultado3 != null)
-            {
-                <MudDivider Class="my-4" />
-                <ComponenteDiagnostico Resultado="@resultado3" />
-            }
-        </MudPaper>
-    </MudItem>
-
-    <!-- Card para MGW10005 -->
-    <MudItem xs="12">
-        <MudPaper Elevation="2" Class="pa-4">
-            <MudGrid>
-                <MudItem xs="12" md="8">
-                    <MudText Typo="Typo.h6" Class="mb-2">
-                        <MudIcon Icon="@Icons.Material.Filled.Description" Class="mr-2" />
-                        MGW10005.DBF
-                    </MudText>
-                    <MudText Typo="Typo.body2" Color="Color.Secondary">
-                        @if (!string.IsNullOrEmpty(config.Mgw10005Path))
-                        {
-                            <text>@config.Mgw10005Path</text>
-                        }
-                        else
-                        {
-                            <MudChip T="string" Color="Color.Warning" Size="Size.Small">No configurado</MudChip>
-                        }
-                    </MudText>
-                </MudItem>
-                <MudItem xs="12" md="4" Class="d-flex align-end justify-end">
-                    <MudButton Variant="Variant.Filled"
-                               Color="Color.Primary"
-                               StartIcon="@Icons.Material.Filled.PlayArrow"
-                               OnClick="() => EjecutarDiagnostico(4)"
-                               Disabled="@(ejecutando4 || string.IsNullOrEmpty(config.Mgw10005Path))">
-                        @if (ejecutando4)
-                        {
-                            <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
-                            <text>Ejecutando...</text>
-                        }
-                        else
-                        {
-                            <text>Ejecutar Diagnóstico</text>
-                        }
-                    </MudButton>
-                </MudItem>
-            </MudGrid>
-
-            @if (resultado4 != null)
-            {
-                <MudDivider Class="my-4" />
-                <ComponenteDiagnostico Resultado="@resultado4" />
-            }
-        </MudPaper>
-    </MudItem>
-
+    <MudText Typo="Typo.body1" Color="Color.Secondary" Class="mb-6">
+        Ejecute pruebas de diagnóstico para verificar la configuración y conexión con los archivos DBF.
+    </MudText>
+    
     <!-- Botón de ejecutar todos -->
-    <MudItem xs="12">
-        <MudPaper Elevation="2" Class="pa-4">
+    <MudCard Elevation="4" Class="mb-6 rounded-lg animate-slide-up" Style="background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);">
+        <MudCardContent>
             <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
-                <MudText Typo="Typo.h6">
-                    Ejecutar diagnóstico completo
-                </MudText>
+                <div>
+                     <MudText Typo="Typo.h6" Class="font-weight-bold" Color="Color.Primary">
+                        Diagnóstico Completo
+                    </MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">
+                        Ejecutar todas las pruebas de conexión y estructura de archivos.
+                    </MudText>
+                </div>
+               
                 <MudButton Variant="Variant.Filled"
-                           Color="Color.Secondary"
+                           Color="Color.Primary"
                            StartIcon="@Icons.Material.Filled.Speed"
                            OnClick="EjecutarTodos"
                            Disabled="@ejecutandoTodos"
-                           Size="Size.Large">
+                           Size="Size.Large"
+                           Class="elevation-4">
                     @if (ejecutandoTodos)
                     {
                         <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
-                        <text>Ejecutando todos...</text>
+                        <text>Procesando...</text>
                     }
                     else
                     {
-                        <text>Ejecutar Todos los Diagnósticos</text>
+                        <text>Ejecutar Todo</text>
                     }
                 </MudButton>
             </MudStack>
-        </MudPaper>
-    </MudItem>
-</MudGrid>
+        </MudCardContent>
+    </MudCard>
+
+    <MudGrid>
+        <!-- Card para POS10041 -->
+        <MudItem xs="12">
+            <MudCard Elevation="3" Class="rounded-lg animate-slide-up" Style="animation-delay: 0.1s;">
+                <MudCardHeader>
+                     <CardHeaderAvatar>
+                        <MudAvatar Color="Color.Tertiary" Variant="Variant.Filled">
+                            <MudIcon Icon="@Icons.Material.Filled.TableView" />
+                        </MudAvatar>
+                    </CardHeaderAvatar>
+                    <CardHeaderContent>
+                        <MudText Typo="Typo.h6">POS10041.DBF</MudText>
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">Configuración de Cajas</MudText>
+                    </CardHeaderContent>
+                    <CardHeaderActions>
+                         <MudButton Variant="Variant.Outlined"
+                                   Color="Color.Primary"
+                                   StartIcon="@Icons.Material.Filled.PlayArrow"
+                                   OnClick="() => EjecutarDiagnostico(1)"
+                                   Disabled="@(ejecutando1 || string.IsNullOrEmpty(config.Pos10041Path))">
+                            @if (ejecutando1)
+                            {
+                                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                                <text>Ejecutando...</text>
+                            }
+                            else
+                            {
+                                <text>Verificar</text>
+                            }
+                        </MudButton>
+                    </CardHeaderActions>
+                </MudCardHeader>
+                <MudCardContent>
+                    <MudText Typo="Typo.body2" Class="mb-2">
+                         <MudIcon Icon="@Icons.Material.Filled.Folder" Size="Size.Small" Class="mr-1 vertical-align-middle" Color="Color.Default" />
+                         <strong>Ruta:</strong> 
+                        @if (!string.IsNullOrEmpty(config.Pos10041Path))
+                        {
+                            <span class="ml-1">@config.Pos10041Path</span>
+                        }
+                        else
+                        {
+                            <MudChip T="string" Color="Color.Warning" Size="Size.Small" Class="ml-2">No configurado</MudChip>
+                        }
+                    </MudText>
+
+                    @if (resultado1 != null)
+                    {
+                        <div class="mt-4 animate-fade-in">
+                            <ComponenteDiagnostico Resultado="@resultado1" />
+                        </div>
+                    }
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+
+        <!-- Card para POS10042 -->
+        <MudItem xs="12">
+            <MudCard Elevation="3" Class="rounded-lg animate-slide-up" Style="animation-delay: 0.2s;">
+                <MudCardHeader>
+                     <CardHeaderAvatar>
+                        <MudAvatar Color="Color.Info" Variant="Variant.Filled">
+                            <MudIcon Icon="@Icons.Material.Filled.ReceiptLong" />
+                        </MudAvatar>
+                    </CardHeaderAvatar>
+                    <CardHeaderContent>
+                        <MudText Typo="Typo.h6">POS10042.DBF</MudText>
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">Movimientos de Venta</MudText>
+                    </CardHeaderContent>
+                    <CardHeaderActions>
+                        <MudButton Variant="Variant.Outlined"
+                                   Color="Color.Primary"
+                                   StartIcon="@Icons.Material.Filled.PlayArrow"
+                                   OnClick="() => EjecutarDiagnostico(2)"
+                                   Disabled="@(ejecutando2 || string.IsNullOrEmpty(config.Pos10042Path))">
+                            @if (ejecutando2)
+                            {
+                                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                                <text>Ejecutando...</text>
+                            }
+                            else
+                            {
+                                <text>Verificar</text>
+                            }
+                        </MudButton>
+                    </CardHeaderActions>
+                </MudCardHeader>
+                 <MudCardContent>
+                    <MudText Typo="Typo.body2" Class="mb-2">
+                         <MudIcon Icon="@Icons.Material.Filled.Folder" Size="Size.Small" Class="mr-1 vertical-align-middle" Color="Color.Default" />
+                         <strong>Ruta:</strong> 
+                        @if (!string.IsNullOrEmpty(config.Pos10042Path))
+                        {
+                            <span class="ml-1">@config.Pos10042Path</span>
+                        }
+                        else
+                        {
+                            <MudChip T="string" Color="Color.Warning" Size="Size.Small" Class="ml-2">No configurado</MudChip>
+                        }
+                    </MudText>
+
+                    @if (resultado2 != null)
+                    {
+                        <div class="mt-4 animate-fade-in">
+                            <ComponenteDiagnostico Resultado="@resultado2" />
+                        </div>
+                    }
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+
+        <!-- Card para MGW10008 -->
+        <MudItem xs="12">
+            <MudCard Elevation="3" Class="rounded-lg animate-slide-up" Style="animation-delay: 0.3s;">
+                <MudCardHeader>
+                    <CardHeaderAvatar>
+                        <MudAvatar Color="Color.Warning" Variant="Variant.Filled">
+                            <MudIcon Icon="@Icons.Material.Filled.Description" />
+                        </MudAvatar>
+                    </CardHeaderAvatar>
+                    <CardHeaderContent>
+                        <MudText Typo="Typo.h6">MGW10008.DBF</MudText>
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">Documentos</MudText>
+                    </CardHeaderContent>
+                    <CardHeaderActions>
+                        <MudButton Variant="Variant.Outlined"
+                                   Color="Color.Primary"
+                                   StartIcon="@Icons.Material.Filled.PlayArrow"
+                                   OnClick="() => EjecutarDiagnostico(3)"
+                                   Disabled="@(ejecutando3 || string.IsNullOrEmpty(config.Mgw10008Path))">
+                            @if (ejecutando3)
+                            {
+                                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                                <text>Ejecutando...</text>
+                            }
+                            else
+                            {
+                                <text>Verificar</text>
+                            }
+                        </MudButton>
+                    </CardHeaderActions>
+                </MudCardHeader>
+                 <MudCardContent>
+                    <MudText Typo="Typo.body2" Class="mb-2">
+                         <MudIcon Icon="@Icons.Material.Filled.Folder" Size="Size.Small" Class="mr-1 vertical-align-middle" Color="Color.Default" />
+                         <strong>Ruta:</strong> 
+                        @if (!string.IsNullOrEmpty(config.Mgw10008Path))
+                        {
+                            <span class="ml-1">@config.Mgw10008Path</span>
+                        }
+                        else
+                        {
+                            <MudChip T="string" Color="Color.Warning" Size="Size.Small" Class="ml-2">No configurado</MudChip>
+                        }
+                    </MudText>
+
+                    @if (resultado3 != null)
+                    {
+                        <div class="mt-4 animate-fade-in">
+                            <ComponenteDiagnostico Resultado="@resultado3" />
+                        </div>
+                    }
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+
+        <!-- Card para MGW10005 -->
+        <MudItem xs="12">
+            <MudCard Elevation="3" Class="rounded-lg animate-slide-up" Style="animation-delay: 0.4s;">
+                <MudCardHeader>
+                     <CardHeaderAvatar>
+                        <MudAvatar Color="Color.Success" Variant="Variant.Filled">
+                            <MudIcon Icon="@Icons.Material.Filled.Inventory" />
+                        </MudAvatar>
+                    </CardHeaderAvatar>
+                    <CardHeaderContent>
+                        <MudText Typo="Typo.h6">MGW10005.DBF</MudText>
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">Catálogo de Productos</MudText>
+                    </CardHeaderContent>
+                    <CardHeaderActions>
+                        <MudButton Variant="Variant.Outlined"
+                                   Color="Color.Primary"
+                                   StartIcon="@Icons.Material.Filled.PlayArrow"
+                                   OnClick="() => EjecutarDiagnostico(4)"
+                                   Disabled="@(ejecutando4 || string.IsNullOrEmpty(config.Mgw10005Path))">
+                            @if (ejecutando4)
+                            {
+                                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                                <text>Ejecutando...</text>
+                            }
+                            else
+                            {
+                                <text>Verificar</text>
+                            }
+                        </MudButton>
+                    </CardHeaderActions>
+                </MudCardHeader>
+                 <MudCardContent>
+                    <MudText Typo="Typo.body2" Class="mb-2">
+                         <MudIcon Icon="@Icons.Material.Filled.Folder" Size="Size.Small" Class="mr-1 vertical-align-middle" Color="Color.Default" />
+                         <strong>Ruta:</strong> 
+                        @if (!string.IsNullOrEmpty(config.Mgw10005Path))
+                        {
+                            <span class="ml-1">@config.Mgw10005Path</span>
+                        }
+                        else
+                        {
+                            <MudChip T="string" Color="Color.Warning" Size="Size.Small" Class="ml-2">No configurado</MudChip>
+                        }
+                    </MudText>
+
+                    @if (resultado4 != null)
+                    {
+                        <div class="mt-4 animate-fade-in">
+                            <ComponenteDiagnostico Resultado="@resultado4" />
+                        </div>
+                    }
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+
+    </MudGrid>
+</MudContainer>
+
+<style>
+    .animate-fade-in {
+        animation: fadeIn 0.5s ease-out;
+    }
+    .animate-slide-up {
+        animation: slideUp 0.5s ease-out;
+        animation-fill-mode: both;
+    }
+    @@keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+    @@keyframes slideUp {
+        from { transform: translateY(20px); opacity: 0; }
+        to { transform: translateY(0); opacity: 1; }
+    }
+    .vertical-align-middle {
+        vertical-align: middle;
+    }
+</style>
 
 @code {
     private bool ejecutando1, ejecutando2, ejecutando3, ejecutando4, ejecutandoTodos;
@@ -314,6 +377,9 @@
             }
 
             StateHasChanged();
+
+            // Pequeña pausa para que la animación de carga se muestre fluidamente
+            await Task.Delay(300);
 
             var resultado = await FoxProService.DiagnosticarArchivoAsync(ruta, columnasEsperadas);
 
