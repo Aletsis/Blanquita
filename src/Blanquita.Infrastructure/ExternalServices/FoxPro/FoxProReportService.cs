@@ -220,15 +220,21 @@ public class FoxProReportService : IFoxProReportService
 
     public BranchSeriesDto GetBranchSeries(string branchName)
     {
-        return branchName switch
+        try
         {
-            "Himno" => new BranchSeriesDto { Cliente = "COH", Global = "FGIH", Devolucion = "DFCH" },
-            "Pozos" => new BranchSeriesDto { Cliente = "COP", Global = "FGIP", Devolucion = "DFCP" },
-            "Soledad" => new BranchSeriesDto { Cliente = "COS", Global = "FGIS", Devolucion = "DFCS" },
-            "Saucito" => new BranchSeriesDto { Cliente = "COFS", Global = "FGIFS", Devolucion = "DFCFS" },
-            "Chapultepec" => new BranchSeriesDto { Cliente = "COX", Global = "FXIS", Devolucion = "DFCX" },
-            _ => new BranchSeriesDto()
-        };
+            var series = Domain.ValueObjects.SeriesDocumentoSucursal.ObtenerPorNombre(branchName);
+            return new BranchSeriesDto
+            {
+                Cliente = series.SerieCliente,
+                Global = series.SerieGlobal,
+                Devolucion = series.SerieDevolucion
+            };
+        }
+        catch (ArgumentException)
+        {
+            _logger.LogWarning("Branch series not found for branch: {BranchName}. Returning empty series.", branchName);
+            return new BranchSeriesDto();
+        }
     }
     public async Task<DiagnosticoResultado> DiagnosticarArchivoAsync(string path, List<string>? expectedColumns = null, CancellationToken cancellationToken = default)
     {
