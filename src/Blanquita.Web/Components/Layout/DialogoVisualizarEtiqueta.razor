@@ -1,59 +1,82 @@
 @using Blanquita.Application.DTOs
 @using Blanquita.Application.Constants
+@using System
 @using MudBlazor
 
 <MudDialog>
     <DialogContent>
         <MudContainer MaxWidth="MaxWidth.Medium" Class="d-flex justify-center align-center flex-column pa-4">
-            <MudText Typo="Typo.h6" Class="mb-4">Previsualización de Etiqueta</MudText>
+            <MudStack Row="true" Class="mb-4 align-center">
+                <MudText Typo="Typo.h6">Previsualización</MudText>
+                <MudSelect T="int" @bind-Value="_previewDpi" Label="DPI Impresora" Margin="Margin.Dense" Dense="true" Style="width: 120px;" Class="mx-4" Variant="Variant.Outlined">
+                    <MudSelectItem Value="203">203 DPI</MudSelectItem>
+                    <MudSelectItem Value="300">300 DPI</MudSelectItem>
+                    <MudSelectItem Value="600">600 DPI</MudSelectItem>
+                </MudSelect>
+                <MudSpacer />
+                <MudSlider @bind-Value="_zoomLevel" Min="0.2" Max="2.0" Step="0.1" Color="Color.Primary" ValueLabel="true">Zoom: @(_zoomLevel.ToString("P0"))</MudSlider>
+            </MudStack>
             
-            <div style="position: relative; width: @ToCss(Design.WidthInMm)mm; height: @ToCss(Design.HeightInMm)mm; background-color: white; border: 1px solid #ccc; overflow: hidden;">
-                
-                @if (Design.Elements != null && Design.Elements.Any())
-                {
-                    @foreach (var element in Design.Elements)
+            <div style="width: 100%; overflow: auto; background: #f0f0f0; padding: 20px; border-radius: 4px;">
+                <div style="background-color: white; 
+                            border: 1px solid #999; 
+                            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+                            width: @(MmToPx(Design.WidthInMm))px; 
+                            height: @(MmToPx(Design.HeightInMm))px; 
+                            position: relative; 
+                            transform: scale(@_zoomLevel.ToString(System.Globalization.CultureInfo.InvariantCulture)); 
+                            transform-origin: top left;
+                            overflow: hidden;">
+                    
+                    @if (Design.Elements != null && Design.Elements.Any())
                     {
-                        var style = $"position: absolute; left: {ToCss(element.XMm)}mm; top: {ToCss(element.YMm)}mm; font-size: {ToCss(element.FontSize * 0.5m)}pt; white-space: nowrap;";
-                        if (element.ElementType == "Barcode")
+                        @foreach (var element in Design.Elements)
                         {
-                            var h = element.HeightMm ?? Design.BarcodeHeightInMm;
-                            style += $" height: {ToCss(h)}mm; width: 80%; background: repeating-linear-gradient(90deg, black, black 1px, white 1px, white 3px); display: flex; align-items: flex-end;";
-                        }
+                            var style = $"position: absolute; left: {MmToPx(element.XMm)}px; top: {MmToPx(element.YMm)}px; font-size: {ScaleFontSize(element.FontSize)}px; font-family: Arial, Helvetica, sans-serif; font-weight: bold; line-height: 0.8; white-space: pre;";
+                            if (element.ElementType == "Barcode")
+                            {
+                                var h = element.HeightMm ?? Design.BarcodeHeightInMm;
+                                var w = GetBarcodeWidthPx(element);
+                                style = $"position: absolute; left: {MmToPx(element.XMm)}px; top: {MmToPx(element.YMm)}px; height: {MmToPx(h)}px; width: {w}px; background: repeating-linear-gradient(90deg, black, black {Design.BarcodeWidth}px, white {Design.BarcodeWidth}px, white {Design.BarcodeWidth * 2}px); display: flex; align-items: flex-end;";
+                            }
 
-                        <div style="@style">
-                            @if (element.ElementType == "Text")
-                            {
-                                @ReplaceVariables(element.Content)
-                            }
-                            else if (element.ElementType == "Barcode")
-                            {
-                                <span style="font-size: 8px; width: 100%; text-align: center; background: white;">@ReplaceVariables(element.Content)</span>
-                            }
+                            <div style="@style">
+                                @if (element.ElementType == "Text")
+                                {
+                                    @ReplaceVariables(element.Content)
+                                }
+                                else if (element.ElementType == "Barcode")
+                                {
+                                    <span style="font-size: 10px; width: 100%; text-align: center; background: white; line-height: 1.2;">@ReplaceVariables(element.Content)</span>
+                                }
+                            </div>
+                        }
+                    }
+                    else
+                    {
+                        @* Legacy *@
+                        <div style="position: absolute; left: @(MmToPx(Design.MarginLeftInMm))px; top: @(MmToPx(Design.MarginTopInMm))px; font-size: @(ScaleFontSize(Design.ProductNameFontSize))px; font-family: Arial, Helvetica, sans-serif; font-weight: bold; line-height: 0.8; white-space: pre;">
+                            @DummyProduct
+                        </div>
+                        
+                        <div style="position: absolute; left: @(MmToPx(Design.MarginLeftInMm))px; top: @(MmToPx(Design.MarginTopInMm + 10))px; font-size: @(ScaleFontSize(Design.ProductCodeFontSize))px; font-family: Arial, Helvetica, sans-serif; font-weight: bold; line-height: 0.8; white-space: pre;">
+                            Codigo: @DummyCode
+                        </div>
+
+                        <div style="position: absolute; left: @(MmToPx(Design.MarginLeftInMm))px; top: @(MmToPx(Design.MarginTopInMm + 20))px; font-size: @(ScaleFontSize(Design.PriceFontSize))px; font-family: Arial, Helvetica, sans-serif; font-weight: bold; line-height: 0.8; white-space: pre;">
+                            Precio: $@DummyPrice
+                        </div>
+
+                        <div style="position: absolute; left: @(MmToPx(Design.MarginLeftInMm))px; top: @(MmToPx(Design.MarginTopInMm + 30))px; width: @(GetLegacyBarcodeWidth())px; height: @(MmToPx(Design.BarcodeHeightInMm))px; background: repeating-linear-gradient(90deg, black, black 2px, white 2px, white 4px);">
                         </div>
                     }
-                }
-                else
-                {
-                    @* Legacy *@
-                    <div style="position: absolute; left: @ToCss(Design.MarginLeftInMm)mm; top: @ToCss(Design.MarginTopInMm)mm; font-size: @ToCss(Design.ProductNameFontSize * 0.5m)pt; white-space: nowrap;">
-                        @DummyProduct
-                    </div>
-                    
-                    <div style="position: absolute; left: @ToCss(Design.MarginLeftInMm)mm; top: @ToCss(Design.MarginTopInMm + 10)mm; font-size: @ToCss(Design.ProductCodeFontSize * 0.5m)pt; white-space: nowrap;">
-                        Codigo: @DummyCode
-                    </div>
 
-                    <div style="position: absolute; left: @ToCss(Design.MarginLeftInMm)mm; top: @ToCss(Design.MarginTopInMm + 20)mm; font-size: @ToCss(Design.PriceFontSize * 0.5m)pt; white-space: nowrap;">
-                        Precio: $@DummyPrice
-                    </div>
-
-                    <div style="position: absolute; left: @ToCss(Design.MarginLeftInMm)mm; top: @ToCss(Design.MarginTopInMm + 30)mm; width: 40mm; height: @ToCss(Design.BarcodeHeightInMm)mm; background: repeating-linear-gradient(90deg, black, black 2px, white 2px, white 4px);">
-                    </div>
-                }
-
+                </div>
             </div>
             
-            <MudText Typo="Typo.caption" Class="mt-4 text-muted">* Vista aproximada.</MudText>
+            <MudText Typo="Typo.caption" Class="mt-4 text-muted">
+                * Visualización basada en puntos (1px = 1dot @@ @_previewDpi DPI).
+            </MudText>
         </MudContainer>
     </DialogContent>
     <DialogActions>
@@ -70,11 +93,22 @@
     private const string DummyCode = "123456789";
     private const string DummyPrice = "150.00";
     private readonly string DummyDate = DateTime.Now.ToString("dd/MM/yyyy");
+    
+    private double _zoomLevel = 0.7;
+    private int _previewDpi = 300;
 
     private void Close() => MudDialog.Close();
 
-    private string ToCss(decimal value) => value.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
-    private string ToCss(decimal? value) => value.HasValue ? ToCss(value.Value) : "0";
+    // Convert MM to Pixels (Dots based on Current DPI)
+    private int MmToPx(decimal mm) => (int)Math.Round(mm / 25.4m * _previewDpi);
+    private int MmToPx(decimal? mm) => mm.HasValue ? MmToPx(mm.Value) : 0;
+
+    // Mimic PrintingService ScaleFont: attempts to keep physical text size constant across DPIs
+    private int ScaleFontSize(int fontSize)
+    {
+        // fontSize is assumed to be at 300 DPI standard
+        return (int)Math.Round(fontSize * (_previewDpi / 300.0));
+    }
 
     private string ReplaceVariables(string content)
     {
@@ -85,5 +119,30 @@
             .Replace(LabelVariables.Price, $"${DummyPrice}")
             .Replace(LabelVariables.PriceNoFormat, DummyPrice)
             .Replace(LabelVariables.Date, DummyDate);
+    }
+    
+    private int GetLegacyBarcodeWidth()
+    {
+        // Calculate based on DummyCode and Design settings
+        var length = DummyCode.Length;
+        var barWidth = Design.BarcodeWidth; // Dots
+        // Approx modules for Code 128
+        var totalModules = ((length + 2) * 11) + 13;
+        return totalModules * barWidth;
+    }
+
+    private int GetBarcodeWidthPx(LabelElementDto element) 
+    {
+        // Code 128 calculation in Dots
+        var content = ReplaceVariables(element.Content);
+        var length = content.Length;
+        var barWidth = element.BarWidth ?? Design.BarcodeWidth;
+        
+        // Modules = (Chars + Start/Stop/Check) * 11 + 13 (Stop char width is actually 13 modules for Code 128B? It varies)
+        // Standard approx: (Len + 2) * 11 + 13 modules.
+        var totalModules = ((length + 2) * 11) + 13;
+        
+        // Width in Dots
+        return totalModules * barWidth;
     }
 }
