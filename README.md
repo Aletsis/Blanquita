@@ -28,7 +28,7 @@ La solución sigue una estructura de Arquitectura Limpia dividida en las siguien
 
 1. **Clonar el repositorio**
    ```bash
-   git clone <URL_DEL_REPOSITORIO>
+   git clone <https://github.com/Aletsis/Blanquita.git>
    cd Blanquita
    ```
 
