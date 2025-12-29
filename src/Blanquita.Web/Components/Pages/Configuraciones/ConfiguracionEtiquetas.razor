@@ -71,8 +71,8 @@
                         </div>
                     </MudTd>
                     <MudTd DataLabel="Dimensiones">
-                        <MudText Typo="Typo.body2">@context.WidthInDots x @context.HeightInDots pts</MudText>
-                        <MudText Typo="Typo.caption" Color="Color.Secondary">Márgenes: @context.MarginTop, @context.MarginLeft</MudText>
+                        <MudText Typo="Typo.body2">@context.WidthInMm x @context.HeightInMm mm</MudText>
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">Márgenes: @context.MarginTopInMm, @context.MarginLeftInMm mm</MudText>
                     </MudTd>
                     <MudTd DataLabel="Fuentes">
                         <MudText Typo="Typo.caption">Nombre: @context.ProductNameFontSize</MudText><br/>
@@ -80,7 +80,7 @@
                         <MudText Typo="Typo.caption">Precio: @context.PriceFontSize</MudText>
                     </MudTd>
                     <MudTd DataLabel="Código de Barras">
-                        <MudText Typo="Typo.body2">Alto: @context.BarcodeHeight</MudText>
+                        <MudText Typo="Typo.body2">Alto: @context.BarcodeHeightInMm mm</MudText>
                         <MudText Typo="Typo.caption" Color="Color.Secondary">Ancho: @context.BarcodeWidth</MudText>
                     </MudTd>
                     <MudTd DataLabel="Estado">
@@ -147,9 +147,9 @@
                             Dimensiones
                         </MudText>
                         <MudText Typo="Typo.body2" Color="Color.Secondary">
-                            Las dimensiones se especifican en puntos (dots). Para impresoras de 300 DPI:
-                            <br/>• 1 pulgada = 300 puntos
-                            <br/>• 2 pulgadas = 607 puntos (estándar)
+                            Las dimensiones se especifican en milímetros para facilitar la configuración.
+                            <br/>• 1 pulgada = 25.4 mm
+                            <br/>• 2 pulgadas = 50.8 mm (estándar)
                         </MudText>
                     </MudPaper>
                 </MudItem>
@@ -229,15 +229,15 @@
             {
                 Id = diseño.Id,
                 Name = diseño.Name,
-                WidthInDots = diseño.WidthInDots,
-                HeightInDots = diseño.HeightInDots,
-                MarginTop = diseño.MarginTop,
-                MarginLeft = diseño.MarginLeft,
+                WidthInMm = diseño.WidthInMm,
+                HeightInMm = diseño.HeightInMm,
+                MarginTopInMm = diseño.MarginTopInMm,
+                MarginLeftInMm = diseño.MarginLeftInMm,
                 Orientation = diseño.Orientation,
                 ProductNameFontSize = diseño.ProductNameFontSize,
                 ProductCodeFontSize = diseño.ProductCodeFontSize,
                 PriceFontSize = diseño.PriceFontSize,
-                BarcodeHeight = diseño.BarcodeHeight,
+                BarcodeHeightInMm = diseño.BarcodeHeightInMm,
                 BarcodeWidth = diseño.BarcodeWidth,
                 IsDefault = diseño.IsDefault,
                 IsActive = diseño.IsActive

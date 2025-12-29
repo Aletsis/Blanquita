@@ -86,15 +86,15 @@ public class LabelDesignService : ILabelDesignService
 
             var design = LabelDesign.Create(
                 dto.Name,
-                dto.WidthInDots,
-                dto.HeightInDots,
-                dto.MarginTop,
-                dto.MarginLeft,
+                dto.WidthInMm,
+                dto.HeightInMm,
+                dto.MarginTopInMm,
+                dto.MarginLeftInMm,
                 dto.Orientation,
                 dto.ProductNameFontSize,
                 dto.ProductCodeFontSize,
                 dto.PriceFontSize,
-                dto.BarcodeHeight,
+                dto.BarcodeHeightInMm,
                 dto.BarcodeWidth,
                 dto.IsDefault
             );
@@ -135,15 +135,15 @@ public class LabelDesignService : ILabelDesignService
 
             design.Update(
                 dto.Name,
-                dto.WidthInDots,
-                dto.HeightInDots,
-                dto.MarginTop,
-                dto.MarginLeft,
+                dto.WidthInMm,
+                dto.HeightInMm,
+                dto.MarginTopInMm,
+                dto.MarginLeftInMm,
                 dto.Orientation,
                 dto.ProductNameFontSize,
                 dto.ProductCodeFontSize,
                 dto.PriceFontSize,
-                dto.BarcodeHeight,
+                dto.BarcodeHeightInMm,
                 dto.BarcodeWidth
             );
 
@@ -260,15 +260,15 @@ public class LabelDesignService : ILabelDesignService
         {
             Id = design.Id,
             Name = design.Name,
-            WidthInDots = design.WidthInDots,
-            HeightInDots = design.HeightInDots,
-            MarginTop = design.MarginTop,
-            MarginLeft = design.MarginLeft,
+            WidthInMm = design.WidthInMm,
+            HeightInMm = design.HeightInMm,
+            MarginTopInMm = design.MarginTopInMm,
+            MarginLeftInMm = design.MarginLeftInMm,
             Orientation = design.Orientation,
             ProductNameFontSize = design.ProductNameFontSize,
             ProductCodeFontSize = design.ProductCodeFontSize,
             PriceFontSize = design.PriceFontSize,
-            BarcodeHeight = design.BarcodeHeight,
+            BarcodeHeightInMm = design.BarcodeHeightInMm,
             BarcodeWidth = design.BarcodeWidth,
             IsDefault = design.IsDefault,
             IsActive = design.IsActive

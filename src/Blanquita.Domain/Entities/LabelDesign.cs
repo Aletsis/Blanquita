@@ -2,7 +2,7 @@ namespace Blanquita.Domain.Entities;
 
 /// <summary>
 /// Entidad que representa la configuración de diseño de etiquetas para impresoras Zebra.
-/// Almacena dimensiones, fuentes, márgenes y otros parámetros de diseño.
+/// Almacena dimensiones en milímetros, fuentes, márgenes y otros parámetros de diseño.
 /// </summary>
 public class LabelDesign : BaseEntity
 {
@@ -12,26 +12,26 @@ public class LabelDesign : BaseEntity
     public string Name { get; private set; } = string.Empty;
 
     /// <summary>
-    /// Ancho de la etiqueta en puntos (dots). 
-    /// Valor estándar: 607 (2 pulgadas a 300dpi)
+    /// Ancho de la etiqueta en milímetros. 
+    /// Valor estándar: 51.6 mm (aproximadamente 2 pulgadas)
     /// </summary>
-    public int WidthInDots { get; private set; } = 607;
+    public decimal WidthInMm { get; private set; } = 51.6m;
     
     /// <summary>
-    /// Alto de la etiqueta en puntos (dots).
-    /// Valor estándar: 199
+    /// Alto de la etiqueta en milímetros.
+    /// Valor estándar: 16.9 mm
     /// </summary>
-    public int HeightInDots { get; private set; } = 199;
+    public decimal HeightInMm { get; private set; } = 16.9m;
     
     /// <summary>
-    /// Margen superior en puntos.
+    /// Margen superior en milímetros.
     /// </summary>
-    public int MarginTop { get; private set; } = 20;
+    public decimal MarginTopInMm { get; private set; } = 1.7m;
     
     /// <summary>
-    /// Margen izquierdo en puntos.
+    /// Margen izquierdo en milímetros.
     /// </summary>
-    public int MarginLeft { get; private set; } = 20;
+    public decimal MarginLeftInMm { get; private set; } = 1.7m;
     
     /// <summary>
     /// Orientación de la etiqueta.
@@ -55,9 +55,9 @@ public class LabelDesign : BaseEntity
     public int PriceFontSize { get; private set; } = 60;
 
     /// <summary>
-    /// Altura del código de barras en puntos.
+    /// Altura del código de barras en milímetros.
     /// </summary>
-    public int BarcodeHeight { get; private set; } = 100;
+    public decimal BarcodeHeightInMm { get; private set; } = 8.5m;
 
     /// <summary>
     /// Ancho de las barras del código de barras (1-10).
@@ -82,26 +82,26 @@ public class LabelDesign : BaseEntity
     /// </summary>
     public static LabelDesign Create(
         string name,
-        int widthInDots = 607,
-        int heightInDots = 199,
-        int marginTop = 20,
-        int marginLeft = 20,
+        decimal widthInMm = 51.6m,
+        decimal heightInMm = 16.9m,
+        decimal marginTopInMm = 1.7m,
+        decimal marginLeftInMm = 1.7m,
         string orientation = "N",
         int productNameFontSize = 50,
         int productCodeFontSize = 40,
         int priceFontSize = 60,
-        int barcodeHeight = 100,
+        decimal barcodeHeightInMm = 8.5m,
         int barcodeWidth = 3,
         bool isDefault = false)
     {
         if (string.IsNullOrWhiteSpace(name))
             throw new ArgumentException("El nombre de la configuración no puede estar vacío.", nameof(name));
 
-        if (widthInDots <= 0)
-            throw new ArgumentException("El ancho debe ser mayor a 0.", nameof(widthInDots));
+        if (widthInMm <= 0)
+            throw new ArgumentException("El ancho debe ser mayor a 0.", nameof(widthInMm));
 
-        if (heightInDots <= 0)
-            throw new ArgumentException("El alto debe ser mayor a 0.", nameof(heightInDots));
+        if (heightInMm <= 0)
+            throw new ArgumentException("El alto debe ser mayor a 0.", nameof(heightInMm));
 
         if (!new[] { "N", "R", "I", "B" }.Contains(orientation))
             throw new ArgumentException("Orientación inválida. Use N, R, I o B.", nameof(orientation));
@@ -112,15 +112,15 @@ public class LabelDesign : BaseEntity
         return new LabelDesign
         {
             Name = name,
-            WidthInDots = widthInDots,
-            HeightInDots = heightInDots,
-            MarginTop = marginTop,
-            MarginLeft = marginLeft,
+            WidthInMm = widthInMm,
+            HeightInMm = heightInMm,
+            MarginTopInMm = marginTopInMm,
+            MarginLeftInMm = marginLeftInMm,
             Orientation = orientation,
             ProductNameFontSize = productNameFontSize,
             ProductCodeFontSize = productCodeFontSize,
             PriceFontSize = priceFontSize,
-            BarcodeHeight = barcodeHeight,
+            BarcodeHeightInMm = barcodeHeightInMm,
             BarcodeWidth = barcodeWidth,
             IsDefault = isDefault,
             IsActive = true
@@ -132,25 +132,25 @@ public class LabelDesign : BaseEntity
     /// </summary>
     public void Update(
         string name,
-        int widthInDots,
-        int heightInDots,
-        int marginTop,
-        int marginLeft,
+        decimal widthInMm,
+        decimal heightInMm,
+        decimal marginTopInMm,
+        decimal marginLeftInMm,
         string orientation,
         int productNameFontSize,
         int productCodeFontSize,
         int priceFontSize,
-        int barcodeHeight,
+        decimal barcodeHeightInMm,
         int barcodeWidth)
     {
         if (string.IsNullOrWhiteSpace(name))
             throw new ArgumentException("El nombre de la configuración no puede estar vacío.", nameof(name));
 
-        if (widthInDots <= 0)
-            throw new ArgumentException("El ancho debe ser mayor a 0.", nameof(widthInDots));
+        if (widthInMm <= 0)
+            throw new ArgumentException("El ancho debe ser mayor a 0.", nameof(widthInMm));
 
-        if (heightInDots <= 0)
-            throw new ArgumentException("El alto debe ser mayor a 0.", nameof(heightInDots));
+        if (heightInMm <= 0)
+            throw new ArgumentException("El alto debe ser mayor a 0.", nameof(heightInMm));
 
         if (!new[] { "N", "R", "I", "B" }.Contains(orientation))
             throw new ArgumentException("Orientación inválida. Use N, R, I o B.", nameof(orientation));
@@ -159,15 +159,15 @@ public class LabelDesign : BaseEntity
             throw new ArgumentException("El ancho del código de barras debe estar entre 1 y 10.", nameof(barcodeWidth));
 
         Name = name;
-        WidthInDots = widthInDots;
-        HeightInDots = heightInDots;
-        MarginTop = marginTop;
-        MarginLeft = marginLeft;
+        WidthInMm = widthInMm;
+        HeightInMm = heightInMm;
+        MarginTopInMm = marginTopInMm;
+        MarginLeftInMm = marginLeftInMm;
         Orientation = orientation;
         ProductNameFontSize = productNameFontSize;
         ProductCodeFontSize = productCodeFontSize;
         PriceFontSize = priceFontSize;
-        BarcodeHeight = barcodeHeight;
+        BarcodeHeightInMm = barcodeHeightInMm;
         BarcodeWidth = barcodeWidth;
     }
 

@@ -9,10 +9,10 @@ public class BrowserPrintService
     {
         //convertir medidas de puntos a pixeles(aproximacion)
         int scaleFactor = 3; //Ajustar a necesidad
-        int widthPx = design.WidthInDots / scaleFactor;
-        int heightPx = design.HeightInDots / scaleFactor;
-        int marginTopPx = design.MarginTop / scaleFactor;
-        int marginLeftPx = design.MarginLeft / scaleFactor;
+        int widthPx = design.GetWidthInDots() / scaleFactor;
+        int heightPx = design.GetHeightInDots() / scaleFactor;
+        int marginTopPx = design.GetMarginTopInDots() / scaleFactor;
+        int marginLeftPx = design.GetMarginLeftInDots() / scaleFactor;
 
         //Extraer contenido de zpl
         var title = ExtractField(zpl, @"^FO\d+,\d+\^A\w+,\d+,\d+\^FD(.+?)\^FS");

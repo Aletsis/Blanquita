@@ -23,42 +23,50 @@
             </MudItem>
 
             <MudItem xs="12" sm="6">
-                <MudNumericField @bind-Value="Model.WidthInDots"
-                                 Label="Ancho (puntos)"
+                <MudNumericField @bind-Value="Model.WidthInMm"
+                                 Label="Ancho (mm)"
                                  Variant="Variant.Outlined"
-                                 Min="100"
-                                 Max="2000"
-                                 HelperText="Ancho de la etiqueta en puntos (dots)"
+                                 Min="10"
+                                 Max="200"
+                                 Step="0.1m"
+                                 Format="N1"
+                                 HelperText="Ancho de la etiqueta en milímetros"
                                  Class="mb-3" />
             </MudItem>
 
             <MudItem xs="12" sm="6">
-                <MudNumericField @bind-Value="Model.HeightInDots"
-                                 Label="Alto (puntos)"
+                <MudNumericField @bind-Value="Model.HeightInMm"
+                                 Label="Alto (mm)"
                                  Variant="Variant.Outlined"
-                                 Min="50"
-                                 Max="2000"
-                                 HelperText="Alto de la etiqueta en puntos (dots)"
+                                 Min="5"
+                                 Max="200"
+                                 Step="0.1m"
+                                 Format="N1"
+                                 HelperText="Alto de la etiqueta en milímetros"
                                  Class="mb-3" />
             </MudItem>
 
             <MudItem xs="12" sm="6">
-                <MudNumericField @bind-Value="Model.MarginTop"
-                                 Label="Margen Superior"
+                <MudNumericField @bind-Value="Model.MarginTopInMm"
+                                 Label="Margen Superior (mm)"
                                  Variant="Variant.Outlined"
                                  Min="0"
-                                 Max="200"
-                                 HelperText="Margen superior en puntos"
+                                 Max="20"
+                                 Step="0.1m"
+                                 Format="N1"
+                                 HelperText="Margen superior en milímetros"
                                  Class="mb-3" />
             </MudItem>
 
             <MudItem xs="12" sm="6">
-                <MudNumericField @bind-Value="Model.MarginLeft"
-                                 Label="Margen Izquierdo"
+                <MudNumericField @bind-Value="Model.MarginLeftInMm"
+                                 Label="Margen Izquierdo (mm)"
                                  Variant="Variant.Outlined"
                                  Min="0"
-                                 Max="200"
-                                 HelperText="Margen izquierdo en puntos"
+                                 Max="20"
+                                 Step="0.1m"
+                                 Format="N1"
+                                 HelperText="Margen izquierdo en milímetros"
                                  Class="mb-3" />
             </MudItem>
 
@@ -122,12 +130,14 @@
             </MudItem>
 
             <MudItem xs="12" sm="6">
-                <MudNumericField @bind-Value="Model.BarcodeHeight"
-                                 Label="Altura del Código de Barras"
+                <MudNumericField @bind-Value="Model.BarcodeHeightInMm"
+                                 Label="Altura del Código de Barras (mm)"
                                  Variant="Variant.Outlined"
-                                 Min="20"
-                                 Max="500"
-                                 HelperText="Altura en puntos"
+                                 Min="2"
+                                 Max="50"
+                                 Step="0.1m"
+                                 Format="N1"
+                                 HelperText="Altura en milímetros"
                                  Class="mb-3" />
             </MudItem>
 
@@ -183,15 +193,15 @@
             Model = new LabelDesignDto
             {
                 Name = "Nueva Configuración",
-                WidthInDots = 607,
-                HeightInDots = 199,
-                MarginTop = 20,
-                MarginLeft = 20,
+                WidthInMm = 51.6m,
+                HeightInMm = 16.9m,
+                MarginTopInMm = 1.7m,
+                MarginLeftInMm = 1.7m,
                 Orientation = "N",
                 ProductNameFontSize = 50,
                 ProductCodeFontSize = 40,
                 PriceFontSize = 60,
-                BarcodeHeight = 100,
+                BarcodeHeightInMm = 8.5m,
                 BarcodeWidth = 3,
                 IsDefault = false,
                 IsActive = true
