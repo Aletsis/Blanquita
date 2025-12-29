@@ -21,6 +21,7 @@ public class BlanquitaDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<Printer> Printers { get; set; } = null!;
     public DbSet<SystemConfiguration> SystemConfigurations { get; set; } = null!;
     public DbSet<LabelDesign> LabelDesigns { get; set; } = null!;
+    public DbSet<LabelElement> LabelElements { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -186,6 +187,29 @@ public class BlanquitaDbContext : IdentityDbContext<ApplicationUser>
             entity.Property(e => e.IsDefault).HasColumnName("EsPredeterminado").IsRequired();
             entity.Property(e => e.IsActive).HasColumnName("Activo").IsRequired();
             entity.HasIndex(e => e.Name).IsUnique();
+            
+            entity.HasMany(e => e.Elements)
+                .WithOne(e => e.LabelDesign)
+                .HasForeignKey(e => e.LabelDesignId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.Navigation(e => e.Elements)
+                .UsePropertyAccessMode(PropertyAccessMode.Field);
+        });
+
+        // Configure LabelElement
+        modelBuilder.Entity<LabelElement>(entity =>
+        {
+            entity.ToTable("ElementosEtiqueta");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.ElementType).HasColumnName("Tipo").IsRequired().HasMaxLength(50);
+            entity.Property(e => e.XMm).HasColumnName("XMm").HasColumnType("decimal(18,2)").IsRequired();
+            entity.Property(e => e.YMm).HasColumnName("YMm").HasColumnType("decimal(18,2)").IsRequired();
+            entity.Property(e => e.Content).HasColumnName("Contenido").IsRequired().HasMaxLength(500);
+            entity.Property(e => e.FontSize).HasColumnName("TamañoFuente");
+            entity.Property(e => e.HeightMm).HasColumnName("AltoMm").HasColumnType("decimal(18,2)");
+            entity.Property(e => e.BarWidth).HasColumnName("AnchoBarra");
+            entity.Property(e => e.LabelDesignId).HasColumnName("DiseñoId");
         });
     }
 }

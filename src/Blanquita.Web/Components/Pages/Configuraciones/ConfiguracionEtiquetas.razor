@@ -107,15 +107,18 @@
                                            Color="Color.Primary"
                                            OnClick="() => AbrirDialogoDiseño(context)" />
                         </MudTooltip>
-                        @if (!context.IsDefault)
-                        {
                             <MudTooltip Text="Eliminar configuración">
                                 <MudIconButton Icon="@Icons.Material.Filled.Delete"
                                                Size="Size.Small"
                                                Color="Color.Error"
                                                OnClick="() => EliminarDiseño(context)" />
                             </MudTooltip>
-                        }
+                        <MudTooltip Text="Previsualizar">
+                            <MudIconButton Icon="@Icons.Material.Filled.Visibility"
+                                           Size="Size.Small"
+                                           Color="Color.Info"
+                                           OnClick="() => VisualizarDiseño(context)" />
+                        </MudTooltip>
                     </MudTd>
                 </RowTemplate>
                 <NoRecordsContent>
@@ -240,7 +243,19 @@
                 BarcodeHeightInMm = diseño.BarcodeHeightInMm,
                 BarcodeWidth = diseño.BarcodeWidth,
                 IsDefault = diseño.IsDefault,
-                IsActive = diseño.IsActive
+                IsActive = diseño.IsActive,
+                Elements = diseño.Elements?.Select(e => new LabelElementDto
+                {
+                    Id = e.Id,
+                    LabelDesignId = e.LabelDesignId,
+                    ElementType = e.ElementType,
+                    XMm = e.XMm,
+                    YMm = e.YMm,
+                    Content = e.Content,
+                    FontSize = e.FontSize,
+                    HeightMm = e.HeightMm,
+                    BarWidth = e.BarWidth
+                }).ToList() ?? new List<LabelElementDto>()
             });
         }
 
@@ -310,5 +325,15 @@
                 Snackbar.Add($"Error al eliminar: {ex.Message}", Severity.Error);
             }
         }
+    }
+
+    private async Task VisualizarDiseño(LabelDesignDto diseño)
+    {
+        var parameters = new DialogParameters();
+        parameters.Add("Design", diseño);
+        
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium, BackgroundClass = "blur-background" };
+        
+        await DialogService.ShowAsync<DialogoVisualizarEtiqueta>($"Vista Previa: {diseño.Name}", parameters, options);
     }
 }

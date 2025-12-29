@@ -1,3 +1,7 @@
+using System.Collections.Generic;
+using System.Linq;
+using System;
+
 namespace Blanquita.Domain.Entities;
 
 /// <summary>
@@ -10,6 +14,12 @@ public class LabelDesign : BaseEntity
     /// Nombre descriptivo de la configuración de diseño.
     /// </summary>
     public string Name { get; private set; } = string.Empty;
+
+    /// <summary>
+    /// Elementos configurables de la etiqueta (Texto, Códigos de barras, etc).
+    /// </summary>
+    private readonly List<LabelElement> _elements = new();
+    public IReadOnlyCollection<LabelElement> Elements => _elements.AsReadOnly();
 
     /// <summary>
     /// Ancho de la etiqueta en milímetros. 
@@ -201,5 +211,19 @@ public class LabelDesign : BaseEntity
     public void Deactivate()
     {
         IsActive = false;
+    }
+    public void AddElement(LabelElement element)
+    {
+        _elements.Add(element);
+    }
+
+    public void RemoveElement(LabelElement element)
+    {
+        _elements.Remove(element);
+    }
+    
+    public void ClearElements()
+    {
+        _elements.Clear();
     }
 }

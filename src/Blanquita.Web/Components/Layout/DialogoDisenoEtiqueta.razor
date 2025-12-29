@@ -1,174 +1,263 @@
 @using Blanquita.Application.DTOs
+@using Blanquita.Application.Constants
 @using MudBlazor
 @inject ISnackbar Snackbar
 
 <MudDialog>
     <DialogContent>
-        <MudGrid>
-            <MudItem xs="12">
-                <MudTextField @bind-Value="Model.Name"
-                              Label="Nombre de la Configuración"
-                              Variant="Variant.Outlined"
-                              Required="true"
-                              HelperText="Nombre descriptivo para esta configuración"
-                              Class="mb-3" />
-            </MudItem>
+        <MudTabs Elevation="2" Rounded="true" ApplyEffectsToContainer="true" PanelClass="pa-3">
+            <MudTabPanel Text="Configuración General">
+                <MudGrid>
+                    <MudItem xs="12">
+                        <MudTextField @bind-Value="Model.Name"
+                                      Label="Nombre de la Configuración"
+                                      Variant="Variant.Outlined"
+                                      Required="true"
+                                      HelperText="Nombre descriptivo para esta configuración"
+                                      Class="mb-3" />
+                    </MudItem>
 
-            <MudItem xs="12">
-                <MudText Typo="Typo.h6" Class="mb-2">
-                    <MudIcon Icon="@Icons.Material.Filled.AspectRatio" Class="mr-2" />
-                    Dimensiones de la Etiqueta
+                    <MudItem xs="12">
+                        <MudText Typo="Typo.h6" Class="mb-2">
+                            <MudIcon Icon="@Icons.Material.Filled.AspectRatio" Class="mr-2" />
+                            Dimensiones de la Etiqueta
+                        </MudText>
+                        <MudDivider Class="mb-3" />
+                    </MudItem>
+
+                    <MudItem xs="12" sm="6">
+                        <MudNumericField @bind-Value="Model.WidthInMm"
+                                         Label="Ancho (mm)"
+                                         Variant="Variant.Outlined"
+                                         Min="10"
+                                         Max="200"
+                                         Step="0.1m"
+                                         Format="N1"
+                                         HelperText="Ancho de la etiqueta en milímetros"
+                                         Class="mb-3" />
+                    </MudItem>
+
+                    <MudItem xs="12" sm="6">
+                        <MudNumericField @bind-Value="Model.HeightInMm"
+                                         Label="Alto (mm)"
+                                         Variant="Variant.Outlined"
+                                         Min="5"
+                                         Max="200"
+                                         Step="0.1m"
+                                         Format="N1"
+                                         HelperText="Alto de la etiqueta en milímetros"
+                                         Class="mb-3" />
+                    </MudItem>
+
+                    <MudItem xs="12" sm="6">
+                        <MudNumericField @bind-Value="Model.MarginTopInMm"
+                                         Label="Margen Superior (mm)"
+                                         Variant="Variant.Outlined"
+                                         Min="0"
+                                         Max="20"
+                                         Step="0.1m"
+                                         Format="N1"
+                                         HelperText="Margen superior en milímetros"
+                                         Class="mb-3" />
+                    </MudItem>
+
+                    <MudItem xs="12" sm="6">
+                        <MudNumericField @bind-Value="Model.MarginLeftInMm"
+                                         Label="Margen Izquierdo (mm)"
+                                         Variant="Variant.Outlined"
+                                         Min="0"
+                                         Max="20"
+                                         Step="0.1m"
+                                         Format="N1"
+                                         HelperText="Margen izquierdo en milímetros"
+                                         Class="mb-3" />
+                    </MudItem>
+
+                    <MudItem xs="12">
+                        <MudSelect T="string" @bind-Value="Model.Orientation"
+                                   Label="Orientación"
+                                   Variant="Variant.Outlined"
+                                   HelperText="Orientación de la etiqueta"
+                                   Class="mb-3">
+                            <MudSelectItem Value="@("N")">Normal</MudSelectItem>
+                            <MudSelectItem Value="@("R")">Rotado 90°</MudSelectItem>
+                            <MudSelectItem Value="@("I")">Invertido</MudSelectItem>
+                            <MudSelectItem Value="@("B")">Bottom-up</MudSelectItem>
+                        </MudSelect>
+                    </MudItem>
+
+                    <!-- Legacy Font Sizes (Still kept for backward compat or fallback defaults) -->
+                    <MudItem xs="12">
+                        <MudText Typo="Typo.h6" Class="mb-2 mt-2">
+                            <MudIcon Icon="@Icons.Material.Filled.FormatSize" Class="mr-2" />
+                            Valores por Defecto (Legacy)
+                        </MudText>
+                        <MudText Typo="Typo.caption">Estos valores se usan si no se definen elementos dinámicos.</MudText>
+                        <MudDivider Class="mb-3" />
+                    </MudItem>
+
+                    <MudItem xs="12" sm="4">
+                        <MudNumericField @bind-Value="Model.ProductNameFontSize"
+                                         Label="Fuente Nombre"
+                                         Variant="Variant.Outlined"
+                                         Min="10"
+                                         Max="200"
+                                         HelperText="Tamaño fuente nombre"
+                                         Class="mb-3" />
+                    </MudItem>
+
+                    <MudItem xs="12" sm="4">
+                        <MudNumericField @bind-Value="Model.ProductCodeFontSize"
+                                         Label="Fuente Código"
+                                         Variant="Variant.Outlined"
+                                         Min="10"
+                                         Max="200"
+                                         HelperText="Tamaño fuente código"
+                                         Class="mb-3" />
+                    </MudItem>
+
+                    <MudItem xs="12" sm="4">
+                        <MudNumericField @bind-Value="Model.PriceFontSize"
+                                         Label="Fuente Precio"
+                                         Variant="Variant.Outlined"
+                                         Min="10"
+                                         Max="200"
+                                         HelperText="Tamaño fuente precio"
+                                         Class="mb-3" />
+                    </MudItem>
+
+                    <MudItem xs="12">
+                        <MudText Typo="Typo.h6" Class="mb-2 mt-2">
+                            <MudIcon Icon="@Icons.Material.Filled.QrCode2" Class="mr-2" />
+                            Código de Barras (Global)
+                        </MudText>
+                        <MudDivider Class="mb-3" />
+                    </MudItem>
+
+                    <MudItem xs="12" sm="6">
+                        <MudNumericField @bind-Value="Model.BarcodeHeightInMm"
+                                         Label="Altura (mm)"
+                                         Variant="Variant.Outlined"
+                                         Min="2"
+                                         Max="50"
+                                         Step="0.1m"
+                                         Format="N1"
+                                         Class="mb-3" />
+                    </MudItem>
+
+                    <MudItem xs="12" sm="6">
+                        <MudNumericField @bind-Value="Model.BarcodeWidth"
+                                         Label="Ancho de Barras"
+                                         Variant="Variant.Outlined"
+                                         Min="1"
+                                         Max="10"
+                                         Class="mb-3" />
+                    </MudItem>
+
+                    <MudItem xs="12">
+                        <MudDivider Class="my-3" />
+                    </MudItem>
+
+                    <MudItem xs="12" sm="6">
+                        <MudSwitch @bind-Value="Model.IsDefault"
+                                   Label="Configuración Predeterminada"
+                                   Color="Color.Primary"
+                                   Class="mb-3" />
+                    </MudItem>
+
+                    <MudItem xs="12" sm="6">
+                        <MudSwitch @bind-Value="Model.IsActive"
+                                   Label="Activa"
+                                   Color="Color.Success"
+                                   Class="mb-3" />
+                    </MudItem>
+                </MudGrid>
+            </MudTabPanel>
+            
+            <MudTabPanel Text="Elementos Dinámicos">
+                <MudText Typo="Typo.body2" Class="mb-4">
+                    Defina los elementos que se imprimirán y su ubicación exacta (coordenadas X, Y en mm). 
+                    Puede usar variables como <b>{ProductName}</b>, <b>{ProductCode}</b>, <b>{Price}</b>.
                 </MudText>
-                <MudDivider Class="mb-3" />
-            </MudItem>
-
-            <MudItem xs="12" sm="6">
-                <MudNumericField @bind-Value="Model.WidthInMm"
-                                 Label="Ancho (mm)"
-                                 Variant="Variant.Outlined"
-                                 Min="10"
-                                 Max="200"
-                                 Step="0.1m"
-                                 Format="N1"
-                                 HelperText="Ancho de la etiqueta en milímetros"
-                                 Class="mb-3" />
-            </MudItem>
-
-            <MudItem xs="12" sm="6">
-                <MudNumericField @bind-Value="Model.HeightInMm"
-                                 Label="Alto (mm)"
-                                 Variant="Variant.Outlined"
-                                 Min="5"
-                                 Max="200"
-                                 Step="0.1m"
-                                 Format="N1"
-                                 HelperText="Alto de la etiqueta en milímetros"
-                                 Class="mb-3" />
-            </MudItem>
-
-            <MudItem xs="12" sm="6">
-                <MudNumericField @bind-Value="Model.MarginTopInMm"
-                                 Label="Margen Superior (mm)"
-                                 Variant="Variant.Outlined"
-                                 Min="0"
-                                 Max="20"
-                                 Step="0.1m"
-                                 Format="N1"
-                                 HelperText="Margen superior en milímetros"
-                                 Class="mb-3" />
-            </MudItem>
-
-            <MudItem xs="12" sm="6">
-                <MudNumericField @bind-Value="Model.MarginLeftInMm"
-                                 Label="Margen Izquierdo (mm)"
-                                 Variant="Variant.Outlined"
-                                 Min="0"
-                                 Max="20"
-                                 Step="0.1m"
-                                 Format="N1"
-                                 HelperText="Margen izquierdo en milímetros"
-                                 Class="mb-3" />
-            </MudItem>
-
-            <MudItem xs="12">
-                <MudSelect T="string" @bind-Value="Model.Orientation"
-                           Label="Orientación"
-                           Variant="Variant.Outlined"
-                           HelperText="Orientación de la etiqueta"
-                           Class="mb-3">
-                    <MudSelectItem Value="@("N")">Normal</MudSelectItem>
-                    <MudSelectItem Value="@("R")">Rotado 90°</MudSelectItem>
-                    <MudSelectItem Value="@("I")">Invertido</MudSelectItem>
-                    <MudSelectItem Value="@("B")">Bottom-up</MudSelectItem>
-                </MudSelect>
-            </MudItem>
-
-            <MudItem xs="12">
-                <MudText Typo="Typo.h6" Class="mb-2 mt-2">
-                    <MudIcon Icon="@Icons.Material.Filled.FormatSize" Class="mr-2" />
-                    Tamaños de Fuente
-                </MudText>
-                <MudDivider Class="mb-3" />
-            </MudItem>
-
-            <MudItem xs="12" sm="4">
-                <MudNumericField @bind-Value="Model.ProductNameFontSize"
-                                 Label="Fuente Nombre"
-                                 Variant="Variant.Outlined"
-                                 Min="10"
-                                 Max="200"
-                                 HelperText="Tamaño de fuente para el nombre"
-                                 Class="mb-3" />
-            </MudItem>
-
-            <MudItem xs="12" sm="4">
-                <MudNumericField @bind-Value="Model.ProductCodeFontSize"
-                                 Label="Fuente Código"
-                                 Variant="Variant.Outlined"
-                                 Min="10"
-                                 Max="200"
-                                 HelperText="Tamaño de fuente para el código"
-                                 Class="mb-3" />
-            </MudItem>
-
-            <MudItem xs="12" sm="4">
-                <MudNumericField @bind-Value="Model.PriceFontSize"
-                                 Label="Fuente Precio"
-                                 Variant="Variant.Outlined"
-                                 Min="10"
-                                 Max="200"
-                                 HelperText="Tamaño de fuente para el precio"
-                                 Class="mb-3" />
-            </MudItem>
-
-            <MudItem xs="12">
-                <MudText Typo="Typo.h6" Class="mb-2 mt-2">
-                    <MudIcon Icon="@Icons.Material.Filled.QrCode2" Class="mr-2" />
-                    Código de Barras
-                </MudText>
-                <MudDivider Class="mb-3" />
-            </MudItem>
-
-            <MudItem xs="12" sm="6">
-                <MudNumericField @bind-Value="Model.BarcodeHeightInMm"
-                                 Label="Altura del Código de Barras (mm)"
-                                 Variant="Variant.Outlined"
-                                 Min="2"
-                                 Max="50"
-                                 Step="0.1m"
-                                 Format="N1"
-                                 HelperText="Altura en milímetros"
-                                 Class="mb-3" />
-            </MudItem>
-
-            <MudItem xs="12" sm="6">
-                <MudNumericField @bind-Value="Model.BarcodeWidth"
-                                 Label="Ancho de Barras"
-                                 Variant="Variant.Outlined"
-                                 Min="1"
-                                 Max="10"
-                                 HelperText="Ancho de las barras (1-10)"
-                                 Class="mb-3" />
-            </MudItem>
-
-            <MudItem xs="12">
-                <MudDivider Class="my-3" />
-            </MudItem>
-
-            <MudItem xs="12" sm="6">
-                <MudSwitch @bind-Value="Model.IsDefault"
-                           Label="Configuración Predeterminada"
-                           Color="Color.Primary"
-                           Class="mb-3" />
-            </MudItem>
-
-            <MudItem xs="12" sm="6">
-                <MudSwitch @bind-Value="Model.IsActive"
-                           Label="Activa"
-                           Color="Color.Success"
-                           Class="mb-3" />
-            </MudItem>
-        </MudGrid>
+                
+                <MudTable Items="@Model.Elements" Hover="true" Elevation="0" Context="element">
+                    <HeaderContent>
+                        <MudTh>Tipo</MudTh>
+                        <MudTh>X (mm)</MudTh>
+                        <MudTh>Y (mm)</MudTh>
+                        <MudTh>Contenido</MudTh>
+                        <MudTh>Fuente</MudTh>
+                        <MudTh>Acciones</MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd>@element.ElementType</MudTd>
+                        <MudTd>@element.XMm</MudTd>
+                        <MudTd>@element.YMm</MudTd>
+                        <MudTd>@element.Content</MudTd>
+                        <MudTd>@element.FontSize</MudTd>
+                        <MudTd>
+                            <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary" Size="Size.Small" OnClick="@(() => EditElement(element))" />
+                            <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" OnClick="@(() => RemoveElement(element))" />
+                        </MudTd>
+                    </RowTemplate>
+                </MudTable>
+                
+                <MudPaper Class="pa-4 mt-4" Elevation="3">
+                    <MudText Typo="Typo.subtitle1" Class="mb-2">
+                        @(_editingElement == null ? "Agregar Nuevo Elemento" : "Editar Elemento")
+                    </MudText>
+                    <MudGrid>
+                        <MudItem xs="4">
+                            <MudSelect T="string" @bind-Value="_newElement.ElementType" Label="Tipo" Variant="Variant.Outlined" Dense="true">
+                                <MudSelectItem Value="@("Text")">Texto</MudSelectItem>
+                                <MudSelectItem Value="@("Barcode")">Código de Barras</MudSelectItem>
+                            </MudSelect>
+                        </MudItem>
+                        <MudItem xs="4">
+                            <MudNumericField @bind-Value="_newElement.XMm" Label="X (mm)" Variant="Variant.Outlined" Step="0.1M" Min="0" Dense="true" />
+                        </MudItem>
+                        <MudItem xs="4">
+                            <MudNumericField @bind-Value="_newElement.YMm" Label="Y (mm)" Variant="Variant.Outlined" Step="0.1M" Min="0" Dense="true" />
+                        </MudItem>
+                        <MudItem xs="8">
+                            <MudGrid Class="pa-0">
+                                <MudItem xs="6">
+                                    <MudSelect T="string" @bind-Value="_selectedVariableVariable" Label="Contenido / Variable" Variant="Variant.Outlined" Dense="true" SelectedValuesChanged="OnVariableChanged">
+                                        @foreach (var variable in LabelVariables.Descriptions)
+                                        {
+                                            <MudSelectItem Value="@variable.Key">@variable.Value</MudSelectItem>
+                                        }
+                                        <MudSelectItem Value="@("Custom")">Personalizado</MudSelectItem>
+                                    </MudSelect>
+                                </MudItem>
+                                <MudItem xs="6">
+                                    @if (_selectedVariableVariable == "Custom")
+                                    {
+                                        <MudTextField @bind-Value="_newElement.Content" Label="Texto Personalizado" Variant="Variant.Outlined" Dense="true" />
+                                    }
+                                    else
+                                    {
+                                        <MudTextField Value="@_newElement.Content" Label="Valor Seleccionado" Variant="Variant.Filled" ReadOnly="true" Dense="true" />
+                                    }
+                                </MudItem>
+                            </MudGrid>
+                        </MudItem>
+                        <MudItem xs="4">
+                            <MudNumericField @bind-Value="_newElement.FontSize" Label="Tamaño Fuente" Variant="Variant.Outlined" Min="10" Dense="true" />
+                        </MudItem>
+                        <MudItem xs="12" Class="d-flex justify-end gap-2">
+                            @if (_editingElement != null)
+                            {
+                                <MudButton Variant="Variant.Text" OnClick="CancelEdit">Cancelar Edición</MudButton>
+                            }
+                            <MudButton Variant="Variant.Filled" Color="@(_editingElement == null ? Color.Primary : Color.Warning)" OnClick="AddElement" StartIcon="@(_editingElement == null ? Icons.Material.Filled.Add : Icons.Material.Filled.Save)">
+                                @(_editingElement == null ? "Agregar" : "Actualizar")
+                            </MudButton>
+                        </MudItem>
+                    </MudGrid>
+                </MudPaper>
+            </MudTabPanel>
+        </MudTabs>
     </DialogContent>
     <DialogActions>
         <MudButton OnClick="Cancel" Variant="Variant.Text">Cancelar</MudButton>
@@ -184,6 +273,11 @@
 
     [Parameter]
     public LabelDesignDto? Model { get; set; }
+    
+    // Temp storage for new element form
+    private LabelElementDto _newElement = new() { ElementType = "Text", FontSize = 30 };
+    private string _selectedVariableVariable = LabelVariables.ProductName;
+    private LabelElementDto? _editingElement; // Track element being edited
 
     protected override void OnInitialized()
     {
@@ -192,7 +286,7 @@
         {
             Model = new LabelDesignDto
             {
-                Name = "Nueva Configuración",
+                Name = "",
                 WidthInMm = 51.6m,
                 HeightInMm = 16.9m,
                 MarginTopInMm = 1.7m,
@@ -206,6 +300,32 @@
                 IsDefault = false,
                 IsActive = true
             };
+        }
+        
+        if (Model.Elements == null)
+        {
+            Model.Elements = new List<LabelElementDto>();
+        }
+        
+        // initialize default selection
+        _newElement.Content = LabelVariables.ProductName;
+    }
+
+    private void OnVariableChanged(IEnumerable<string> values)
+    {
+        var val = values.FirstOrDefault();
+        if (val != null && val != "Custom")
+        {
+            _newElement.Content = val;
+        }
+        else if (val == "Custom")
+        {
+             // Keep existing content if editing, otherwise clear? 
+             // If switching to Custom, let user type.
+             if (_newElement.Content.StartsWith("{") && _newElement.Content.EndsWith("}")) 
+             {
+                 _newElement.Content = "";
+             }
         }
     }
 
@@ -222,6 +342,131 @@
             return;
         }
 
+        // Validate elements bounds
+        if (Model.Elements != null)
+        {
+            foreach (var el in Model.Elements)
+            {
+                // Check negative
+                if (el.XMm < 0 || el.YMm < 0)
+                {
+                    Snackbar.Add($"El elemento con contenido '{el.Content}' tiene coordenadas negativas.", Severity.Error);
+                    return;
+                }
+
+                // Check bounds (simplified: check if start point is outside)
+                if (el.XMm >= Model.WidthInMm)
+                {
+                    Snackbar.Add($"El elemento 'X' ({el.XMm}mm) está fuera del ancho de la etiqueta ({Model.WidthInMm}mm).", Severity.Error);
+                    return;
+                }
+                
+                if (el.YMm >= Model.HeightInMm)
+                {
+                    Snackbar.Add($"El elemento 'Y' ({el.YMm}mm) está fuera del alto de la etiqueta ({Model.HeightInMm}mm).", Severity.Error);
+                    return;
+                }
+                
+                // Optional: Check estimated bottom edge if we knew height. 
+                // For barcode we know height.
+                if (el.ElementType == "Barcode")
+                {
+                     decimal h = el.HeightMm ?? Model.BarcodeHeightInMm;
+                     if (el.YMm + h > Model.HeightInMm)
+                     {
+                         Snackbar.Add($"El código de barras excede el alto de la etiqueta.", Severity.Error);
+                         return;
+                     }
+                }
+            }
+        }
+
         MudDialog.Close(DialogResult.Ok(Model));
+    }
+    
+    private void AddElement()
+    {
+        if (string.IsNullOrWhiteSpace(_newElement.Content))
+        {
+            Snackbar.Add("El contenido es requerido", Severity.Warning);
+            return;
+        }
+
+        if (_editingElement != null)
+        {
+            // Update existing
+            _editingElement.ElementType = _newElement.ElementType;
+            _editingElement.XMm = _newElement.XMm;
+            _editingElement.YMm = _newElement.YMm;
+            _editingElement.Content = _newElement.Content;
+            _editingElement.FontSize = _newElement.FontSize;
+            _editingElement.HeightMm = _newElement.ElementType == "Barcode" ? Model!.BarcodeHeightInMm : null;
+            _editingElement.BarWidth = _newElement.ElementType == "Barcode" ? Model!.BarcodeWidth : null;
+
+            Snackbar.Add("Elemento actualizado", Severity.Success);
+            CancelEdit();
+        }
+        else
+        {
+            // Add new
+            Model!.Elements.Add(new LabelElementDto
+            {
+                ElementType = _newElement.ElementType,
+                XMm = _newElement.XMm,
+                YMm = _newElement.YMm,
+                Content = _newElement.Content,
+                FontSize = _newElement.FontSize,
+                HeightMm = _newElement.ElementType == "Barcode" ? Model.BarcodeHeightInMm : null,
+                BarWidth = _newElement.ElementType == "Barcode" ? Model.BarcodeWidth : null
+            });
+            
+            // Reset
+            ResetForm();
+        }
+    }
+    
+    private void EditElement(LabelElementDto element)
+    {
+        _editingElement = element;
+        _newElement = new LabelElementDto
+        {
+            Id = element.Id, 
+            ElementType = element.ElementType,
+            XMm = element.XMm,
+            YMm = element.YMm,
+            Content = element.Content,
+            FontSize = element.FontSize,
+            HeightMm = element.HeightMm,
+            BarWidth = element.BarWidth
+        };
+
+        // Determine dropdown state
+        if (LabelVariables.Descriptions.ContainsKey(element.Content))
+        {
+            _selectedVariableVariable = element.Content;
+        }
+        else
+        {
+            _selectedVariableVariable = "Custom";
+        }
+    }
+
+    private void CancelEdit()
+    {
+        _editingElement = null;
+        ResetForm();
+    }
+
+    private void ResetForm()
+    {
+        _newElement = new LabelElementDto { ElementType = "Text", FontSize = 30, XMm = 0, YMm = 0, Content = LabelVariables.ProductName };
+        _selectedVariableVariable = LabelVariables.ProductName;
+        StateHasChanged();
+    }
+    
+    private void RemoveElement(LabelElementDto element)
+    {
+        Model!.Elements.Remove(element);
+        if (_editingElement == element) CancelEdit();
     }
 }

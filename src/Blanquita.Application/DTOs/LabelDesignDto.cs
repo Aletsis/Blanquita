@@ -1,3 +1,6 @@
+using System.Collections.Generic;
+using System;
+
 namespace Blanquita.Application.DTOs;
 
 /// <summary>
@@ -23,6 +26,8 @@ public class LabelDesignDto
     /// Nombre descriptivo de la configuración de diseño.
     /// </summary>
     public string Name { get; set; } = string.Empty;
+
+    public List<LabelElementDto> Elements { get; set; } = new();
 
     /// <summary>
     /// Ancho de la etiqueta en milímetros. 

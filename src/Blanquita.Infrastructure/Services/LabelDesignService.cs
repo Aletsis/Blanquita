@@ -28,6 +28,7 @@ public class LabelDesignService : ILabelDesignService
             _logger.LogInformation("Obteniendo todas las configuraciones de diseño de etiquetas");
             
             var designs = await _context.LabelDesigns
+                .Include(d => d.Elements)
                 .Where(d => d.IsActive)
                 .OrderByDescending(d => d.IsDefault)
                 .ThenBy(d => d.Name)
@@ -49,6 +50,7 @@ public class LabelDesignService : ILabelDesignService
             _logger.LogInformation("Obteniendo configuración de diseño con ID: {Id}", id);
             
             var design = await _context.LabelDesigns
+                .Include(d => d.Elements)
                 .FirstOrDefaultAsync(d => d.Id == id, cancellationToken);
 
             return design == null ? null : MapToDto(design);
@@ -67,6 +69,7 @@ public class LabelDesignService : ILabelDesignService
             _logger.LogInformation("Obteniendo configuración de diseño predeterminada");
             
             var design = await _context.LabelDesigns
+                .Include(d => d.Elements)
                 .FirstOrDefaultAsync(d => d.IsDefault && d.IsActive, cancellationToken);
 
             return design == null ? null : MapToDto(design);
@@ -84,6 +87,11 @@ public class LabelDesignService : ILabelDesignService
         {
             _logger.LogInformation("Creando nueva configuración de diseño: {Name}", dto.Name);
 
+            if (await _context.LabelDesigns.AnyAsync(d => d.Name == dto.Name, cancellationToken))
+            {
+                throw new InvalidOperationException($"Ya existe una configuración de diseño con el nombre '{dto.Name}'.");
+            }
+
             var design = LabelDesign.Create(
                 dto.Name,
                 dto.WidthInMm,
@@ -96,8 +104,25 @@ public class LabelDesignService : ILabelDesignService
                 dto.PriceFontSize,
                 dto.BarcodeHeightInMm,
                 dto.BarcodeWidth,
+
                 dto.IsDefault
             );
+
+            if (dto.Elements != null)
+            {
+                foreach (var el in dto.Elements)
+                {
+                    design.AddElement(LabelElement.Create(
+                        el.ElementType,
+                        el.XMm,
+                        el.YMm,
+                        el.Content,
+                        el.FontSize,
+                        el.HeightMm,
+                        el.BarWidth
+                    ));
+                }
+            }
 
             // Si se marca como predeterminada, desmarcar las demás
             if (dto.IsDefault)
@@ -125,7 +150,13 @@ public class LabelDesignService : ILabelDesignService
         {
             _logger.LogInformation("Actualizando configuración de diseño con ID: {Id}", dto.Id);
 
+            if (await _context.LabelDesigns.AnyAsync(d => d.Name == dto.Name && d.Id != dto.Id, cancellationToken))
+            {
+                throw new InvalidOperationException($"Ya existe una configuración de diseño con el nombre '{dto.Name}'.");
+            }
+
             var design = await _context.LabelDesigns
+                .Include(d => d.Elements)
                 .FirstOrDefaultAsync(d => d.Id == dto.Id, cancellationToken);
 
             if (design == null)
@@ -146,6 +177,24 @@ public class LabelDesignService : ILabelDesignService
                 dto.BarcodeHeightInMm,
                 dto.BarcodeWidth
             );
+
+            // Update Elements
+            design.ClearElements();
+            if (dto.Elements != null)
+            {
+                foreach (var el in dto.Elements)
+                {
+                    design.AddElement(LabelElement.Create(
+                        el.ElementType,
+                        el.XMm,
+                        el.YMm,
+                        el.Content,
+                        el.FontSize,
+                        el.HeightMm,
+                        el.BarWidth
+                    ));
+                }
+            }
 
             // Si se marca como predeterminada, desmarcar las demás
             if (dto.IsDefault && !design.IsDefault)
@@ -271,7 +320,19 @@ public class LabelDesignService : ILabelDesignService
             BarcodeHeightInMm = design.BarcodeHeightInMm,
             BarcodeWidth = design.BarcodeWidth,
             IsDefault = design.IsDefault,
-            IsActive = design.IsActive
+            IsActive = design.IsActive,
+            Elements = design.Elements.Select(e => new LabelElementDto
+            {
+                 Id = e.Id,
+                 LabelDesignId = e.LabelDesignId,
+                 ElementType = e.ElementType,
+                 XMm = e.XMm,
+                 YMm = e.YMm,
+                 Content = e.Content,
+                 FontSize = e.FontSize,
+                 HeightMm = e.HeightMm,
+                 BarWidth = e.BarWidth
+            }).ToList()
         };
     }
 }

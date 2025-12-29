@@ -1,0 +1,89 @@
+@using Blanquita.Application.DTOs
+@using Blanquita.Application.Constants
+@using MudBlazor
+
+<MudDialog>
+    <DialogContent>
+        <MudContainer MaxWidth="MaxWidth.Medium" Class="d-flex justify-center align-center flex-column pa-4">
+            <MudText Typo="Typo.h6" Class="mb-4">Previsualización de Etiqueta</MudText>
+            
+            <div style="position: relative; width: @ToCss(Design.WidthInMm)mm; height: @ToCss(Design.HeightInMm)mm; background-color: white; border: 1px solid #ccc; overflow: hidden;">
+                
+                @if (Design.Elements != null && Design.Elements.Any())
+                {
+                    @foreach (var element in Design.Elements)
+                    {
+                        var style = $"position: absolute; left: {ToCss(element.XMm)}mm; top: {ToCss(element.YMm)}mm; font-size: {ToCss(element.FontSize * 0.5m)}pt; white-space: nowrap;";
+                        if (element.ElementType == "Barcode")
+                        {
+                            var h = element.HeightMm ?? Design.BarcodeHeightInMm;
+                            style += $" height: {ToCss(h)}mm; width: 80%; background: repeating-linear-gradient(90deg, black, black 1px, white 1px, white 3px); display: flex; align-items: flex-end;";
+                        }
+
+                        <div style="@style">
+                            @if (element.ElementType == "Text")
+                            {
+                                @ReplaceVariables(element.Content)
+                            }
+                            else if (element.ElementType == "Barcode")
+                            {
+                                <span style="font-size: 8px; width: 100%; text-align: center; background: white;">@ReplaceVariables(element.Content)</span>
+                            }
+                        </div>
+                    }
+                }
+                else
+                {
+                    @* Legacy *@
+                    <div style="position: absolute; left: @ToCss(Design.MarginLeftInMm)mm; top: @ToCss(Design.MarginTopInMm)mm; font-size: @ToCss(Design.ProductNameFontSize * 0.5m)pt; white-space: nowrap;">
+                        @DummyProduct
+                    </div>
+                    
+                    <div style="position: absolute; left: @ToCss(Design.MarginLeftInMm)mm; top: @ToCss(Design.MarginTopInMm + 10)mm; font-size: @ToCss(Design.ProductCodeFontSize * 0.5m)pt; white-space: nowrap;">
+                        Codigo: @DummyCode
+                    </div>
+
+                    <div style="position: absolute; left: @ToCss(Design.MarginLeftInMm)mm; top: @ToCss(Design.MarginTopInMm + 20)mm; font-size: @ToCss(Design.PriceFontSize * 0.5m)pt; white-space: nowrap;">
+                        Precio: $@DummyPrice
+                    </div>
+
+                    <div style="position: absolute; left: @ToCss(Design.MarginLeftInMm)mm; top: @ToCss(Design.MarginTopInMm + 30)mm; width: 40mm; height: @ToCss(Design.BarcodeHeightInMm)mm; background: repeating-linear-gradient(90deg, black, black 2px, white 2px, white 4px);">
+                    </div>
+                }
+
+            </div>
+            
+            <MudText Typo="Typo.caption" Class="mt-4 text-muted">* Vista aproximada.</MudText>
+        </MudContainer>
+    </DialogContent>
+    <DialogActions>
+        <MudButton Color="Color.Primary" OnClick="Close">Cerrar</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] IMudDialogInstance MudDialog { get; set; } = null!;
+    
+    [Parameter] public LabelDesignDto Design { get; set; } = null!;
+
+    private const string DummyProduct = "Producto Prueba";
+    private const string DummyCode = "123456789";
+    private const string DummyPrice = "150.00";
+    private readonly string DummyDate = DateTime.Now.ToString("dd/MM/yyyy");
+
+    private void Close() => MudDialog.Close();
+
+    private string ToCss(decimal value) => value.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
+    private string ToCss(decimal? value) => value.HasValue ? ToCss(value.Value) : "0";
+
+    private string ReplaceVariables(string content)
+    {
+        if (string.IsNullOrEmpty(content)) return "";
+        return content
+            .Replace(LabelVariables.ProductName, DummyProduct)
+            .Replace(LabelVariables.ProductCode, DummyCode)
+            .Replace(LabelVariables.Price, $"${DummyPrice}")
+            .Replace(LabelVariables.PriceNoFormat, DummyPrice)
+            .Replace(LabelVariables.Date, DummyDate);
+    }
+}
