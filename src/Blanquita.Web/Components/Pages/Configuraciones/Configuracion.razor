@@ -1,8 +1,9 @@
-﻿@page "/configuracion"
+@page "/configuracion"
 @using Microsoft.AspNetCore.Authorization
 @attribute [Authorize]
 @using Blanquita.Application.DTOs
 @using Blanquita.Application.Interfaces
+@using Blanquita.Application.Helpers
 @using Blanquita.Domain.Enums
 @using Blanquita.Web.Models
 @using Blanquita.Web.Components.Layout
@@ -295,7 +296,9 @@
                         Configure las cajas registradoras del sistema.
                     </MudText>
                     <MudCollapse Expanded="_cajasConfigExpanded">
-                        <MudTable ServerData="ServerReload" 
+                        @if (_isInitialized)
+                        {
+                            <MudTable ServerData="ServerReload" 
                                  Dense="true" 
                                  Hover="true" 
                                  @ref="table"
@@ -374,7 +377,15 @@
                             <PagerContent>
                                 <MudTablePager />
                             </PagerContent>
-                        </MudTable>
+                            </MudTable>
+                        }
+                        else
+                        {
+                            <MudPaper Elevation="0" Class="pa-12 d-flex flex-column align-center justify-center bg-transparent">
+                                <MudProgressCircular Indeterminate="true" />
+                                <MudText Typo="Typo.body2" Class="mt-4 text-muted">Cargando...</MudText>
+                            </MudPaper>
+                        }
                     </MudCollapse>
                 </MudCardContent>
             </MudCard>
@@ -410,6 +421,7 @@
     private bool _zebraConfigExpanded = false;
     private bool _dbfConfigExpanded = false;
     private bool _cajasConfigExpanded = false;
+    private bool _isInitialized = false;
 
     // Variables para gestión de cajas
     private IEnumerable<BranchDto> sucursales = Enumerable.Empty<BranchDto>();
@@ -423,11 +435,15 @@
             _configuracion = await ConfigService.ObtenerConfiguracionAsync();
             await RecargarImpresoras();
             sucursales = await BranchService.GetAllAsync();
+            
+            // Marcar como inicializado para permitir la carga de la tabla
+            _isInitialized = true;
         }
         catch (Exception ex)
         {
             Logger.LogError(ex, "Error al cargar la configuración inicial");
             Snackbar.Add("Error al cargar la configuración", Severity.Error);
+            _isInitialized = true; // Permitir mostrar la UI incluso si hay error
         }
     }
 
@@ -686,29 +702,24 @@
     {
         try 
         {
-            var data = await CashRegisterService.GetAllAsync(token);
-            
-            if (!string.IsNullOrWhiteSpace(searchString))
+            // Construir la solicitud de búsqueda paginada
+            var request = new SearchCashRegisterRequest
             {
-                data = data.Where(c => c.Name.Contains(searchString, StringComparison.OrdinalIgnoreCase));
-            }
+                SearchTerm = searchString,
+                Page = state.Page + 1, // MudTable usa base 0, PagedSearchRequest usa base 1
+                PageSize = state.PageSize,
+                SortColumn = state.SortLabel ?? "Id",
+                SortAscending = state.SortDirection != SortDirection.Descending
+            };
 
-            var totalItems = data.Count();
+            // Usar el servicio para obtener datos paginados
+            var result = await CashRegisterService.GetPagedAsync(request, token);
             
-            // Sorting
-            switch (state.SortLabel)
-            {
-                case "Name":
-                    data = data.OrderByDirection(state.SortDirection, o => o.Name);
-                    break;
-                case "Id":
-                    data = data.OrderByDirection(state.SortDirection, o => o.Id);
-                    break;
-            }
-
-            var pagedData = data.Skip(state.Page * state.PageSize).Take(state.PageSize).ToArray();
-            
-            return new TableData<CashRegisterDto>() { TotalItems = totalItems, Items = pagedData };
+            return new TableData<CashRegisterDto>() 
+            { 
+                TotalItems = result.TotalCount, 
+                Items = result.Items.ToArray() 
+            };
         }
         catch (Exception ex)
         {

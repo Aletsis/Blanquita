@@ -97,23 +97,18 @@
                     </MudTd>
                     <MudTd Style="text-align: center;">
                         <MudTooltip Text="Ver detalles completos">
-                            <MudButton Variant="Variant.Filled"
-                                      StartIcon="@Icons.Material.Filled.Visibility" 
+                            <MudIconButton Icon="@Icons.Material.Filled.Visibility" 
                                       Color="Color.Info" 
                                       Size="Size.Small"
                                       OnClick="@(() => VerDetalleRecoleccion(context))">
-                                Detalles
-                            </MudButton>
+                            </MudIconButton>
                         </MudTooltip>
                         <MudTooltip Text="Reimprimir documento">
-                            <MudButton Variant="Variant.Filled"
-                                      StartIcon="@Icons.Material.Filled.Print" 
+                            <MudIconButton Icon="@Icons.Material.Filled.Print" 
                                       Color="Color.Primary" 
                                       Size="Size.Small"
-                                      Class="ml-2"
                                       OnClick="@(() => ImprimirRecoleccion(context.Id))">
-                                Imprimir
-                            </MudButton>
+                            </MudIconButton>
                         </MudTooltip>
                     </MudTd>
                 </RowTemplate>

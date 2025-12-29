@@ -4,6 +4,7 @@ namespace Blanquita.Application.DTOs;
 
 /// <summary>
 /// DTO para la configuración del sistema
+/// Objeto de transferencia puro sin lógica de negocio
 /// </summary>
 public class ConfiguracionDto
 {
@@ -56,41 +57,4 @@ public class ConfiguracionDto
     /// Puerto de la impresora secundaria
     /// </summary>
     public int Printer2Port { get; set; }
-
-    /// <summary>
-    /// Obtiene la ruta de un archivo DBF específico
-    /// </summary>
-    public string ObtenerRutaPorTipo(TipoArchivoDbf tipo)
-    {
-        return tipo switch
-        {
-            TipoArchivoDbf.Pos10041 => Pos10041Path,
-            TipoArchivoDbf.Pos10042 => Pos10042Path,
-            TipoArchivoDbf.Mgw10008 => Mgw10008Path,
-            TipoArchivoDbf.Mgw10005 => Mgw10005Path,
-            _ => string.Empty
-        };
-    }
-
-    /// <summary>
-    /// Establece la ruta de un archivo DBF específico
-    /// </summary>
-    public void EstablecerRutaPorTipo(TipoArchivoDbf tipo, string ruta)
-    {
-        switch (tipo)
-        {
-            case TipoArchivoDbf.Pos10041:
-                Pos10041Path = ruta;
-                break;
-            case TipoArchivoDbf.Pos10042:
-                Pos10042Path = ruta;
-                break;
-            case TipoArchivoDbf.Mgw10008:
-                Mgw10008Path = ruta;
-                break;
-            case TipoArchivoDbf.Mgw10005:
-                Mgw10005Path = ruta;
-                break;
-        }
-    }
 }

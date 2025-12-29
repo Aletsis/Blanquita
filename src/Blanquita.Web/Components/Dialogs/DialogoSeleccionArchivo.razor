@@ -1,4 +1,6 @@
-﻿@using System.IO
+﻿@using Blanquita.Application.Interfaces
+@inject IFileSystemService FileSystemService
+@inject ILogger<DialogoSeleccionArchivo> Logger
 
 <MudDialog>
     <DialogContent>
@@ -51,7 +53,7 @@
             else
             {
                 <MudList T="string" Dense="true">
-                    @if (!string.IsNullOrEmpty(carpetaActual) && Directory.GetParent(carpetaActual) != null)
+                    @if (!string.IsNullOrEmpty(carpetaActual) && !string.IsNullOrEmpty(directorioParent))
                     {
                         <MudListItem Icon="@Icons.Material.Filled.ArrowUpward" OnClick="SubirDirectorio">
                             <MudText Typo="Typo.body2">..</MudText>
@@ -63,7 +65,7 @@
                     {
                         <MudListItem Icon="@Icons.Material.Filled.Folder" 
                                      OnClick="() => AbrirCarpeta(carpeta)">
-                            <MudText Typo="Typo.body2">@Path.GetFileName(carpeta)</MudText>
+                            <MudText Typo="Typo.body2">@FileSystemService.GetFileName(carpeta)</MudText>
                         </MudListItem>
                     }
 
@@ -74,7 +76,7 @@
 
                     @foreach (var archivo in archivos)
                     {
-                        var nombreArchivo = Path.GetFileName(archivo);
+                        var nombreArchivo = FileSystemService.GetFileName(archivo);
                         var esArchivoObjetivo = nombreArchivo.Equals(NombreArchivo, StringComparison.OrdinalIgnoreCase);
                         
                         <MudListItem Icon="@Icons.Material.Filled.InsertDriveFile"
@@ -127,31 +129,32 @@
     private List<string> unidades = new();
     private string unidadSeleccionada = "";
     private string carpetaActual = "";
+    private string? directorioParent = null;
     private List<string> carpetas = new();
     private List<string> archivos = new();
     private bool cargandoDirectorio = false;
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
         rutaArchivo = ArchivoActual;
         
-        // Cargar unidades disponibles
+        // Cargar unidades disponibles usando el servicio
         try
         {
-            unidades = DriveInfo.GetDrives()
-                .Where(d => d.IsReady)
-                .Select(d => d.Name)
-                .ToList();
+            var drivesEnumerable = await FileSystemService.GetAvailableDrivesAsync();
+            unidades = drivesEnumerable.ToList();
 
             if (unidades.Any())
             {
                 unidadSeleccionada = unidades.First();
-                CargarDirectorioRaiz();
+                await CargarDirectorioRaizAsync();
             }
         }
-        catch (Exception)
+        catch (Exception ex)
         {
-            // Ignorar errores al cargar unidades
+            Logger.LogError(ex, "Error al cargar unidades disponibles");
+            mensajeValidacion = "Error al cargar unidades del sistema";
+            severidadMensaje = Severity.Error;
         }
 
         if (!string.IsNullOrEmpty(rutaArchivo))
@@ -171,10 +174,9 @@
 
         try
         {
-            if (File.Exists(rutaArchivo))
+            if (FileSystemService.FileExists(rutaArchivo))
             {
-                var nombreArchivo = Path.GetFileName(rutaArchivo);
-                if (nombreArchivo.Equals(NombreArchivo, StringComparison.OrdinalIgnoreCase))
+                if (FileSystemService.ValidateFileName(rutaArchivo, NombreArchivo))
                 {
                     mensajeValidacion = "✓ Archivo encontrado y válido";
                     severidadMensaje = Severity.Success;
@@ -194,74 +196,87 @@
                 rutaValida = false;
             }
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            Logger.LogError(ex, "Error al validar ruta: {Ruta}", rutaArchivo);
             mensajeValidacion = "✗ Ruta inválida";
             severidadMensaje = Severity.Error;
             rutaValida = false;
         }
     }
 
-    private void OnUnidadChanged(string nuevaUnidad)
+    private async Task OnUnidadChanged(string nuevaUnidad)
     {
         unidadSeleccionada = nuevaUnidad;
-        CargarDirectorioRaiz();
+        await CargarDirectorioRaizAsync();
     }
 
-    private void CargarDirectorioRaiz()
+    private async Task CargarDirectorioRaizAsync()
     {
         if (!string.IsNullOrEmpty(unidadSeleccionada))
         {
             carpetaActual = unidadSeleccionada;
-            CargarContenidoDirectorio();
+            await CargarContenidoDirectorioAsync();
         }
     }
 
-    private void CargarContenidoDirectorio()
+    private async Task CargarContenidoDirectorioAsync()
     {
         cargandoDirectorio = true;
         carpetas.Clear();
         archivos.Clear();
+        mensajeValidacion = "";
 
         try
         {
-            // Cargar carpetas
-            var directorios = Directory.GetDirectories(carpetaActual);
-            carpetas = directorios.OrderBy(d => d).ToList();
+            // Verificar acceso al directorio
+            if (!FileSystemService.HasDirectoryAccess(carpetaActual))
+            {
+                mensajeValidacion = "⚠ No tiene permisos para acceder a esta carpeta";
+                severidadMensaje = Severity.Warning;
+                return;
+            }
 
-            // Cargar solo archivos .DBF
-            var archivosDbf = Directory.GetFiles(carpetaActual, "*.dbf", SearchOption.TopDirectoryOnly);
-            archivos = archivosDbf.OrderBy(f => f).ToList();
-        }
-        catch (UnauthorizedAccessException)
-        {
-            mensajeValidacion = "⚠ No tiene permisos para acceder a esta carpeta";
-            severidadMensaje = Severity.Warning;
+            // Obtener directorio padre
+            directorioParent = FileSystemService.GetParentDirectory(carpetaActual);
+
+            // Cargar carpetas usando el servicio
+            var directoriosEnumerable = await FileSystemService.GetDirectoriesAsync(carpetaActual);
+            carpetas = directoriosEnumerable.ToList();
+
+            // Cargar archivos DBF usando el servicio
+            var archivosEnumerable = await FileSystemService.GetDbfFilesAsync(carpetaActual);
+            archivos = archivosEnumerable.ToList();
+
+            Logger.LogDebug(
+                "Contenido cargado de {Carpeta}: {CantidadCarpetas} carpetas, {CantidadArchivos} archivos",
+                carpetaActual, carpetas.Count, archivos.Count);
         }
         catch (Exception ex)
         {
+            Logger.LogError(ex, "Error al cargar contenido del directorio: {Carpeta}", carpetaActual);
             mensajeValidacion = $"Error al cargar carpeta: {ex.Message}";
             severidadMensaje = Severity.Error;
         }
         finally
         {
             cargandoDirectorio = false;
+            StateHasChanged();
         }
     }
 
-    private void AbrirCarpeta(string carpeta)
+    private async Task AbrirCarpeta(string carpeta)
     {
         carpetaActual = carpeta;
-        CargarContenidoDirectorio();
+        await CargarContenidoDirectorioAsync();
     }
 
-    private void SubirDirectorio()
+    private async Task SubirDirectorio()
     {
-        var parent = Directory.GetParent(carpetaActual);
-        if (parent != null)
+        if (!string.IsNullOrEmpty(directorioParent))
         {
-            carpetaActual = parent.FullName;
-            CargarContenidoDirectorio();
+            carpetaActual = directorioParent;
+            await CargarContenidoDirectorioAsync();
         }
     }
 
