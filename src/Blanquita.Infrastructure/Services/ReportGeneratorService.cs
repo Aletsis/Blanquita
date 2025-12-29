@@ -1,5 +1,7 @@
 using Blanquita.Application.DTOs;
 using Blanquita.Application.Interfaces;
+using Blanquita.Application.Interfaces.Repositories;
+using Blanquita.Domain.ValueObjects;
 using Microsoft.Extensions.Logging;
 
 namespace Blanquita.Infrastructure.Services;
@@ -10,16 +12,19 @@ namespace Blanquita.Infrastructure.Services;
 /// </summary>
 public class ReportGeneratorService : IReportGeneratorService
 {
-    private readonly IFoxProReportService _foxProService;
+    private readonly IFoxProCashCutRepository _cashCutRepository;
+    private readonly IFoxProDocumentRepository _documentRepository;
     private readonly IDbfStringParser _dbfParser;
     private readonly ILogger<ReportGeneratorService> _logger;
 
     public ReportGeneratorService(
-        IFoxProReportService foxProService,
+        IFoxProCashCutRepository cashCutRepository,
+        IFoxProDocumentRepository documentRepository,
         IDbfStringParser dbfParser,
         ILogger<ReportGeneratorService> logger)
     {
-        _foxProService = foxProService;
+        _cashCutRepository = cashCutRepository;
+        _documentRepository = documentRepository;
         _dbfParser = dbfParser;
         _logger = logger;
     }
@@ -29,17 +34,17 @@ public class ReportGeneratorService : IReportGeneratorService
         var result = new List<ReportRowDto>();
         
         // Get Branch Series Config
-        var series = _foxProService.GetBranchSeries(sucursal);
+        var series = SeriesDocumentoSucursal.ObtenerPorNombre(sucursal);
 
         _logger.LogInformation("Iniciando generación de reporte para {Sucursal} en fecha {Fecha:dd/MM/yyyy}", sucursal, fecha);
-        _logger.LogDebug("Series - Cliente: {SerieCliente}, Global: {SerieGlobal}, Devolucion: {SerieDevolucion}", series.Cliente, series.Global, series.Devolucion);
+        _logger.LogDebug("Series - Cliente: {SerieCliente}, Global: {SerieGlobal}, Devolucion: {SerieDevolucion}", series.SerieCliente, series.SerieGlobal, series.SerieDevolucion);
 
         try
         {
             // Paso 1: Obtener todos los cortes de la fecha especificada
             _logger.LogInformation("Buscando cortes en fecha {Fecha:dd/MM/yyyy}", fecha);
             // Assuming branchId 1 or ignored for local files logic
-            var cortes = await _foxProService.GetDailyCashCutsAsync(fecha, 1);
+            var cortes = await _cashCutRepository.GetDailyCashCutsAsync(fecha, 1);
             _logger.LogInformation("Total de cortes encontrados: {Count}", cortes.Count());
 
             if (!cortes.Any())
@@ -50,7 +55,7 @@ public class ReportGeneratorService : IReportGeneratorService
 
             // Paso 2: Obtener todos los documentos de la fecha y sucursal
             _logger.LogInformation("Obteniendo documentos para {Sucursal}", sucursal);
-            var documentos = await _foxProService.GetDocumentsByDateAndBranchAsync(fecha, 1);
+            var documentos = await _documentRepository.GetByDateAndBranchAsync(fecha, 1);
             _logger.LogInformation("Total de documentos encontrados: {Count}", documentos.Count());
 
             // Paso 3: Procesar cada corte
@@ -64,7 +69,7 @@ public class ReportGeneratorService : IReportGeneratorService
 
                 // Procesar facturas (Cliente) - usar CTEXTOEX03 para identificar la caja
                 var docsCliente = documentos.Where(d =>
-                    d.Serie == series.Cliente &&
+                    d.Serie == series.SerieCliente &&
                     d.CajaTexto.Equals(corte.CashRegisterName, StringComparison.OrdinalIgnoreCase)).ToList();
 
                 foreach (var doc in docsCliente)
@@ -81,7 +86,7 @@ public class ReportGeneratorService : IReportGeneratorService
                         d.IdDocumento == doc.IdDocumento &&
                         d.Serie == doc.Serie &&
                         d.Folio == doc.Folio &&
-                        d.Serie == series.Global);
+                        d.Serie == series.SerieGlobal);
 
                     if (docEncontrado != null)
                     {
@@ -98,7 +103,7 @@ public class ReportGeneratorService : IReportGeneratorService
                         d.IdDocumento == doc.IdDocumento &&
                         d.Serie == doc.Serie &&
                         d.Folio == doc.Folio &&
-                        d.Serie == series.Devolucion);
+                        d.Serie == series.SerieDevolucion);
 
                     if (docEncontrado != null)
                     {

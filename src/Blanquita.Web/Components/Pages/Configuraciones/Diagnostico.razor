@@ -4,9 +4,11 @@
 @using Blanquita.Web.Components.Layout
 @using Blanquita.Application.Interfaces
 @using Blanquita.Application.DTOs
+@using Blanquita.Application.Queries.FoxPro.DiagnoseFoxProFile
 @using Blanquita.Infrastructure.Models
+@using MediatR
 @inject IConfiguracionService ConfigService
-@inject IFoxProReportService FoxProService
+@inject IMediator Mediator
 @inject ISnackbar Snackbar
 
 <PageTitle>Diagnóstico - Sistema de Reportes</PageTitle>
@@ -381,7 +383,8 @@
             // Pequeña pausa para que la animación de carga se muestre fluidamente
             await Task.Delay(300);
 
-            var resultado = await FoxProService.DiagnosticarArchivoAsync(ruta, columnasEsperadas);
+            var query = new DiagnoseFoxProFileQuery(ruta, columnasEsperadas);
+            var resultado = await Mediator.Send(query);
 
             switch (archivo)
             {

@@ -1,3 +1,4 @@
+using Blanquita.Application;
 using Blanquita.Infrastructure;
 using Blanquita.Web.Components;
 using Blanquita.Web.Extensions;
@@ -66,6 +67,9 @@ Env.Load();
         builder.Services.AddScoped<Blanquita.Application.Interfaces.IFileDownloadService, FileDownloadService>();
         
         builder.Services.AddSweetAlert2();
+
+        // Add Application layer (includes MediatR and handlers)
+        builder.Services.AddApplication();
 
         // Add Infrastructure layer (includes Domain, Application, and all services)
         builder.Services.AddInfrastructure(builder.Configuration);

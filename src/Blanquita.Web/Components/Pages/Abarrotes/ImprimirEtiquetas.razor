@@ -1,8 +1,10 @@
 ﻿@page "/etiquetas"
 @using Blanquita.Application.Interfaces
 @using Blanquita.Application.DTOs
+@using Blanquita.Application.Queries.FoxPro.GetProductByCode
+@using MediatR
 @inject IPrinterService PrinterService
-@inject IFoxProReportService FoxProService
+@inject IMediator Mediator
 @inject ISnackbar Snackbar
 @inject IPrintingService PrintingService
 @inject IDialogService DialogService
@@ -229,7 +231,8 @@
         
         try
         {
-            producto = await FoxProService.GetProductByCodeAsync(barcodeText);
+            var query = new GetProductByCodeQuery(barcodeText);
+            producto = await Mediator.Send(query);
             
             if (producto != null)
             {

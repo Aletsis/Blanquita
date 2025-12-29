@@ -3,10 +3,11 @@
 @attribute [Authorize]
 @using System.ComponentModel.DataAnnotations
 @using Blanquita.Application.Interfaces
+@using Blanquita.Application.Interfaces.Repositories
 @using Blanquita.Application.DTOs
 @inject IReporteService ReporteService
 @inject IReportGeneratorService ReportGeneratorService
-@inject IFoxProReportService FoxProReportService
+@inject IFoxProDiagnosticService DiagnosticService
 @inject IExportService ExportService
 @inject ISnackbar Snackbar
 @inject IDialogService DialogService
@@ -312,7 +313,7 @@
     private async Task<(bool esValido, string mensaje)> ValidarAntesDeGenerar()
     {
         // Verificar conexión con archivos
-        var conexionValida = await FoxProReportService.VerifyConnectionAsync();
+        var conexionValida = await DiagnosticService.VerifyConnectionAsync();
         if (!conexionValida)
         {
             return (false, "No se puede conectar a los archivos DBF. Verifique la configuración.");

@@ -3,6 +3,7 @@ using Blanquita.Domain.Repositories;
 using Blanquita.Infrastructure.Adapters;
 using Blanquita.Infrastructure.ExternalServices.Export;
 using Blanquita.Infrastructure.ExternalServices.FoxPro;
+using Blanquita.Infrastructure.ExternalServices.FoxPro.Common;
 using Blanquita.Infrastructure.ExternalServices.Printing;
 using Blanquita.Infrastructure.Persistence;
 using Blanquita.Infrastructure.Persistence.Context;
@@ -78,14 +79,28 @@ public static class DependencyInjection
         services.AddSingleton<IAppConfigurationManager, AppConfigurationManager>();
 
         // External Services
-        services.AddScoped<IFoxProReportService, FoxProReportService>();
+
         services.AddScoped<IPrintingService, PrintingService>();
         services.AddScoped<IExportService, ExportService>();
 
+        // FoxPro Repositories (New Architecture)
+        services.AddScoped<Application.Interfaces.Repositories.IFoxProProductRepository, 
+            ExternalServices.FoxPro.Repositories.FoxProProductRepository>();
+        services.AddScoped<Application.Interfaces.Repositories.IFoxProDocumentRepository, 
+            ExternalServices.FoxPro.Repositories.FoxProDocumentRepository>();
+        services.AddScoped<Application.Interfaces.Repositories.IFoxProCashCutRepository, 
+            ExternalServices.FoxPro.Repositories.FoxProCashCutRepository>();
+        services.AddScoped<Application.Interfaces.Repositories.IFoxProCashRegisterRepository, 
+            ExternalServices.FoxPro.Repositories.FoxProCashRegisterRepository>();
+        services.AddScoped<Application.Interfaces.Repositories.IFoxProDiagnosticService, 
+            ExternalServices.FoxPro.Services.FoxProDiagnosticService>();
+
+        // Report Services
         // Report Services
         services.AddSingleton<IReporteService, ReporteService>();
         services.AddScoped<IReportGeneratorService, ReportGeneratorService>();
         services.AddScoped<IDbfStringParser, DbfStringParser>();
+        services.AddScoped<IFoxProReaderFactory, FoxProReaderFactory>();
         services.AddScoped<IReporteHistoricoService, ReporteHistoricoServiceAdapter>();
 
         // Configure FoxPro settings

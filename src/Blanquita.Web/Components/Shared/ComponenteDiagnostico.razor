@@ -1,6 +1,7 @@
 ﻿@using Blanquita.Application.Interfaces
+@using Blanquita.Application.Interfaces.Repositories
 @using Blanquita.Application.DTOs
-@inject IFoxProReportService FoxProService
+@inject IFoxProDiagnosticService DiagnosticService
 
 <MudGrid>
     <!-- Resumen del resultado -->
@@ -294,7 +295,7 @@
 
         try
         {
-            registrosMuestra = await FoxProService.ObtenerRegistrosMuestraAsync(Resultado.RutaCompleta, 5);
+            registrosMuestra = await DiagnosticService.GetSampleRecordsAsync(Resultado.RutaCompleta, 5);
         }
         catch
         {

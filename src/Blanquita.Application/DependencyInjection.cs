@@ -6,9 +6,11 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddApplication(this IServiceCollection services)
     {
-        // Application services will be registered here
-        // For now, we'll register them in the Infrastructure layer
-        // since they depend on repositories
+        // Register MediatR and all handlers from this assembly
+        services.AddMediatR(cfg => 
+        {
+            cfg.RegisterServicesFromAssembly(typeof(DependencyInjection).Assembly);
+        });
         
         return services;
     }
