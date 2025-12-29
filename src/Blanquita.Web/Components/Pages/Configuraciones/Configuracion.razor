@@ -13,6 +13,8 @@
 @inject ILogger<Configuracion> Logger
 @inject IDialogService DialogService
 @inject IPrinterService PrinterService
+@inject ICashRegisterService CashRegisterService
+@inject IBranchService BranchService
 
 <PageTitle>Configuración - Sistema de Reportes</PageTitle>
 
@@ -272,6 +274,111 @@
                 </MudCardContent>
             </MudCard>
         </MudItem>
+
+        <MudItem xs="12">
+            <MudCard Elevation="4" Class="rounded-lg animate-slide-up" Style="animation-delay: 0.2s;">
+                <MudCardHeader>
+                    <CardHeaderContent>
+                        <MudText Typo="Typo.h6" Color="Color.Primary">
+                            <MudIcon Icon="@Icons.Material.Filled.PointOfSale" Class="mr-2" />
+                            Gestión de Cajas
+                        </MudText>
+                    </CardHeaderContent>
+                    <CardHeaderActions>
+                        <MudIconButton Icon="@(_cajasConfigExpanded ? Icons.Material.Filled.ExpandLess : Icons.Material.Filled.ExpandMore)" 
+                                      Color="Color.Default" 
+                                      OnClick="ExpandCajasConfig" />
+                    </CardHeaderActions>
+                </MudCardHeader>
+                <MudCardContent>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
+                        Configure las cajas registradoras del sistema.
+                    </MudText>
+                    <MudCollapse Expanded="_cajasConfigExpanded">
+                        <MudTable ServerData="ServerReload" 
+                                 Dense="true" 
+                                 Hover="true" 
+                                 @ref="table"
+                                 Striped="true"
+                                 Elevation="0">
+                            <ToolBarContent>
+                                <MudText Typo="Typo.h6">
+                                    <MudIcon Icon="@Icons.Material.Filled.List" Size="Size.Small" Class="mr-2" />
+                                    Cajas Registradas
+                                </MudText>
+                                <MudSpacer />
+                                <MudTextField T="string" 
+                                             ValueChanged="@(s=>OnSearch(s))" 
+                                             Placeholder="Buscar" 
+                                             Adornment="Adornment.Start"
+                                             AdornmentIcon="@Icons.Material.Filled.Search" 
+                                             IconSize="Size.Medium" 
+                                             Class="mt-0 mr-2"
+                                             Margin="Margin.Dense" />
+                                <MudButton Variant="Variant.Filled" 
+                                          StartIcon="@Icons.Material.Filled.Add" 
+                                          Color="Color.Primary" 
+                                          OnClick="() => AbrirDialogoCaja()">
+                                    Añadir Caja
+                                </MudButton>
+                            </ToolBarContent>
+                            <HeaderContent>
+                                <MudTh><MudTableSortLabel SortLabel="Id" T="CashRegisterDto">Id</MudTableSortLabel></MudTh>
+                                <MudTh><MudTableSortLabel SortLabel="Name" T="CashRegisterDto">Nombre</MudTableSortLabel></MudTh>
+                                <MudTh><MudTableSortLabel SortLabel="PrinterIp" T="CashRegisterDto">IP de impresora</MudTableSortLabel></MudTh>
+                                <MudTh><MudTableSortLabel SortLabel="PrinterPort" T="CashRegisterDto">Puerto impresora</MudTableSortLabel></MudTh>
+                                <MudTh><MudTableSortLabel SortLabel="BranchId" T="CashRegisterDto">Sucursal</MudTableSortLabel></MudTh>
+                                <MudTh>Última</MudTh>
+                                <MudTh Style="text-align: center;">Acciones</MudTh>
+                            </HeaderContent>
+                            <RowTemplate>
+                                <MudTd DataLabel="Id">@context.Id</MudTd>
+                                <MudTd DataLabel="Name">
+                                    <div class="d-flex align-center">
+                                        <MudIcon Icon="@Icons.Material.Filled.PointOfSale" Size="Size.Small" Class="mr-2" />
+                                        <MudText Typo="Typo.body2" Class="font-weight-bold">@context.Name</MudText>
+                                    </div>
+                                </MudTd>
+                                <MudTd DataLabel="PrinterIp">
+                                    <MudChip T="string" Color="Color.Info" Size="Size.Small" Variant="Variant.Text">@context.PrinterIp</MudChip>
+                                </MudTd>
+                                <MudTd DataLabel="PrinterPort">@context.PrinterPort</MudTd>
+                                <MudTd DataLabel="BranchId">@GetSucursalName(context.BranchId)</MudTd>
+                                <MudTd DataLabel="Ultima">
+                                    <MudChip T="string" 
+                                            Color="@(context.IsLastRegister ? Color.Success : Color.Default)" 
+                                            Size="Size.Small"
+                                            Variant="Variant.Text">
+                                        @(context.IsLastRegister ? "Sí" : "No")
+                                    </MudChip>
+                                </MudTd>
+                                <MudTd DataLabel="Acciones" Style="text-align: center;">
+                                    <MudTooltip Text="Editar caja">
+                                        <MudIconButton Icon="@Icons.Material.Filled.Edit"
+                                                      Size="Size.Small"
+                                                      Color="Color.Primary"
+                                                      OnClick="@(() => AbrirDialogoCaja(context))" />
+                                    </MudTooltip>
+                                </MudTd>
+                            </RowTemplate>
+                            <NoRecordsContent>
+                                <MudPaper Elevation="0" Class="pa-12 d-flex flex-column align-center justify-center bg-transparent">
+                                    <MudIcon Icon="@Icons.Material.Filled.PointOfSale" Size="Size.Large" Color="Color.Default" Style="font-size: 4rem; opacity: 0.2;" />
+                                    <MudText Typo="Typo.h6" Class="mt-4 text-muted">No hay cajas configuradas</MudText>
+                                    <MudText Typo="Typo.body2" Class="text-muted">Haga clic en "Añadir Caja" para comenzar</MudText>
+                                </MudPaper>
+                            </NoRecordsContent>
+                            <LoadingContent>
+                                <MudProgressCircular Indeterminate="true" />
+                            </LoadingContent>
+                            <PagerContent>
+                                <MudTablePager />
+                            </PagerContent>
+                        </MudTable>
+                    </MudCollapse>
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
     </MudGrid>
 </MudContainer>
 
@@ -302,6 +409,12 @@
     private bool _loadingPrinters = false;
     private bool _zebraConfigExpanded = false;
     private bool _dbfConfigExpanded = false;
+    private bool _cajasConfigExpanded = false;
+
+    // Variables para gestión de cajas
+    private IEnumerable<BranchDto> sucursales = Enumerable.Empty<BranchDto>();
+    private MudTable<CashRegisterDto>? table;
+    private string searchString = "";
 
     protected override async Task OnInitializedAsync()
     {
@@ -309,6 +422,7 @@
         {
             _configuracion = await ConfigService.ObtenerConfiguracionAsync();
             await RecargarImpresoras();
+            sucursales = await BranchService.GetAllAsync();
         }
         catch (Exception ex)
         {
@@ -319,6 +433,7 @@
 
     private void ExpandZebraConfig() => _zebraConfigExpanded = !_zebraConfigExpanded;
     private void ExpandDbfConfig() => _dbfConfigExpanded = !_dbfConfigExpanded;
+    private void ExpandCajasConfig() => _cajasConfigExpanded = !_cajasConfigExpanded;
 
     private async Task AbrirDialogoArchivo(TipoArchivoDbf tipoArchivo)
     {
@@ -500,4 +615,111 @@
     private string ObtenerRutaPorTipo(TipoArchivoDbf tipo) => _configuracion.ObtenerRutaPorTipo(tipo);
     private void EstablecerRutaPorTipo(TipoArchivoDbf tipo, string ruta) => _configuracion.EstablecerRutaPorTipo(tipo, ruta);
     private bool ValidarRuta(string ruta) => ConfigService.ValidarRutaArchivo(ruta);
+
+    // ===== Métodos para gestión de cajas =====
+    
+    private string GetSucursalName(int id) => sucursales.FirstOrDefault(s => s.Id == id)?.Name ?? id.ToString();
+
+    private async Task AbrirDialogoCaja(CashRegisterDto? caja = null)
+    {
+        var parameters = new DialogParameters();
+        if (caja != null)
+        {
+            parameters.Add("Model", new DialogoCaja.CashRegisterDialogModel
+            {
+                Id = caja.Id,
+                Name = caja.Name,
+                PrinterIp = caja.PrinterIp,
+                PrinterPort = caja.PrinterPort,
+                BranchId = caja.BranchId,
+                IsLastRegister = caja.IsLastRegister
+            });
+        }
+
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium, FullWidth = true };
+        var title = caja == null ? "Nueva Caja" : "Editar Caja";
+        var dialog = await DialogService.ShowAsync<DialogoCaja>(title, parameters, options);
+        var result = await dialog.Result;
+
+        if (!result.Canceled && result.Data is DialogoCaja.CashRegisterDialogModel cajaResult)
+        {
+            try
+            {
+                if (caja == null)
+                {
+                    var createDto = new CreateCashRegisterDto
+                    {
+                        Name = cajaResult.Name,
+                        PrinterIp = cajaResult.PrinterIp,
+                        PrinterPort = cajaResult.PrinterPort,
+                        BranchId = cajaResult.BranchId,
+                        IsLastRegister = cajaResult.IsLastRegister
+                    };
+                    await CashRegisterService.CreateAsync(createDto);
+                    Snackbar.Add("Caja agregada exitosamente", Severity.Success);
+                }
+                else
+                {
+                    var updateDto = new UpdateCashRegisterDto
+                    {
+                        Id = cajaResult.Id,
+                        Name = cajaResult.Name,
+                        PrinterIp = cajaResult.PrinterIp,
+                        PrinterPort = cajaResult.PrinterPort,
+                        BranchId = cajaResult.BranchId,
+                        IsLastRegister = cajaResult.IsLastRegister
+                    };
+                    await CashRegisterService.UpdateAsync(updateDto);
+                    Snackbar.Add("Caja actualizada exitosamente", Severity.Success);
+                }
+                await table!.ReloadServerData();
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError(ex, "Error al guardar la caja");
+                Snackbar.Add($"Error al guardar: {ex.Message}", Severity.Error);
+            }
+        }
+    }
+
+    private async Task<TableData<CashRegisterDto>> ServerReload(TableState state, CancellationToken token)
+    {
+        try 
+        {
+            var data = await CashRegisterService.GetAllAsync(token);
+            
+            if (!string.IsNullOrWhiteSpace(searchString))
+            {
+                data = data.Where(c => c.Name.Contains(searchString, StringComparison.OrdinalIgnoreCase));
+            }
+
+            var totalItems = data.Count();
+            
+            // Sorting
+            switch (state.SortLabel)
+            {
+                case "Name":
+                    data = data.OrderByDirection(state.SortDirection, o => o.Name);
+                    break;
+                case "Id":
+                    data = data.OrderByDirection(state.SortDirection, o => o.Id);
+                    break;
+            }
+
+            var pagedData = data.Skip(state.Page * state.PageSize).Take(state.PageSize).ToArray();
+            
+            return new TableData<CashRegisterDto>() { TotalItems = totalItems, Items = pagedData };
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error loading cash registers");
+            return new TableData<CashRegisterDto>() { TotalItems = 0, Items = Array.Empty<CashRegisterDto>() };
+        }
+    }
+
+    private void OnSearch(string text)
+    {
+        searchString = text;
+        table?.ReloadServerData();
+    }
 }

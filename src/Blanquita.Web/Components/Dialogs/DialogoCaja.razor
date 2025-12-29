@@ -1,0 +1,113 @@
+@using Blanquita.Application.DTOs
+@using Microsoft.AspNetCore.Components.Forms
+@using System.ComponentModel.DataAnnotations
+@inject ISnackbar Snackbar
+@inject IBranchService BranchService
+@inject ILogger<DialogoCaja> Logger
+
+<MudDialog>
+    <DialogContent>
+        <MudForm @ref="form" Model="@Model" @bind-IsValid="@success">
+            <MudTextField @bind-Value="Model.Name" 
+                         Label="Nombre de caja" 
+                         Required="true" 
+                         RequiredError="El nombre es obligatorio" 
+                         Variant="Variant.Outlined" 
+                         Class="mb-3" />
+            
+            <MudSelect T="int" 
+                      @bind-Value="Model.BranchId" 
+                      Label="Sucursal" 
+                      Required="true"
+                      RequiredError="Debe seleccionar una sucursal"
+                      Variant="Variant.Outlined" 
+                      Class="mb-3">
+                @foreach (var sucursal in _sucursales)
+                {
+                    <MudSelectItem T="int" Value="@sucursal.Id">@sucursal.Name</MudSelectItem>
+                }
+            </MudSelect>
+            
+            <MudTextField @bind-Value="Model.PrinterIp" 
+                         Label="IP de Impresora" 
+                         Variant="Variant.Outlined" 
+                         Class="mb-3"
+                         HelperText="Opcional: Dirección IP de la impresora asignada" />
+            
+            <MudNumericField @bind-Value="Model.PrinterPort" 
+                            Label="Puerto de Impresora" 
+                            Variant="Variant.Outlined" 
+                            Class="mb-3" 
+                            Min="1" 
+                            Max="65535"
+                            HelperText="Puerto de comunicación con la impresora" />
+            
+            <MudCheckBox @bind-Value="Model.IsLastRegister" 
+                        Label="Marcar como última caja" 
+                        Color="Color.Primary"
+                        Class="mb-2" />
+            <MudText Typo="Typo.caption" Color="Color.Secondary" Class="ml-8">
+                La última caja se usa para operaciones especiales del sistema
+            </MudText>
+        </MudForm>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel" Variant="Variant.Outlined">Cancelar</MudButton>
+        <MudButton Color="Color.Primary" 
+                   OnClick="Submit" 
+                   Variant="Variant.Filled"
+                   StartIcon="@Icons.Material.Filled.Save">
+            Guardar
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] IMudDialogInstance MudDialog { get; set; }
+    [Parameter] public CashRegisterDialogModel Model { get; set; } = new();
+
+    private MudForm form;
+    private bool success;
+    private List<BranchDto> _sucursales = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _sucursales = (await BranchService.GetAllAsync()).ToList();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error al cargar sucursales");
+            Snackbar.Add("Error al cargar sucursales", Severity.Error);
+        }
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+
+    private async Task Submit()
+    {
+        await form.Validate();
+        if (form.IsValid)
+        {
+            MudDialog.Close(DialogResult.Ok(Model));
+        }
+    }
+
+    public class CashRegisterDialogModel
+    {
+        public int Id { get; set; }
+        
+        [Required(ErrorMessage = "El nombre es obligatorio")]
+        public string Name { get; set; } = string.Empty;
+        
+        public string PrinterIp { get; set; } = string.Empty;
+        
+        public int PrinterPort { get; set; } = 9100;
+        
+        [Required(ErrorMessage = "Debe seleccionar una sucursal")]
+        public int BranchId { get; set; }
+        
+        public bool IsLastRegister { get; set; }
+    }
+}
