@@ -20,6 +20,7 @@ public class BlanquitaDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<CashCut> CashCuts { get; set; } = null!;
     public DbSet<Printer> Printers { get; set; } = null!;
     public DbSet<SystemConfiguration> SystemConfigurations { get; set; } = null!;
+    public DbSet<LabelDesign> LabelDesigns { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -164,6 +165,27 @@ public class BlanquitaDbContext : IdentityDbContext<ApplicationUser>
             entity.Property(e => e.Pos10042Path).HasMaxLength(500);
             entity.Property(e => e.Mgw10008Path).HasMaxLength(500);
             entity.Property(e => e.Mgw10005Path).HasMaxLength(500);
+        });
+
+        // Configure LabelDesign
+        modelBuilder.Entity<LabelDesign>(entity =>
+        {
+            entity.ToTable("DiseñosEtiquetas");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Name).HasColumnName("Nombre").IsRequired().HasMaxLength(200);
+            entity.Property(e => e.WidthInDots).HasColumnName("AnchoPuntos").IsRequired();
+            entity.Property(e => e.HeightInDots).HasColumnName("AltoPuntos").IsRequired();
+            entity.Property(e => e.MarginTop).HasColumnName("MargenSuperior").IsRequired();
+            entity.Property(e => e.MarginLeft).HasColumnName("MargenIzquierdo").IsRequired();
+            entity.Property(e => e.Orientation).HasColumnName("Orientacion").IsRequired().HasMaxLength(1);
+            entity.Property(e => e.ProductNameFontSize).HasColumnName("TamañoFuenteNombre").IsRequired();
+            entity.Property(e => e.ProductCodeFontSize).HasColumnName("TamañoFuenteCodigo").IsRequired();
+            entity.Property(e => e.PriceFontSize).HasColumnName("TamañoFuentePrecio").IsRequired();
+            entity.Property(e => e.BarcodeHeight).HasColumnName("AlturaCodigoBarras").IsRequired();
+            entity.Property(e => e.BarcodeWidth).HasColumnName("AnchoCodigoBarras").IsRequired();
+            entity.Property(e => e.IsDefault).HasColumnName("EsPredeterminado").IsRequired();
+            entity.Property(e => e.IsActive).HasColumnName("Activo").IsRequired();
+            entity.HasIndex(e => e.Name).IsUnique();
         });
     }
 }

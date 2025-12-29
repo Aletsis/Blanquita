@@ -1,0 +1,217 @@
+@using Blanquita.Application.DTOs
+@using MudBlazor
+@inject ISnackbar Snackbar
+
+<MudDialog>
+    <DialogContent>
+        <MudGrid>
+            <MudItem xs="12">
+                <MudTextField @bind-Value="Model.Name"
+                              Label="Nombre de la Configuración"
+                              Variant="Variant.Outlined"
+                              Required="true"
+                              HelperText="Nombre descriptivo para esta configuración"
+                              Class="mb-3" />
+            </MudItem>
+
+            <MudItem xs="12">
+                <MudText Typo="Typo.h6" Class="mb-2">
+                    <MudIcon Icon="@Icons.Material.Filled.AspectRatio" Class="mr-2" />
+                    Dimensiones de la Etiqueta
+                </MudText>
+                <MudDivider Class="mb-3" />
+            </MudItem>
+
+            <MudItem xs="12" sm="6">
+                <MudNumericField @bind-Value="Model.WidthInDots"
+                                 Label="Ancho (puntos)"
+                                 Variant="Variant.Outlined"
+                                 Min="100"
+                                 Max="2000"
+                                 HelperText="Ancho de la etiqueta en puntos (dots)"
+                                 Class="mb-3" />
+            </MudItem>
+
+            <MudItem xs="12" sm="6">
+                <MudNumericField @bind-Value="Model.HeightInDots"
+                                 Label="Alto (puntos)"
+                                 Variant="Variant.Outlined"
+                                 Min="50"
+                                 Max="2000"
+                                 HelperText="Alto de la etiqueta en puntos (dots)"
+                                 Class="mb-3" />
+            </MudItem>
+
+            <MudItem xs="12" sm="6">
+                <MudNumericField @bind-Value="Model.MarginTop"
+                                 Label="Margen Superior"
+                                 Variant="Variant.Outlined"
+                                 Min="0"
+                                 Max="200"
+                                 HelperText="Margen superior en puntos"
+                                 Class="mb-3" />
+            </MudItem>
+
+            <MudItem xs="12" sm="6">
+                <MudNumericField @bind-Value="Model.MarginLeft"
+                                 Label="Margen Izquierdo"
+                                 Variant="Variant.Outlined"
+                                 Min="0"
+                                 Max="200"
+                                 HelperText="Margen izquierdo en puntos"
+                                 Class="mb-3" />
+            </MudItem>
+
+            <MudItem xs="12">
+                <MudSelect T="string" @bind-Value="Model.Orientation"
+                           Label="Orientación"
+                           Variant="Variant.Outlined"
+                           HelperText="Orientación de la etiqueta"
+                           Class="mb-3">
+                    <MudSelectItem Value="@("N")">Normal</MudSelectItem>
+                    <MudSelectItem Value="@("R")">Rotado 90°</MudSelectItem>
+                    <MudSelectItem Value="@("I")">Invertido</MudSelectItem>
+                    <MudSelectItem Value="@("B")">Bottom-up</MudSelectItem>
+                </MudSelect>
+            </MudItem>
+
+            <MudItem xs="12">
+                <MudText Typo="Typo.h6" Class="mb-2 mt-2">
+                    <MudIcon Icon="@Icons.Material.Filled.FormatSize" Class="mr-2" />
+                    Tamaños de Fuente
+                </MudText>
+                <MudDivider Class="mb-3" />
+            </MudItem>
+
+            <MudItem xs="12" sm="4">
+                <MudNumericField @bind-Value="Model.ProductNameFontSize"
+                                 Label="Fuente Nombre"
+                                 Variant="Variant.Outlined"
+                                 Min="10"
+                                 Max="200"
+                                 HelperText="Tamaño de fuente para el nombre"
+                                 Class="mb-3" />
+            </MudItem>
+
+            <MudItem xs="12" sm="4">
+                <MudNumericField @bind-Value="Model.ProductCodeFontSize"
+                                 Label="Fuente Código"
+                                 Variant="Variant.Outlined"
+                                 Min="10"
+                                 Max="200"
+                                 HelperText="Tamaño de fuente para el código"
+                                 Class="mb-3" />
+            </MudItem>
+
+            <MudItem xs="12" sm="4">
+                <MudNumericField @bind-Value="Model.PriceFontSize"
+                                 Label="Fuente Precio"
+                                 Variant="Variant.Outlined"
+                                 Min="10"
+                                 Max="200"
+                                 HelperText="Tamaño de fuente para el precio"
+                                 Class="mb-3" />
+            </MudItem>
+
+            <MudItem xs="12">
+                <MudText Typo="Typo.h6" Class="mb-2 mt-2">
+                    <MudIcon Icon="@Icons.Material.Filled.QrCode2" Class="mr-2" />
+                    Código de Barras
+                </MudText>
+                <MudDivider Class="mb-3" />
+            </MudItem>
+
+            <MudItem xs="12" sm="6">
+                <MudNumericField @bind-Value="Model.BarcodeHeight"
+                                 Label="Altura del Código de Barras"
+                                 Variant="Variant.Outlined"
+                                 Min="20"
+                                 Max="500"
+                                 HelperText="Altura en puntos"
+                                 Class="mb-3" />
+            </MudItem>
+
+            <MudItem xs="12" sm="6">
+                <MudNumericField @bind-Value="Model.BarcodeWidth"
+                                 Label="Ancho de Barras"
+                                 Variant="Variant.Outlined"
+                                 Min="1"
+                                 Max="10"
+                                 HelperText="Ancho de las barras (1-10)"
+                                 Class="mb-3" />
+            </MudItem>
+
+            <MudItem xs="12">
+                <MudDivider Class="my-3" />
+            </MudItem>
+
+            <MudItem xs="12" sm="6">
+                <MudSwitch @bind-Value="Model.IsDefault"
+                           Label="Configuración Predeterminada"
+                           Color="Color.Primary"
+                           Class="mb-3" />
+            </MudItem>
+
+            <MudItem xs="12" sm="6">
+                <MudSwitch @bind-Value="Model.IsActive"
+                           Label="Activa"
+                           Color="Color.Success"
+                           Class="mb-3" />
+            </MudItem>
+        </MudGrid>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel" Variant="Variant.Text">Cancelar</MudButton>
+        <MudButton OnClick="Submit" Variant="Variant.Filled" Color="Color.Primary">
+            Guardar
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    private IMudDialogInstance MudDialog { get; set; } = null!;
+
+    [Parameter]
+    public LabelDesignDto? Model { get; set; }
+
+    protected override void OnInitialized()
+    {
+        // Si no se proporciona un modelo, crear uno nuevo con valores predeterminados
+        if (Model == null)
+        {
+            Model = new LabelDesignDto
+            {
+                Name = "Nueva Configuración",
+                WidthInDots = 607,
+                HeightInDots = 199,
+                MarginTop = 20,
+                MarginLeft = 20,
+                Orientation = "N",
+                ProductNameFontSize = 50,
+                ProductCodeFontSize = 40,
+                PriceFontSize = 60,
+                BarcodeHeight = 100,
+                BarcodeWidth = 3,
+                IsDefault = false,
+                IsActive = true
+            };
+        }
+    }
+
+    private void Cancel()
+    {
+        MudDialog.Cancel();
+    }
+
+    private void Submit()
+    {
+        if (string.IsNullOrWhiteSpace(Model?.Name))
+        {
+            Snackbar.Add("El nombre es requerido", Severity.Warning);
+            return;
+        }
+
+        MudDialog.Close(DialogResult.Ok(Model));
+    }
+}

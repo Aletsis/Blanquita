@@ -71,6 +71,8 @@ public static class DependencyInjection
         services.AddScoped<IAuthenticationService, AuthenticationService>();
         services.AddScoped<IConfiguracionService, ConfiguracionService>();
         services.AddScoped<IPrinterService, PrinterService>();
+        services.AddScoped<IFileSystemService, FileSystemService>();
+        services.AddScoped<ILabelDesignService, LabelDesignService>();
 
         // Configuration Services
         services.AddSingleton<IAppConfigurationManager, AppConfigurationManager>();

@@ -1,0 +1,314 @@
+@page "/configuracion/etiquetas"
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize]
+@using Blanquita.Application.DTOs
+@using Blanquita.Application.Interfaces
+@using Blanquita.Web.Components.Layout
+@inject ILabelDesignService LabelDesignService
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+@inject ILogger<ConfiguracionEtiquetas> Logger
+
+<PageTitle>Configuración de Etiquetas - Sistema de Reportes</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4 animated fadeIn">
+    <MudText Typo="Typo.h4" Class="mb-6 font-weight-bold" Style="background: linear-gradient(45deg, #1e88e5, #5e35b1); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+        <MudIcon Icon="@Icons.Material.Filled.Label" Class="mr-2" Size="Size.Large" Color="Color.Primary" />
+        Configuración de Diseño de Etiquetas
+    </MudText>
+
+    <MudCard Elevation="4" Class="rounded-lg animate-slide-up">
+        <MudCardHeader>
+            <CardHeaderContent>
+                <MudText Typo="Typo.h6" Color="Color.Primary">
+                    <MudIcon Icon="@Icons.Material.Filled.DesignServices" Class="mr-2" />
+                    Diseños de Etiquetas Zebra
+                </MudText>
+            </CardHeaderContent>
+        </MudCardHeader>
+        <MudCardContent>
+            <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
+                Configure los diseños de etiquetas para las impresoras Zebra. Puede crear múltiples configuraciones y establecer una como predeterminada.
+            </MudText>
+
+            <MudTable Items="@_labelDesigns"
+                      Hover="true"
+                      Breakpoint="Breakpoint.Sm"
+                      Loading="@_loading"
+                      LoadingProgressColor="Color.Info"
+                      Elevation="0"
+                      Striped="true">
+                <ToolBarContent>
+                    <MudText Typo="Typo.h6">
+                        <MudIcon Icon="@Icons.Material.Filled.List" Size="Size.Small" Class="mr-2" />
+                        Configuraciones Registradas
+                    </MudText>
+                    <MudSpacer />
+                    <MudButton Variant="Variant.Filled"
+                               StartIcon="@Icons.Material.Filled.Add"
+                               Color="Color.Primary"
+                               OnClick="() => AbrirDialogoDiseño()">
+                        Nueva Configuración
+                    </MudButton>
+                </ToolBarContent>
+                <HeaderContent>
+                    <MudTh>Nombre</MudTh>
+                    <MudTh>Dimensiones</MudTh>
+                    <MudTh>Fuentes</MudTh>
+                    <MudTh>Código de Barras</MudTh>
+                    <MudTh>Estado</MudTh>
+                    <MudTh Style="text-align: center;">Acciones</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="Nombre">
+                        <div class="d-flex align-center">
+                            <MudIcon Icon="@Icons.Material.Filled.Label" Size="Size.Small" Class="mr-2" />
+                            <MudText Typo="Typo.body2" Class="font-weight-bold">@context.Name</MudText>
+                            @if (context.IsDefault)
+                            {
+                                <MudChip T="string" Color="Color.Success" Size="Size.Small" Class="ml-2">Predeterminado</MudChip>
+                            }
+                        </div>
+                    </MudTd>
+                    <MudTd DataLabel="Dimensiones">
+                        <MudText Typo="Typo.body2">@context.WidthInDots x @context.HeightInDots pts</MudText>
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">Márgenes: @context.MarginTop, @context.MarginLeft</MudText>
+                    </MudTd>
+                    <MudTd DataLabel="Fuentes">
+                        <MudText Typo="Typo.caption">Nombre: @context.ProductNameFontSize</MudText><br/>
+                        <MudText Typo="Typo.caption">Código: @context.ProductCodeFontSize</MudText><br/>
+                        <MudText Typo="Typo.caption">Precio: @context.PriceFontSize</MudText>
+                    </MudTd>
+                    <MudTd DataLabel="Código de Barras">
+                        <MudText Typo="Typo.body2">Alto: @context.BarcodeHeight</MudText>
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">Ancho: @context.BarcodeWidth</MudText>
+                    </MudTd>
+                    <MudTd DataLabel="Estado">
+                        <MudChip T="string"
+                                 Color="@(context.IsActive ? Color.Success : Color.Default)"
+                                 Size="Size.Small"
+                                 Variant="Variant.Text">
+                            @(context.IsActive ? "Activa" : "Inactiva")
+                        </MudChip>
+                    </MudTd>
+                    <MudTd DataLabel="Acciones" Style="text-align: center;">
+                        @if (!context.IsDefault)
+                        {
+                            <MudTooltip Text="Establecer como predeterminada">
+                                <MudIconButton Icon="@Icons.Material.Filled.Star"
+                                               Size="Size.Small"
+                                               Color="Color.Warning"
+                                               OnClick="() => EstablecerComoPredeterminada(context)" />
+                            </MudTooltip>
+                        }
+                        <MudTooltip Text="Editar configuración">
+                            <MudIconButton Icon="@Icons.Material.Filled.Edit"
+                                           Size="Size.Small"
+                                           Color="Color.Primary"
+                                           OnClick="() => AbrirDialogoDiseño(context)" />
+                        </MudTooltip>
+                        @if (!context.IsDefault)
+                        {
+                            <MudTooltip Text="Eliminar configuración">
+                                <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                                               Size="Size.Small"
+                                               Color="Color.Error"
+                                               OnClick="() => EliminarDiseño(context)" />
+                            </MudTooltip>
+                        }
+                    </MudTd>
+                </RowTemplate>
+                <NoRecordsContent>
+                    <MudPaper Elevation="0" Class="pa-12 d-flex flex-column align-center justify-center bg-transparent">
+                        <MudIcon Icon="@Icons.Material.Filled.DesignServices" Size="Size.Large" Color="Color.Default" Style="font-size: 4rem; opacity: 0.2;" />
+                        <MudText Typo="Typo.h6" Class="mt-4 text-muted">No hay configuraciones de diseño</MudText>
+                        <MudText Typo="Typo.body2" Class="text-muted">Agregue una nueva configuración para comenzar</MudText>
+                    </MudPaper>
+                </NoRecordsContent>
+            </MudTable>
+        </MudCardContent>
+    </MudCard>
+
+    <MudCard Elevation="4" Class="rounded-lg animate-slide-up mt-4" Style="animation-delay: 0.1s;">
+        <MudCardHeader>
+            <CardHeaderContent>
+                <MudText Typo="Typo.h6" Color="Color.Info">
+                    <MudIcon Icon="@Icons.Material.Filled.Info" Class="mr-2" />
+                    Información sobre Configuración
+                </MudText>
+            </CardHeaderContent>
+        </MudCardHeader>
+        <MudCardContent>
+            <MudGrid>
+                <MudItem xs="12" md="6">
+                    <MudPaper Elevation="0" Class="pa-4" Style="background-color: rgba(33, 150, 243, 0.05);">
+                        <MudText Typo="Typo.subtitle1" Class="font-weight-bold mb-2">
+                            <MudIcon Icon="@Icons.Material.Filled.AspectRatio" Size="Size.Small" Class="mr-2" />
+                            Dimensiones
+                        </MudText>
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">
+                            Las dimensiones se especifican en puntos (dots). Para impresoras de 300 DPI:
+                            <br/>• 1 pulgada = 300 puntos
+                            <br/>• 2 pulgadas = 607 puntos (estándar)
+                        </MudText>
+                    </MudPaper>
+                </MudItem>
+                <MudItem xs="12" md="6">
+                    <MudPaper Elevation="0" Class="pa-4" Style="background-color: rgba(76, 175, 80, 0.05);">
+                        <MudText Typo="Typo.subtitle1" Class="font-weight-bold mb-2">
+                            <MudIcon Icon="@Icons.Material.Filled.FormatSize" Size="Size.Small" Class="mr-2" />
+                            Tamaños de Fuente
+                        </MudText>
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">
+                            Los tamaños de fuente afectan la legibilidad de la etiqueta.
+                            <br/>• Valores típicos: 30-80 puntos
+                            <br/>• Ajuste según el tamaño de la etiqueta
+                        </MudText>
+                    </MudPaper>
+                </MudItem>
+            </MudGrid>
+        </MudCardContent>
+    </MudCard>
+</MudContainer>
+
+<style>
+    .animate-fade-in {
+        animation: fadeIn 0.5s ease-out;
+    }
+    .animate-slide-up {
+        animation: slideUp 0.5s ease-out;
+    }
+    @@keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+    @@keyframes slideUp {
+        from { transform: translateY(20px); opacity: 0; }
+        to { transform: translateY(0); opacity: 1; }
+    }
+    .rounded-lg {
+        border-radius: 12px !important;
+    }
+</style>
+
+@code {
+    private List<LabelDesignDto> _labelDesigns = new();
+    private bool _loading = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarDiseños();
+    }
+
+    private async Task CargarDiseños()
+    {
+        _loading = true;
+        try
+        {
+            _labelDesigns = await LabelDesignService.GetAllAsync();
+            Logger.LogInformation("Se cargaron {Count} configuraciones de diseño", _labelDesigns.Count);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error al cargar las configuraciones de diseño");
+            Snackbar.Add("Error al cargar las configuraciones de diseño", Severity.Error);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task AbrirDialogoDiseño(LabelDesignDto? diseño = null)
+    {
+        var parameters = new DialogParameters();
+        if (diseño != null)
+        {
+            // Crear una copia para editar
+            parameters.Add("Model", new LabelDesignDto
+            {
+                Id = diseño.Id,
+                Name = diseño.Name,
+                WidthInDots = diseño.WidthInDots,
+                HeightInDots = diseño.HeightInDots,
+                MarginTop = diseño.MarginTop,
+                MarginLeft = diseño.MarginLeft,
+                Orientation = diseño.Orientation,
+                ProductNameFontSize = diseño.ProductNameFontSize,
+                ProductCodeFontSize = diseño.ProductCodeFontSize,
+                PriceFontSize = diseño.PriceFontSize,
+                BarcodeHeight = diseño.BarcodeHeight,
+                BarcodeWidth = diseño.BarcodeWidth,
+                IsDefault = diseño.IsDefault,
+                IsActive = diseño.IsActive
+            });
+        }
+
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium, FullWidth = true };
+        var title = diseño == null ? "Nueva Configuración de Diseño" : "Editar Configuración de Diseño";
+        var dialog = await DialogService.ShowAsync<DialogoDisenoEtiqueta>(title, parameters, options);
+        var result = await dialog.Result;
+
+        if (!result.Canceled && result.Data is LabelDesignDto diseñoResult)
+        {
+            try
+            {
+                if (diseño == null)
+                {
+                    await LabelDesignService.CreateAsync(diseñoResult);
+                    Snackbar.Add("Configuración de diseño creada exitosamente", Severity.Success);
+                }
+                else
+                {
+                    await LabelDesignService.UpdateAsync(diseñoResult);
+                    Snackbar.Add("Configuración de diseño actualizada exitosamente", Severity.Success);
+                }
+                await CargarDiseños();
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError(ex, "Error al guardar la configuración de diseño");
+                Snackbar.Add($"Error al guardar: {ex.Message}", Severity.Error);
+            }
+        }
+    }
+
+    private async Task EstablecerComoPredeterminada(LabelDesignDto diseño)
+    {
+        try
+        {
+            await LabelDesignService.SetAsDefaultAsync(diseño.Id);
+            Snackbar.Add($"'{diseño.Name}' establecida como predeterminada", Severity.Success);
+            await CargarDiseños();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error al establecer la configuración como predeterminada");
+            Snackbar.Add($"Error: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task EliminarDiseño(LabelDesignDto diseño)
+    {
+        bool? result = await DialogService.ShowMessageBox(
+            "Confirmar Eliminación",
+            $"¿Está seguro que desea eliminar la configuración '{diseño.Name}'?",
+            yesText: "Eliminar", cancelText: "Cancelar"
+        );
+
+        if (result == true)
+        {
+            try
+            {
+                await LabelDesignService.DeleteAsync(diseño.Id);
+                Snackbar.Add("Configuración de diseño eliminada exitosamente", Severity.Success);
+                await CargarDiseños();
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError(ex, "Error al eliminar la configuración de diseño");
+                Snackbar.Add($"Error al eliminar: {ex.Message}", Severity.Error);
+            }
+        }
+    }
+}
