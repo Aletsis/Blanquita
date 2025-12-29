@@ -242,7 +242,7 @@ public class ExportService : IExportService
                 var labelStyle = workbook.Style.Font.SetBold().Font.SetFontColor(XLColor.Gray);
                 
                 // Report Header
-                worksheet.Cell(1, 1).Value = "DETALLE DE REPORTE HISTÓRICO";
+                worksheet.Cell(1, 1).Value = "REPORTE DE FACTURACION";
                 worksheet.Range(1, 1, 1, 6).Merge().Style.Font.SetBold().Font.SetFontSize(16).Alignment.SetHorizontal(XLAlignmentHorizontalValues.Center);
 
                 // Info Block
@@ -380,7 +380,7 @@ public class ExportService : IExportService
                 {
                     container.Page(page =>
                     {
-                        page.Size(PageSizes.Letter.Landscape());
+                        page.Size(PageSizes.Letter.Portrait());
                         page.Margin(30);
                         page.PageColor(Colors.White);
                         page.DefaultTextStyle(x => x.FontSize(10));
@@ -416,7 +416,7 @@ public class ExportService : IExportService
         {
             row.RelativeItem().Column(column =>
             {
-                column.Item().Text($"Reporte Histórico - {reporte.Sucursal.Nombre}")
+                column.Item().Text($"Reporte de facturacion - {reporte.Sucursal.Nombre}")
                     .FontSize(16).SemiBold().FontColor(Colors.Blue.Darken2);
 
                 column.Item().Text(text =>
