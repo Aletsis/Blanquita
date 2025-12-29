@@ -1,4 +1,4 @@
-﻿@using Blanquita.Application.DTOs
+﻿@using Blanquita.Domain.Entities
 
 <MudDialog>
     <DialogContent>
@@ -9,7 +9,7 @@
                     <MudGrid>
                         <MudItem xs="6" md="3">
                             <MudText Typo="Typo.caption" Color="Color.Secondary">Sucursal</MudText>
-                            <MudText Typo="Typo.body1"><strong>@Reporte.Sucursal</strong></MudText>
+                            <MudText Typo="Typo.body1"><strong>@Reporte.Sucursal.Nombre</strong></MudText>
                         </MudItem>
                         <MudItem xs="6" md="3">
                             <MudText Typo="Typo.caption" Color="Color.Secondary">Fecha</MudText>
@@ -131,7 +131,7 @@
     IMudDialogInstance MudDialog { get; set; } = default!;
 
     [Parameter] 
-    public ReporteDto Reporte { get; set; } = default!;
+    public ReporteHistorico Reporte { get; set; } = default!;
 
     private void Close() => MudDialog.Close();
 

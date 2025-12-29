@@ -47,7 +47,7 @@ public sealed class SeriesDocumentoSucursal : IEquatable<SeriesDocumentoSucursal
             return new SeriesDocumentoSucursal("COFS", "FGIFS", "DFCFS");
         
         if (sucursal == Sucursal.Chapultepec)
-            return new SeriesDocumentoSucursal("COX", "FXIS", "DFCX");
+            return new SeriesDocumentoSucursal("COX", "FIXS", "DFCX");
 
         throw new InvalidOperationException($"No se encontraron series de documentos para la sucursal: {sucursal.Nombre}");
     }

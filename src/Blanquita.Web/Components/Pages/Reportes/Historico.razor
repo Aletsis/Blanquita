@@ -318,7 +318,7 @@
         try
         {
             Logger.LogInformation("Exportando reporte a Excel. ID: {Id}, Sucursal: {Sucursal}", reporte.Id, reporte.Sucursal.Nombre);
-            var contenido = await ExportService.ExportToExcelAsync(reporte.Detalles, $"Reporte_{reporte.Sucursal.Nombre}");
+            var contenido = await ExportService.ExportReporteToExcelAsync(reporte);
             var nombreArchivo = $"Reporte_{reporte.Sucursal.Nombre}_{reporte.Fecha:yyyyMMdd}.xlsx";
             await FileDownloadService.DescargarArchivoAsync(
                 contenido, 
@@ -346,7 +346,7 @@
         try
         {
             Logger.LogInformation("Exportando reporte a PDF. ID: {Id}, Sucursal: {Sucursal}", reporte.Id, reporte.Sucursal.Nombre);
-             var contenido = await ExportService.ExportToPdfAsync(reporte.Detalles, $"Reporte - {reporte.Sucursal.Nombre}");
+             var contenido = await ExportService.ExportReporteToPdfAsync(reporte);
              var nombreArchivo = $"Reporte_{reporte.Sucursal.Nombre}_{reporte.Fecha:yyyyMMdd}.pdf";
              await FileDownloadService.DescargarArchivoAsync(contenido, nombreArchivo, "application/pdf");
              Logger.LogInformation("Reporte exportado exitosamente a PDF: {FileName}", nombreArchivo);
