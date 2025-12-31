@@ -35,10 +35,22 @@ public class DatabaseMigrationService
         try
         {
             _logger.LogInformation("Iniciando verificación de base de datos con EF Core...");
+            try
+            {
+                // Explicitly open the connection to ensure it works and prevent EF from thinking it doesn't exist
+                // This resolves issues where EF tries to create the DB on 'master' despite it existing
+                await _context.Database.OpenConnectionAsync(cancellationToken);
 
-            // Esta llamada verifica si la base de datos existe, la crea si no,
-            // y aplica todas las migraciones pendientes en orden.
-            await _context.Database.MigrateAsync(cancellationToken);
+                // Aplica migraciones
+                await _context.Database.MigrateAsync(cancellationToken);
+                
+                await _context.Database.CloseConnectionAsync();
+            }
+            catch (Exception ex)
+            {
+                 _logger.LogError(ex, "Error during manual connection open/migrate.");
+                 throw;
+            }
 
             await SeedDefaultUserAsync();
             
