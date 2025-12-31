@@ -9,77 +9,188 @@
 @inject ILogger<AñadirCajera> Logger
 @inject ISnackbar Snackbar
 
-<MudText Typo="Typo.h3" Align="Align.Center">Añadir cajera</MudText>
-<EditForm Model="model" OnValidSubmit="GuardarCajera">
-    <DataAnnotationsValidator />
-    <MudGrid Justify="Justify.Center">
-        <MudItem xs="12" sm="7">
-            <MudCard>
-                <MudCardContent>
-                    <MudTextField @bind-Value="model.Name" Label="Nombre de cajera" Variant="Variant.Text"></MudTextField>
-                    <MudNumericField @bind-Value="model.EmployeeNumber" Label="Numero de nomina" Variant="Variant.Text"></MudNumericField>
-                    <MudSelect T="int" Label="Seleccione sucursal" @bind-Value="model.BranchId">
-                        @foreach (var sucursal in sucursales)
+<PageTitle>Gestión de Cajeras - Configuración</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4 animate-fade-in">
+    <MudText Typo="Typo.h4" Class="mb-6 font-weight-bold" Style="background: linear-gradient(45deg, #667eea, #764ba2); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+        <MudIcon Icon="@Icons.Material.Filled.PersonAdd" Class="mr-2" Size="Size.Large" Color="Color.Primary" />
+        Gestión de Cajeras
+    </MudText>
+
+    <MudGrid>
+        <MudItem xs="12" md="4">
+            <MudCard Elevation="4" Class="rounded-lg animate-slide-up mb-4">
+                <MudCardHeader>
+                    <CardHeaderContent>
+                        <MudText Typo="Typo.h6">@(isEditing ? "Editar Cajera" : "Nueva Cajera")</MudText>
+                    </CardHeaderContent>
+                    <CardHeaderActions>
+                        <MudIconButton Icon="@Icons.Material.Filled.Person" Color="Color.Default" />
+                    </CardHeaderActions>
+                </MudCardHeader>
+                <EditForm Model="model" OnValidSubmit="GuardarCajera">
+                    <DataAnnotationsValidator />
+                    <MudCardContent>
+                        <MudTextField @bind-Value="model.Name" 
+                                     Label="Nombre de cajera" 
+                                     Variant="Variant.Outlined" 
+                                     Margin="Margin.Dense"
+                                     Adornment="Adornment.Start"
+                                     AdornmentIcon="@Icons.Material.Filled.Badge"
+                                     Class="mb-3"></MudTextField>
+                        
+                        <MudNumericField @bind-Value="model.EmployeeNumber" 
+                                        Label="Número de nómina" 
+                                        Variant="Variant.Outlined" 
+                                        Margin="Margin.Dense"
+                                        Adornment="Adornment.Start"
+                                        AdornmentIcon="@Icons.Material.Filled.Numbers"
+                                        Class="mb-3"></MudNumericField>
+                        
+                        <MudSelect T="int" Label="Sucursal" @bind-Value="model.BranchId"
+                                  Variant="Variant.Outlined"
+                                  Margin="Margin.Dense"
+                                  AnchorOrigin="Origin.BottomCenter"
+                                  Adornment="Adornment.Start"
+                                  AdornmentIcon="@Icons.Material.Filled.Store"
+                                  Class="mb-3">
+                            @foreach (var sucursal in sucursales)
+                            {
+                                <MudSelectItem T="int" Value="@sucursal.Id">@sucursal.Name</MudSelectItem>
+                            }
+                        </MudSelect>
+                        
+                        <MudSwitch @bind-Value="model.IsActive" 
+                                  Label="Cuenta Activa" 
+                                  Color="Color.Success"
+                                  ThumbIcon="@(model.IsActive ? Icons.Material.Filled.Check : Icons.Material.Filled.Close)"></MudSwitch>
+                    </MudCardContent>
+                    <MudCardActions Class="d-flex justify-end pa-4">
+                        @if (isEditing)
                         {
-                            <MudSelectItem T="int" Value="@sucursal.Id">@sucursal.Name</MudSelectItem>
+                            <MudButton Variant="Variant.Outlined" Color="Color.Error" OnClick="CancelEdit" Class="mr-2">Cancelar</MudButton>
                         }
-                    </MudSelect>
-                    <MudSwitch @bind-Value="model.IsActive" Label="Activa:" LabelPlacement="Placement.Start" Color="Color.Primary"></MudSwitch>
-                </MudCardContent>
-                <MudCardActions>
-                    @if (isEditing)
-                    {
-                        <MudButton Variant="Variant.Text" Color="Color.Error" OnClick="CancelEdit">Cancelar</MudButton>
-                    }
-                    <MudButton ButtonType="ButtonType.Submit"
-                               Variant="Variant.Filled"
-                               Color="Color.Primary"
-                               Class="ml-auto">
-                        @(isEditing ? "Actualizar" : "Guardar")
-                    </MudButton>
-                </MudCardActions>
+                        <MudButton ButtonType="ButtonType.Submit"
+                                   Variant="Variant.Filled"
+                                   Color="Color.Primary"
+                                   StartIcon="@Icons.Material.Filled.Save">
+                            @(isEditing ? "Actualizar" : "Guardar")
+                        </MudButton>
+                    </MudCardActions>
+                </EditForm>
+            </MudCard>
+        </MudItem>
+
+        <MudItem xs="12" md="8">
+            <MudCard Elevation="4" Class="rounded-lg animate-slide-up">
+                <MudTable ServerData="ServerReload" 
+                          Dense="true" 
+                          Hover="true" 
+                          Striped="true"
+                          @ref="table"
+                          Elevation="0">
+                    <ToolBarContent>
+                        <MudText Typo="Typo.h6" Color="Color.Primary">
+                            <MudIcon Icon="@Icons.Material.Filled.List" Class="mr-2" />
+                            Listado de Cajeras
+                        </MudText>
+                        <MudSpacer />
+                        <MudTextField T="string" 
+                                     ValueChanged="@(s=>OnSearch(s))" 
+                                     Placeholder="Buscar..." 
+                                     Adornment="Adornment.Start"
+                                     AdornmentIcon="@Icons.Material.Filled.Search" 
+                                     IconSize="Size.Medium" 
+                                     Variant="Variant.Outlined"
+                                     Margin="Margin.Dense"
+                                     Class="mt-0"></MudTextField>
+                    </ToolBarContent>
+                    <HeaderContent>
+                        <MudTh><MudTableSortLabel SortLabel="Id" T="CashierDto">ID</MudTableSortLabel></MudTh>
+                        <MudTh><MudTableSortLabel SortLabel="EmployeeNumber" T="CashierDto">Nómina</MudTableSortLabel></MudTh>
+                        <MudTh><MudTableSortLabel SortLabel="Name" T="CashierDto">Nombre</MudTableSortLabel></MudTh>
+                        <MudTh><MudTableSortLabel SortLabel="BranchId" T="CashierDto">Sucursal</MudTableSortLabel></MudTh>
+                        <MudTh>Estado</MudTh>
+                        <MudTh Style="text-align:center">Acciones</MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd DataLabel="Id">
+                            <MudChip T="string" Color="Color.Default" Size="Size.Small" Variant="Variant.Outlined">@context.Id</MudChip>
+                        </MudTd>
+                        <MudTd DataLabel="Nomina">
+                            <MudText Typo="Typo.body2" Class="font-weight-bold">@context.EmployeeNumber</MudText>
+                        </MudTd>
+                        <MudTd DataLabel="Name">
+                             <div class="d-flex align-center">
+                                <MudIcon Icon="@Icons.Material.Filled.Person" Size="Size.Small" Class="mr-2" Color="Color.Primary" />
+                                <MudText Typo="Typo.body2">@context.Name</MudText>
+                            </div>
+                        </MudTd>
+                        <MudTd DataLabel="BranchId">
+                             <div class="d-flex align-center">
+                                <MudIcon Icon="@Icons.Material.Filled.Store" Size="Size.Small" Class="mr-2" Color="Color.Secondary" />
+                                <MudText Typo="Typo.body2">@GetSucursalName(context.BranchId)</MudText>
+                            </div>
+                        </MudTd>
+                        <MudTd DataLabel="Activa">
+                            @if (context.IsActive)
+                            {
+                                <MudChip T="string" Color="Color.Success" Size="Size.Small" Icon="@Icons.Material.Filled.CheckCircle">Activa</MudChip>
+                            }
+                            else
+                            {
+                                <MudChip T="string" Color="Color.Error" Size="Size.Small" Icon="@Icons.Material.Filled.Cancel">Inactiva</MudChip>
+                            }
+                        </MudTd>
+                        <MudTd Style="text-align:center">
+                            <MudTooltip Text="Editar">
+                                <MudIconButton Icon="@Icons.Material.Filled.Edit"
+                                               Color="Color.Primary"
+                                               Size="Size.Small"
+                                               OnClick="@(() => EditCajera(context))" />
+                            </MudTooltip>
+                        </MudTd>
+                    </RowTemplate>
+                    <NoRecordsContent>
+                        <MudPaper Elevation="0" Class="pa-6 d-flex flex-column align-center justify-center bg-transparent">
+                            <MudIcon Icon="@Icons.Material.Filled.SearchOff" Size="Size.Large" Color="Color.Default" Style="opacity: 0.5;" />
+                            <MudText Typo="Typo.body1" Class="mt-2 text-muted">No se encontraron cajeras</MudText>
+                        </MudPaper>
+                    </NoRecordsContent>
+                    <LoadingContent>
+                        <MudPaper Elevation="0" Class="pa-6 d-flex flex-column align-center justify-center bg-transparent">
+                            <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+                            <MudText Typo="Typo.body2" Class="mt-2">Cargando...</MudText>
+                        </MudPaper>
+                    </LoadingContent>
+                    <PagerContent>
+                        <MudTablePager />
+                    </PagerContent>
+                </MudTable>
             </MudCard>
         </MudItem>
     </MudGrid>
-</EditForm>
-<MudTable ServerData="ServerReload" Dense="true" Hover="true" @ref="table">
-    <ToolBarContent>
-        <MudText Typo="Typo.h6">Cajeras</MudText>
-        <MudSpacer />
-        <MudTextField T="string" ValueChanged="@(s=>OnSearch(s))" Placeholder="Buscar" Adornment="Adornment.Start"
-                      AdornmentIcon="@Icons.Material.Filled.Search" IconSize="Size.Medium" Class="mt-0"></MudTextField>
-    </ToolBarContent>
-    <HeaderContent>
-        <MudTh><MudTableSortLabel SortLabel="Id" T="CashierDto">Id</MudTableSortLabel></MudTh>
-        <MudTh><MudTableSortLabel SortLabel="EmployeeNumber" T="CashierDto">Nomina</MudTableSortLabel></MudTh>
-        <MudTh><MudTableSortLabel SortLabel="Name" T="CashierDto">Nombre</MudTableSortLabel></MudTh>
-        <MudTh><MudTableSortLabel SortLabel="BranchId" T="CashierDto">Sucursal</MudTableSortLabel></MudTh>
-        <MudTh>Activa</MudTh>
-        <MudTh>Acciones</MudTh>
-    </HeaderContent>
-    <RowTemplate>
-        <MudTd DataLabel="Id">@context.Id</MudTd>
-        <MudTd DataLabel="EmployeeNumber">@context.EmployeeNumber</MudTd>
-        <MudTd DataLabel="Name">@context.Name</MudTd>
-        <MudTd DataLabel="BranchId">@GetSucursalName(context.BranchId)</MudTd>
-        <MudTd DataLabel="Activa">@(context.IsActive ? "Sí" : "No")</MudTd>
-        <MudTd>
-            <MudIconButton Icon="@Icons.Material.Filled.Edit"
-                           Color="Color.Primary"
-                           Class="pa-0 ma-0 min-width-auto"
-                           OnClick="@(() => EditCajera(context))" />
-        </MudTd>
-    </RowTemplate>
-    <NoRecordsContent>
-        <MudText>No matching records found</MudText>
-    </NoRecordsContent>
-    <LoadingContent>
-        <MudText>Loading...</MudText>
-    </LoadingContent>
-    <PagerContent>
-        <MudTablePager />
-    </PagerContent>
-</MudTable>
+</MudContainer>
+
+<style>
+    .animate-fade-in {
+        animation: fadeIn 0.5s ease-out;
+    }
+    .animate-slide-up {
+        animation: slideUp 0.5s ease-out;
+    }
+    @@keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+    @@keyframes slideUp {
+        from { transform: translateY(20px); opacity: 0; }
+        to { transform: translateY(0); opacity: 1; }
+    }
+    .rounded-lg {
+        border-radius: 12px !important;
+    }
+</style>
 
 @code {
     private CashierViewModel model = new() { BranchId = 0, IsActive = true };
@@ -155,7 +266,7 @@
     private void OnSearch(string text)
     {
         searchString = text;
-        table.ReloadServerData();
+        table?.ReloadServerData();
     }
 
     private async Task GuardarCajera()

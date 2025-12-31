@@ -9,74 +9,176 @@
 @inject ILogger<AñadirEncargada> Logger
 @inject ISnackbar Snackbar
 
-<MudText Typo="Typo.h3" Align="Align.Center">Añadir encargada</MudText>
-<EditForm Model="model" OnValidSubmit="GuardarEncargada">
-    <DataAnnotationsValidator />
-    <MudGrid Justify="Justify.Center">
-        <MudItem xs="12" sm="7">
-            <MudCard>
-                <MudCardContent>
-                    <MudTextField @bind-Value="model.Name" Label="Nombre de encargada" Variant="Variant.Text"></MudTextField>
-                    <MudSelect T="int" Label="Seleccione sucursal" @bind-Value="model.BranchId">
-                        @foreach (var sucursal in branches)
+<PageTitle>Gestión de Encargadas - Configuración</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4 animate-fade-in">
+    <MudText Typo="Typo.h4" Class="mb-6 font-weight-bold" Style="background: linear-gradient(45deg, #667eea, #764ba2); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+        <MudIcon Icon="@Icons.Material.Filled.SupervisorAccount" Class="mr-2" Size="Size.Large" Color="Color.Primary" />
+        Gestión de Encargadas
+    </MudText>
+
+    <MudGrid>
+        <MudItem xs="12" md="4">
+            <MudCard Elevation="4" Class="rounded-lg animate-slide-up mb-4">
+                <MudCardHeader>
+                    <CardHeaderContent>
+                        <MudText Typo="Typo.h6">@(isEditing ? "Editar Encargada" : "Nueva Encargada")</MudText>
+                    </CardHeaderContent>
+                    <CardHeaderActions>
+                        <MudIconButton Icon="@Icons.Material.Filled.Person" Color="Color.Default" />
+                    </CardHeaderActions>
+                </MudCardHeader>
+                <EditForm Model="model" OnValidSubmit="GuardarEncargada">
+                    <DataAnnotationsValidator />
+                    <MudCardContent>
+                        <MudTextField @bind-Value="model.Name" 
+                                     Label="Nombre de encargada" 
+                                     Variant="Variant.Outlined" 
+                                     Margin="Margin.Dense"
+                                     Adornment="Adornment.Start"
+                                     AdornmentIcon="@Icons.Material.Filled.Badge"
+                                     Class="mb-3"></MudTextField>
+                        
+                        <MudSelect T="int" Label="Sucursal" @bind-Value="model.BranchId"
+                                  Variant="Variant.Outlined"
+                                  Margin="Margin.Dense"
+                                  AnchorOrigin="Origin.BottomCenter"
+                                  Adornment="Adornment.Start"
+                                  AdornmentIcon="@Icons.Material.Filled.Store"
+                                  Class="mb-3">
+                            @foreach (var sucursal in branches)
+                            {
+                                <MudSelectItem T="int" Value="@sucursal.Id">@sucursal.Name</MudSelectItem>
+                            }
+                        </MudSelect>
+                        
+                        <MudSwitch @bind-Value="model.IsActive" 
+                                  Label="Cuenta Activa" 
+                                  Color="Color.Success"
+                                  ThumbIcon="@(model.IsActive ? Icons.Material.Filled.Check : Icons.Material.Filled.Close)"></MudSwitch>
+                    </MudCardContent>
+                    <MudCardActions Class="d-flex justify-end pa-4">
+                        @if (isEditing)
                         {
-                            <MudSelectItem T="int" Value="@sucursal.Id">@sucursal.Name</MudSelectItem>
+                            <MudButton Variant="Variant.Outlined" Color="Color.Error" OnClick="CancelEdit" Class="mr-2">Cancelar</MudButton>
                         }
-                    </MudSelect>
-                    <MudSwitch @bind-Value="model.IsActive" Label="Activa:" LabelPlacement="Placement.Start" Color="Color.Primary"></MudSwitch>
-                </MudCardContent>
-                <MudCardActions>
-                    @if (isEditing)
-                    {
-                        <MudButton Variant="Variant.Text" Color="Color.Error" OnClick="CancelEdit">Cancelar</MudButton>
-                    }
-                    <MudButton ButtonType="ButtonType.Submit"
-                               Variant="Variant.Filled"
-                               Color="Color.Primary"
-                               Class="ml-auto">
-                        @(isEditing ? "Actualizar" : "Guardar")
-                    </MudButton>
-                </MudCardActions>
+                        <MudButton ButtonType="ButtonType.Submit"
+                                   Variant="Variant.Filled"
+                                   Color="Color.Primary"
+                                   StartIcon="@Icons.Material.Filled.Save">
+                            @(isEditing ? "Actualizar" : "Guardar")
+                        </MudButton>
+                    </MudCardActions>
+                </EditForm>
+            </MudCard>
+        </MudItem>
+
+        <MudItem xs="12" md="8">
+            <MudCard Elevation="4" Class="rounded-lg animate-slide-up">
+                <MudTable ServerData="ServerReload" 
+                          Dense="true" 
+                          Hover="true" 
+                          Striped="true"
+                          @ref="table"
+                          Elevation="0">
+                    <ToolBarContent>
+                        <MudText Typo="Typo.h6" Color="Color.Primary">
+                            <MudIcon Icon="@Icons.Material.Filled.List" Class="mr-2" />
+                            Listado de Encargadas
+                        </MudText>
+                        <MudSpacer />
+                        <MudTextField T="string" 
+                                     ValueChanged="@(s=>OnSearch(s))" 
+                                     Placeholder="Buscar..." 
+                                     Adornment="Adornment.Start"
+                                     AdornmentIcon="@Icons.Material.Filled.Search" 
+                                     IconSize="Size.Medium" 
+                                     Variant="Variant.Outlined"
+                                     Margin="Margin.Dense"
+                                     Class="mt-0"></MudTextField>
+                    </ToolBarContent>
+                    <HeaderContent>
+                        <MudTh><MudTableSortLabel SortLabel="Id" T="SupervisorDto">ID</MudTableSortLabel></MudTh>
+                        <MudTh><MudTableSortLabel SortLabel="Name" T="SupervisorDto">Nombre</MudTableSortLabel></MudTh>
+                        <MudTh><MudTableSortLabel SortLabel="BranchId" T="SupervisorDto">Sucursal</MudTableSortLabel></MudTh>
+                        <MudTh>Estado</MudTh>
+                        <MudTh Style="text-align:center">Acciones</MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd DataLabel="Id">
+                            <MudChip T="string" Color="Color.Default" Size="Size.Small" Variant="Variant.Outlined">@context.Id</MudChip>
+                        </MudTd>
+                        <MudTd DataLabel="Name">
+                             <div class="d-flex align-center">
+                                <MudIcon Icon="@Icons.Material.Filled.Person" Size="Size.Small" Class="mr-2" Color="Color.Primary" />
+                                <MudText Typo="Typo.body2">@context.Name</MudText>
+                            </div>
+                        </MudTd>
+                        <MudTd DataLabel="BranchId">
+                             <div class="d-flex align-center">
+                                <MudIcon Icon="@Icons.Material.Filled.Store" Size="Size.Small" Class="mr-2" Color="Color.Secondary" />
+                                <MudText Typo="Typo.body2">@GetSucursalName(context.BranchId)</MudText>
+                            </div>
+                        </MudTd>
+                        <MudTd DataLabel="Activa">
+                            @if (context.IsActive)
+                            {
+                                <MudChip T="string" Color="Color.Success" Size="Size.Small" Icon="@Icons.Material.Filled.CheckCircle">Activa</MudChip>
+                            }
+                            else
+                            {
+                                <MudChip T="string" Color="Color.Error" Size="Size.Small" Icon="@Icons.Material.Filled.Cancel">Inactiva</MudChip>
+                            }
+                        </MudTd>
+                        <MudTd Style="text-align:center">
+                            <MudTooltip Text="Editar">
+                                <MudIconButton Icon="@Icons.Material.Filled.Edit"
+                                               Color="Color.Primary"
+                                               Size="Size.Small"
+                                               OnClick="@(() => EditEncargada(context))" />
+                            </MudTooltip>
+                        </MudTd>
+                    </RowTemplate>
+                    <NoRecordsContent>
+                        <MudPaper Elevation="0" Class="pa-6 d-flex flex-column align-center justify-center bg-transparent">
+                            <MudIcon Icon="@Icons.Material.Filled.SearchOff" Size="Size.Large" Color="Color.Default" Style="opacity: 0.5;" />
+                            <MudText Typo="Typo.body1" Class="mt-2 text-muted">No se encontraron encargadas</MudText>
+                        </MudPaper>
+                    </NoRecordsContent>
+                    <LoadingContent>
+                        <MudPaper Elevation="0" Class="pa-6 d-flex flex-column align-center justify-center bg-transparent">
+                            <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+                            <MudText Typo="Typo.body2" Class="mt-2">Cargando...</MudText>
+                        </MudPaper>
+                    </LoadingContent>
+                    <PagerContent>
+                        <MudTablePager />
+                    </PagerContent>
+                </MudTable>
             </MudCard>
         </MudItem>
     </MudGrid>
-</EditForm>
-<MudTable ServerData="ServerReload" Dense="true" Hover="true" @ref="table">
-    <ToolBarContent>
-        <MudText Typo="Typo.h6">Encargadas</MudText>
-        <MudSpacer />
-        <MudTextField T="string" ValueChanged="@(s=>OnSearch(s))" Placeholder="Buscar" Adornment="Adornment.Start"
-                      AdornmentIcon="@Icons.Material.Filled.Search" IconSize="Size.Medium" Class="mt-0"></MudTextField>
-    </ToolBarContent>
-    <HeaderContent>
-        <MudTh><MudTableSortLabel SortLabel="Id" T="SupervisorDto">Id</MudTableSortLabel></MudTh>
-        <MudTh><MudTableSortLabel SortLabel="Name" T="SupervisorDto">Nombre</MudTableSortLabel></MudTh>
-        <MudTh><MudTableSortLabel SortLabel="BranchId" T="SupervisorDto">Sucursal</MudTableSortLabel></MudTh>
-        <MudTh>Activa</MudTh>
-        <MudTh>Acciones</MudTh>
-    </HeaderContent>
-    <RowTemplate>
-        <MudTd DataLabel="Id">@context.Id</MudTd>
-        <MudTd DataLabel="Name">@context.Name</MudTd>
-        <MudTd DataLabel="BranchId">@GetSucursalName(context.BranchId)</MudTd>
-        <MudTd DataLabel="Activa">@(context.IsActive ? "Sí" : "No")</MudTd>
-        <MudTd>
-            <MudIconButton Icon="@Icons.Material.Filled.Edit"
-                           Color="Color.Primary"
-                           Class="pa-0 ma-0 min-width-auto"
-                           OnClick="@(() => EditEncargada(context))" />
-        </MudTd>
-    </RowTemplate>
-    <NoRecordsContent>
-        <MudText>No matching records found</MudText>
-    </NoRecordsContent>
-    <LoadingContent>
-        <MudText>Loading...</MudText>
-    </LoadingContent>
-    <PagerContent>
-        <MudTablePager />
-    </PagerContent>
-</MudTable>
+</MudContainer>
+
+<style>
+    .animate-fade-in {
+        animation: fadeIn 0.5s ease-out;
+    }
+    .animate-slide-up {
+        animation: slideUp 0.5s ease-out;
+    }
+    @@keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+    @@keyframes slideUp {
+        from { transform: translateY(20px); opacity: 0; }
+        to { transform: translateY(0); opacity: 1; }
+    }
+    .rounded-lg {
+        border-radius: 12px !important;
+    }
+</style>
 
 @code {
     private SupervisorViewModel model = new() { BranchId = 0, IsActive = true };
@@ -85,8 +187,8 @@
     
     private IEnumerable<BranchDto> branches = new List<BranchDto>();
     
-    private MudTable<SupervisorDto> table;
-    private string searchString = null;
+    private MudTable<SupervisorDto>? table;
+    private string searchString = "";
 
     protected override async Task OnInitializedAsync()
     {
@@ -146,6 +248,9 @@
                  case "Id":
                     data = data.OrderByDirection(state.SortDirection, o => o.Id);
                     break;
+                 case "BranchId":
+                    data = data.OrderByDirection(state.SortDirection, o => o.BranchId);
+                    break;
             }
 
             var pagedData = data.Skip(state.Page * state.PageSize).Take(state.PageSize).ToArray();
@@ -162,7 +267,7 @@
     private void OnSearch(string text)
     {
         searchString = text;
-        table.ReloadServerData();
+        table?.ReloadServerData();
     }
 
     private async Task GuardarEncargada()
