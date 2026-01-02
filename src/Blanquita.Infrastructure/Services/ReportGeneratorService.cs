@@ -58,19 +58,26 @@ public class ReportGeneratorService : IReportGeneratorService
             var documentos = await _documentRepository.GetByDateAndBranchAsync(fecha, 1);
             _logger.LogInformation("Total de documentos encontrados: {Count}", documentos.Count());
 
-            // Paso 3: Procesar cada corte
-            foreach (var corte in cortes)
+            // Paso 3: Agrupar cortes por caja para consolidar datos
+            var cortesPorCaja = cortes.GroupBy(c => c.CashRegisterName);
+            _logger.LogInformation("Cajas únicas encontradas: {Count}", cortesPorCaja.Count());
+
+            foreach (var grupoCaja in cortesPorCaja)
             {
-                _logger.LogDebug("Procesando corte - Caja ID: {IdCaja}, Serie: '{SerieCaja}'", corte.CashRegisterId, corte.CashRegisterName);
+                var nombreCaja = grupoCaja.Key;
+                var cortesDelaCaja = grupoCaja.ToList();
+                
+                _logger.LogDebug("Procesando caja '{NombreCaja}' con {NumCortes} corte(s)", nombreCaja, cortesDelaCaja.Count);
 
                 decimal facturado = 0;
                 decimal ventaGlobal = 0;
                 decimal devolucion = 0;
 
                 // Procesar facturas (Cliente) - usar CTEXTOEX03 para identificar la caja
+                // Solo se procesan UNA VEZ por caja, sin importar cuántos cortes tenga
                 var docsCliente = documentos.Where(d =>
                     d.Serie == series.SerieCliente &&
-                    d.CajaTexto.Equals(corte.CashRegisterName, StringComparison.OrdinalIgnoreCase)).ToList();
+                    d.CajaTexto.Equals(nombreCaja, StringComparison.OrdinalIgnoreCase)).ToList();
 
                 foreach (var doc in docsCliente)
                 {
@@ -78,55 +85,81 @@ public class ReportGeneratorService : IReportGeneratorService
                     _logger.LogDebug("  + Factura Cliente: {Serie}-{Folio} (Caja: {CajaTexto}) = {Total:C2}", doc.Serie, doc.Folio, doc.CajaTexto, doc.Total);
                 }
 
-                // Procesar facturas (Global) - usar campo CFACTURA del corte
-                var docsFactGlobal = _dbfParser.ParsearDocumentos(corte.RawInvoices);
-                foreach (var doc in docsFactGlobal)
+                // Procesar facturas (Global) - consolidar de TODOS los cortes de esta caja
+                // Usar HashSet para evitar duplicados si un documento aparece en múltiples cortes
+                var idsDocumentosGlobalesProcesados = new HashSet<(string IdDocumento, string Serie, string Folio)>();
+                
+                foreach (var corte in cortesDelaCaja)
                 {
-                    var docEncontrado = documentos.FirstOrDefault(d =>
-                        d.IdDocumento == doc.IdDocumento &&
-                        d.Serie == doc.Serie &&
-                        d.Folio == doc.Folio &&
-                        d.Serie == series.SerieGlobal);
-
-                    if (docEncontrado != null)
+                    var docsFactGlobal = _dbfParser.ParsearDocumentos(corte.RawInvoices);
+                    foreach (var doc in docsFactGlobal)
                     {
-                        ventaGlobal += docEncontrado.Total;
-                        _logger.LogDebug("  + Venta Global: {Serie}-{Folio} = {Total:C2}", doc.Serie, doc.Folio, docEncontrado.Total);
+                        var clave = (doc.IdDocumento, doc.Serie, doc.Folio);
+                        
+                        // Solo procesar si no lo hemos visto antes
+                        if (!idsDocumentosGlobalesProcesados.Contains(clave))
+                        {
+                            var docEncontrado = documentos.FirstOrDefault(d =>
+                                d.IdDocumento == doc.IdDocumento &&
+                                d.Serie == doc.Serie &&
+                                d.Folio == doc.Folio &&
+                                d.Serie == series.SerieGlobal);
+
+                            if (docEncontrado != null)
+                            {
+                                ventaGlobal += docEncontrado.Total;
+                                idsDocumentosGlobalesProcesados.Add(clave);
+                                _logger.LogDebug("  + Venta Global: {Serie}-{Folio} = {Total:C2}", doc.Serie, doc.Folio, docEncontrado.Total);
+                            }
+                        }
                     }
                 }
 
-                // Procesar devoluciones - usar campo CDEVOLUCIO del corte
-                var docsDev = _dbfParser.ParsearDocumentos(corte.RawReturns);
-                foreach (var doc in docsDev)
+                // Procesar devoluciones - consolidar de TODOS los cortes de esta caja
+                // Usar HashSet para evitar duplicados si un documento aparece en múltiples cortes
+                var idsDocumentosDevolucionesProcesados = new HashSet<(string IdDocumento, string Serie, string Folio)>();
+                
+                foreach (var corte in cortesDelaCaja)
                 {
-                    var docEncontrado = documentos.FirstOrDefault(d =>
-                        d.IdDocumento == doc.IdDocumento &&
-                        d.Serie == doc.Serie &&
-                        d.Folio == doc.Folio &&
-                        d.Serie == series.SerieDevolucion);
-
-                    if (docEncontrado != null)
+                    var docsDev = _dbfParser.ParsearDocumentos(corte.RawReturns);
+                    foreach (var doc in docsDev)
                     {
-                        devolucion += docEncontrado.Total;
-                        _logger.LogDebug("  - Devolución: {Serie}-{Folio} = {Total:C2}", doc.Serie, doc.Folio, docEncontrado.Total);
+                        var clave = (doc.IdDocumento, doc.Serie, doc.Folio);
+                        
+                        // Solo procesar si no lo hemos visto antes
+                        if (!idsDocumentosDevolucionesProcesados.Contains(clave))
+                        {
+                            var docEncontrado = documentos.FirstOrDefault(d =>
+                                d.IdDocumento == doc.IdDocumento &&
+                                d.Serie == doc.Serie &&
+                                d.Folio == doc.Folio &&
+                                d.Serie == series.SerieDevolucion);
+
+                            if (docEncontrado != null)
+                            {
+                                devolucion += docEncontrado.Total;
+                                idsDocumentosDevolucionesProcesados.Add(clave);
+                                _logger.LogDebug("  - Devolución: {Serie}-{Folio} = {Total:C2}", doc.Serie, doc.Folio, docEncontrado.Total);
+                            }
+                        }
                     }
                 }
 
                 decimal total = facturado + ventaGlobal - devolucion;
-                _logger.LogDebug("  Totales caja '{SerieCaja}': Fact={Facturado:C2}, VG={VentaGlobal:C2}, Dev={Devolucion:C2}, Total={Total:C2}", corte.CashRegisterName, facturado, ventaGlobal, devolucion, total);
+                _logger.LogDebug("  Totales consolidados caja '{NombreCaja}': Fact={Facturado:C2}, VG={VentaGlobal:C2}, Dev={Devolucion:C2}, Total={Total:C2}", nombreCaja, facturado, ventaGlobal, devolucion, total);
 
                 if (facturado > 0 || ventaGlobal > 0 || devolucion > 0)
                 {
                     result.Add(new ReportRowDto
                     {
                         Fecha = fecha.ToString("dd/MM/yyyy"),
-                        Caja = corte.CashRegisterName,
+                        Caja = nombreCaja,
                         Facturado = facturado,
                         Devolucion = devolucion,
                         VentaGlobal = ventaGlobal,
                         Total = total
                     });
-                    _logger.LogDebug("  ✓ Registro agregado al reporte");
+                    _logger.LogDebug("  ✓ Registro consolidado agregado al reporte");
                 }
             }
 
