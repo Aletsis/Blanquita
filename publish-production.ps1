@@ -23,8 +23,15 @@ Write-Info ""
 $ScriptPath = Split-Path -Parent $MyInvocation.MyCommand.Path
 $SolutionPath = Split-Path -Parent $ScriptPath
 $ProjectPath = Join-Path $SolutionPath "src\Blanquita.Web"
+$SolutionFile = Get-ChildItem -Path $SolutionPath -Filter "*.sln" | Select-Object -First 1
+
+if (-not $SolutionFile) {
+    Write-Error "No se encontró archivo .sln en $SolutionPath"
+    exit 1
+}
 
 Write-Info "Ruta de la solución: $SolutionPath"
+Write-Info "Archivo de solución: $($SolutionFile.Name)"
 Write-Info "Ruta del proyecto: $ProjectPath"
 Write-Info "Ruta de salida: $OutputPath"
 Write-Info ""
@@ -76,34 +83,22 @@ if ($CreateBackup -and (Test-Path $OutputPath)) {
 Write-Info ""
 Write-Info "Paso 4: Limpiando solución..."
 Set-Location $SolutionPath
-$SolutionFile = Get-ChildItem -Path $SolutionPath -Filter "*.sln" | Select-Object -First 1
-if ($SolutionFile) {
-    dotnet clean $SolutionFile.FullName -c $Configuration
-    if ($LASTEXITCODE -ne 0) {
-        Write-Error "Error al limpiar la solución."
-        exit 1
-    }
-    Write-Success "✓ Solución limpiada"
+dotnet clean $SolutionFile.FullName -c $Configuration
+if ($LASTEXITCODE -ne 0) {
+    Write-Error "Error al limpiar la solución."
+    exit 1
 }
-else {
-    Write-Warning "No se encontró archivo .sln, omitiendo limpieza..."
-}
+Write-Success "✓ Solución limpiada"
 
 # Paso 5: Restaurar dependencias
 Write-Info ""
 Write-Info "Paso 5: Restaurando dependencias..."
-if ($SolutionFile) {
-    dotnet restore $SolutionFile.FullName
-    if ($LASTEXITCODE -ne 0) {
-        Write-Error "Error al restaurar dependencias."
-        exit 1
-    }
-    Write-Success "✓ Dependencias restauradas"
-}
-else {
-    Write-Error "No se encontró archivo .sln"
+dotnet restore $SolutionFile.FullName
+if ($LASTEXITCODE -ne 0) {
+    Write-Error "Error al restaurar dependencias."
     exit 1
 }
+Write-Success "✓ Dependencias restauradas"
 
 # Paso 6: Ejecutar tests (opcional)
 if (-not $SkipTests) {
