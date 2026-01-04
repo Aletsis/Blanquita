@@ -29,13 +29,16 @@ public class SupervisorRepository : ISupervisorRepository
 
     public async Task<IEnumerable<Supervisor>> GetAllAsync(CancellationToken cancellationToken = default)
     {
-        return await _context.Supervisors.ToListAsync(cancellationToken);
+        return await _context.Supervisors
+            .AsNoTracking()
+            .ToListAsync(cancellationToken);
     }
 
     public async Task<IEnumerable<Supervisor>> GetByBranchAsync(int branchId, CancellationToken cancellationToken = default)
     {
         var id = BranchId.Create(branchId);
         return await _context.Supervisors
+            .AsNoTracking()
             .Where(s => s.BranchId == id)
             .ToListAsync(cancellationToken);
     }
@@ -43,6 +46,7 @@ public class SupervisorRepository : ISupervisorRepository
     public async Task<IEnumerable<Supervisor>> GetActiveAsync(CancellationToken cancellationToken = default)
     {
         return await _context.Supervisors
+            .AsNoTracking()
             .Where(s => s.IsActive)
             .ToListAsync(cancellationToken);
     }

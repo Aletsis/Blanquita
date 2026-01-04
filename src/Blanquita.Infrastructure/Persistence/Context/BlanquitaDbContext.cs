@@ -109,6 +109,20 @@ public class BlanquitaDbContext : IdentityDbContext<ApplicationUser>
                 .HasComputedColumnSql(
                 "CAST([Mil] * 1000 + [Quinientos] * 500 + [Doscientos] * 200 + [Cien] * 100 + [Cincuenta] * 50 + [Veinte] * 20 AS decimal(18,2))");
 
+            // Índices para optimizar consultas frecuentes
+            entity.HasIndex(e => e.CollectionDateTime)
+                .HasDatabaseName("IX_Recolecciones_FechaHora");
+            
+            entity.HasIndex(e => e.CashRegisterName)
+                .HasDatabaseName("IX_Recolecciones_Caja");
+            
+            entity.HasIndex(e => e.IsForCashCut)
+                .HasDatabaseName("IX_Recolecciones_Corte");
+            
+            // Índice compuesto para búsquedas comunes
+            entity.HasIndex(e => new { e.CashRegisterName, e.CollectionDateTime, e.IsForCashCut })
+                .HasDatabaseName("IX_Recolecciones_Caja_FechaHora_Corte");
+
             // entity.HasIndex(e => e.Folio).IsUnique(); // Removed as Folio is now per-register and resets on cut
         });
 
@@ -146,6 +160,20 @@ public class BlanquitaDbContext : IdentityDbContext<ApplicationUser>
                 .HasColumnType("decimal(18,2)")
                 .HasComputedColumnSql(
                 "CAST([TotalM] * 1000 + [TotalQ] * 500 + [TotalD] * 200 + [TotalC] * 100 + [TotalCi] * 50 + [TotalV] * 20 AS decimal(18,2))");
+
+            // Índices para optimizar consultas frecuentes
+            entity.HasIndex(e => e.CutDateTime)
+                .HasDatabaseName("IX_Cortes_FechaHora");
+            
+            entity.HasIndex(e => e.BranchName)
+                .HasDatabaseName("IX_Cortes_Sucursal");
+            
+            entity.HasIndex(e => e.CashRegisterName)
+                .HasDatabaseName("IX_Cortes_Caja");
+            
+            // Índice compuesto para búsquedas por fecha y caja
+            entity.HasIndex(e => new { e.CutDateTime, e.CashRegisterName })
+                .HasDatabaseName("IX_Cortes_FechaHora_Caja");
         });
 
         // Configure Printer
@@ -239,6 +267,16 @@ public class BlanquitaDbContext : IdentityDbContext<ApplicationUser>
                 
             entity.Navigation(e => e.Detalles)
                 .UsePropertyAccessMode(PropertyAccessMode.Field);
+
+            // Índices para optimizar búsquedas
+            entity.HasIndex(e => e.Fecha)
+                .HasDatabaseName("IX_ReportesHistoricos_Fecha");
+            
+            entity.HasIndex(e => e.FechaGeneracion)
+                .HasDatabaseName("IX_ReportesHistoricos_FechaGeneracion");
+            
+            entity.HasIndex(e => new { e.Sucursal, e.Fecha })
+                .HasDatabaseName("IX_ReportesHistoricos_Sucursal_Fecha");
         });
 
         // Configure DetalleReporte

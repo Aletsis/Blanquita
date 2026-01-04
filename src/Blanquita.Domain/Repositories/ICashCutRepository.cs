@@ -1,4 +1,5 @@
 using Blanquita.Domain.Entities;
+using System.Linq;
 
 namespace Blanquita.Domain.Repositories;
 
@@ -9,6 +10,7 @@ public interface ICashCutRepository
     Task<IEnumerable<CashCut>> GetByDateRangeAsync(DateTime startDate, DateTime endDate, CancellationToken cancellationToken = default);
     Task<IEnumerable<CashCut>> GetByBranchAsync(string branchName, CancellationToken cancellationToken = default);
     Task<IEnumerable<CashCut>> GetByCashRegisterAsync(string cashRegisterName, CancellationToken cancellationToken = default);
+    IQueryable<CashCut> GetQueryable(); // Nuevo método para consultas dinámicas
     Task AddAsync(CashCut cashCut, CancellationToken cancellationToken = default);
     Task UpdateAsync(CashCut cashCut, CancellationToken cancellationToken = default);
     Task DeleteAsync(int id, CancellationToken cancellationToken = default);

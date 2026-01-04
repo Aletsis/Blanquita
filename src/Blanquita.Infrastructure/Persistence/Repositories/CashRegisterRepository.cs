@@ -24,19 +24,23 @@ public class CashRegisterRepository : ICashRegisterRepository
     public async Task<CashRegister?> GetByNameAsync(string name, CancellationToken cancellationToken = default)
     {
         return await _context.CashRegisters
+            .AsNoTracking()
             .FirstOrDefaultAsync(c => c.Name == name, cancellationToken);
     }
 
     public async Task<IEnumerable<CashRegister>> GetAllAsync(CancellationToken cancellationToken = default)
     {
-        return await _context.CashRegisters.ToListAsync(cancellationToken);
+        return await _context.CashRegisters
+            .AsNoTracking()
+            .ToListAsync(cancellationToken);
     }
 
     public async Task<IEnumerable<CashRegister>> GetByBranchAsync(int branchId, CancellationToken cancellationToken = default)
     {
         var id = BranchId.Create(branchId);
         return await _context.CashRegisters
-            .Where(c => c.BranchId == id)
+            .AsNoTracking()
+            .Where(r => r.BranchId == id)
             .ToListAsync(cancellationToken);
     }
 

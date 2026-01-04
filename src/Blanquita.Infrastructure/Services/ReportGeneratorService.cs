@@ -58,7 +58,14 @@ public class ReportGeneratorService : IReportGeneratorService
             var documentos = await _documentRepository.GetByDateAndBranchAsync(fecha, 1);
             _logger.LogInformation("Total de documentos encontrados: {Count}", documentos.Count());
 
-            // Paso 3: Agrupar cortes por caja para consolidar datos
+            // Paso 3: Crear índice de documentos por clave compuesta para búsquedas O(1)
+            var documentosIndex = documentos
+                .GroupBy(d => (d.IdDocumento, d.Serie, d.Folio))
+                .ToDictionary(g => g.Key, g => g.First());
+
+            _logger.LogDebug("Índice de documentos creado con {Count} entradas únicas", documentosIndex.Count);
+
+            // Paso 4: Agrupar cortes por caja para consolidar datos
             var cortesPorCaja = cortes.GroupBy(c => c.CashRegisterName);
             _logger.LogInformation("Cajas únicas encontradas: {Count}", cortesPorCaja.Count());
 
@@ -99,13 +106,9 @@ public class ReportGeneratorService : IReportGeneratorService
                         // Solo procesar si no lo hemos visto antes
                         if (!idsDocumentosGlobalesProcesados.Contains(clave))
                         {
-                            var docEncontrado = documentos.FirstOrDefault(d =>
-                                d.IdDocumento == doc.IdDocumento &&
-                                d.Serie == doc.Serie &&
-                                d.Folio == doc.Folio &&
-                                d.Serie == series.SerieGlobal);
-
-                            if (docEncontrado != null)
+                            // Búsqueda O(1) en el diccionario en lugar de O(n) con FirstOrDefault
+                            if (documentosIndex.TryGetValue(clave, out var docEncontrado) 
+                                && docEncontrado.Serie == series.SerieGlobal)
                             {
                                 ventaGlobal += docEncontrado.Total;
                                 idsDocumentosGlobalesProcesados.Add(clave);
@@ -129,13 +132,9 @@ public class ReportGeneratorService : IReportGeneratorService
                         // Solo procesar si no lo hemos visto antes
                         if (!idsDocumentosDevolucionesProcesados.Contains(clave))
                         {
-                            var docEncontrado = documentos.FirstOrDefault(d =>
-                                d.IdDocumento == doc.IdDocumento &&
-                                d.Serie == doc.Serie &&
-                                d.Folio == doc.Folio &&
-                                d.Serie == series.SerieDevolucion);
-
-                            if (docEncontrado != null)
+                            // Búsqueda O(1) en el diccionario en lugar de O(n) con FirstOrDefault
+                            if (documentosIndex.TryGetValue(clave, out var docEncontrado) 
+                                && docEncontrado.Serie == series.SerieDevolucion)
                             {
                                 devolucion += docEncontrado.Total;
                                 idsDocumentosDevolucionesProcesados.Add(clave);

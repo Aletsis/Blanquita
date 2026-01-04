@@ -24,6 +24,7 @@ public class EfReporteHistoricoRepository : IReporteHistoricoRepository
     public async Task<List<ReporteHistorico>> GetAllAsync(CancellationToken cancellationToken = default)
     {
         return await _context.ReportesHistoricos
+            .AsNoTracking()
             .Include(r => r.Detalles)
             .OrderByDescending(r => r.FechaGeneracion)
             .ToListAsync(cancellationToken);
@@ -36,6 +37,7 @@ public class EfReporteHistoricoRepository : IReporteHistoricoRepository
         CancellationToken cancellationToken = default)
     {
         var query = _context.ReportesHistoricos
+            .AsNoTracking()
             .Include(r => r.Detalles)
             .AsQueryable();
 

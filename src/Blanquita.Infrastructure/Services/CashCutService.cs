@@ -1,8 +1,10 @@
 using Blanquita.Application.DTOs;
 using Blanquita.Application.Interfaces;
 using Blanquita.Application.Mappings;
+using Blanquita.Domain.Entities;
 using Blanquita.Domain.Exceptions;
 using Blanquita.Domain.Repositories;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
 namespace Blanquita.Infrastructure.Services;
@@ -60,90 +62,69 @@ public class CashCutService : ICashCutService
             request.CashRegisterName ?? "All",
             request.CashierName ?? "All");
 
-        // Obtener todos los cortes
-        var allCuts = await _repository.GetAllAsync(cancellationToken);
+        // Construir query con filtros a nivel de BD
+        var query = _repository.GetQueryable();
 
         // Aplicar filtro de fecha
         if (request.HasDateFilter())
         {
             var (inicio, fin) = request.GetNormalizedDateRange();
-            allCuts = allCuts.Where(c =>
-                c.CutDateTime >= inicio && c.CutDateTime <= fin);
+            query = query.Where(c => c.CutDateTime >= inicio && c.CutDateTime <= fin);
         }
 
         // Aplicar filtro de sucursal
         if (request.HasSucursalFilter())
         {
             var sucursalNombre = request.Sucursal!.Nombre;
-            allCuts = allCuts.Where(c =>
-                c.BranchName.Equals(sucursalNombre, StringComparison.OrdinalIgnoreCase));
+            query = query.Where(c => c.BranchName == sucursalNombre);
         }
 
         // Aplicar filtro de caja registradora
         if (request.HasCashRegisterFilter())
         {
-            allCuts = allCuts.Where(c =>
-                c.CashRegisterName.Equals(request.CashRegisterName, StringComparison.OrdinalIgnoreCase));
+            query = query.Where(c => c.CashRegisterName == request.CashRegisterName);
         }
 
         // Aplicar filtro de cajera
         if (request.HasCashierFilter())
         {
-            allCuts = allCuts.Where(c =>
-                c.CashierName.Contains(request.CashierName!, StringComparison.OrdinalIgnoreCase));
+            query = query.Where(c => c.CashierName.Contains(request.CashierName!));
         }
 
         // Aplicar filtro de supervisor
         if (request.HasSupervisorFilter())
         {
-            allCuts = allCuts.Where(c =>
-                c.SupervisorName.Contains(request.SupervisorName!, StringComparison.OrdinalIgnoreCase));
+            query = query.Where(c => c.SupervisorName.Contains(request.SupervisorName!));
         }
 
-        // Aplicar filtro de monto
-        if (request.HasAmountFilter())
+        // Nota: El filtro de monto requiere cálculo, se aplicará después de traer los datos
+        // ya que GetGrandTotal() no se puede traducir a SQL
+        var needsAmountFilter = request.HasAmountFilter();
+        var amountRange = needsAmountFilter ? request.GetAmountRange() : (0m, 0m);
+
+        // Aplicar ordenamiento a nivel de BD
+        query = ApplySorting(query, request);
+
+        // Obtener el total antes de paginar (para filtros aplicados en BD)
+        var totalCountBeforeAmountFilter = await query.CountAsync(cancellationToken);
+
+        // Ejecutar query en BD
+        var results = await query.ToListAsync(cancellationToken);
+
+        // Aplicar filtro de monto en memoria (si es necesario)
+        if (needsAmountFilter)
         {
-            var (min, max) = request.GetAmountRange();
-            allCuts = allCuts.Where(c =>
+            var (min, max) = amountRange;
+            results = results.Where(c =>
             {
                 var total = c.GetGrandTotal();
                 return total >= min && total <= max;
-            });
+            }).ToList();
         }
 
-        var results = allCuts.ToList();
         var totalCount = results.Count;
 
-        // Aplicar ordenamiento
-        if (request.HasSorting())
-        {
-            results = request.SortColumn?.ToLower() switch
-            {
-                "cutdatetime" or "date" => request.SortAscending
-                    ? results.OrderBy(c => c.CutDateTime).ToList()
-                    : results.OrderByDescending(c => c.CutDateTime).ToList(),
-                "cashregistername" or "register" => request.SortAscending
-                    ? results.OrderBy(c => c.CashRegisterName).ToList()
-                    : results.OrderByDescending(c => c.CashRegisterName).ToList(),
-                "cashiername" or "cashier" => request.SortAscending
-                    ? results.OrderBy(c => c.CashierName).ToList()
-                    : results.OrderByDescending(c => c.CashierName).ToList(),
-                "supervisorname" or "supervisor" => request.SortAscending
-                    ? results.OrderBy(c => c.SupervisorName).ToList()
-                    : results.OrderByDescending(c => c.SupervisorName).ToList(),
-                "grandtotal" or "total" => request.SortAscending
-                    ? results.OrderBy(c => c.GetGrandTotal()).ToList()
-                    : results.OrderByDescending(c => c.GetGrandTotal()).ToList(),
-                _ => results.OrderByDescending(c => c.CutDateTime).ToList()
-            };
-        }
-        else
-        {
-            // Ordenamiento por defecto: más reciente primero
-            results = results.OrderByDescending(c => c.CutDateTime).ToList();
-        }
-
-        // Aplicar paginación si se especificó
+        // Aplicar paginación en memoria (ya que los datos están filtrados)
         if (request.RequiresPagination())
         {
             results = results
@@ -153,11 +134,43 @@ public class CashCutService : ICashCutService
         }
 
         _logger.LogInformation(
-            "Found {Count} cash cuts matching criteria (Total: {Total})",
+            "Found {Count} cash cuts matching criteria (Total before amount filter: {TotalBefore}, Final: {Total})",
             results.Count,
+            totalCountBeforeAmountFilter,
             totalCount);
 
         return results.Select(c => c.ToDto());
+    }
+
+    private IQueryable<CashCut> ApplySorting(IQueryable<CashCut> query, SearchCashCutRequest request)
+    {
+        if (!request.HasSorting())
+        {
+            // Ordenamiento por defecto: más reciente primero
+            return query.OrderByDescending(c => c.CutDateTime);
+        }
+
+        return request.SortColumn?.ToLower() switch
+        {
+            "cutdatetime" or "date" => request.SortAscending
+                ? query.OrderBy(c => c.CutDateTime)
+                : query.OrderByDescending(c => c.CutDateTime),
+            "cashregistername" or "register" => request.SortAscending
+                ? query.OrderBy(c => c.CashRegisterName)
+                : query.OrderByDescending(c => c.CashRegisterName),
+            "cashiername" or "cashier" => request.SortAscending
+                ? query.OrderBy(c => c.CashierName)
+                : query.OrderByDescending(c => c.CashierName),
+            "supervisorname" or "supervisor" => request.SortAscending
+                ? query.OrderBy(c => c.SupervisorName)
+                : query.OrderByDescending(c => c.SupervisorName),
+            "branchname" or "branch" => request.SortAscending
+                ? query.OrderBy(c => c.BranchName)
+                : query.OrderByDescending(c => c.BranchName),
+            // Nota: grandtotal no se puede ordenar en BD porque es calculado
+            // Se ordenará en memoria si es necesario
+            _ => query.OrderByDescending(c => c.CutDateTime)
+        };
     }
 
     public async Task<CashCutDto> ProcessCashCutAsync(ProcessCashCutRequest request, CancellationToken cancellationToken = default)

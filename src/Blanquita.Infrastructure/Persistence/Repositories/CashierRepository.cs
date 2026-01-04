@@ -24,18 +24,22 @@ public class CashierRepository : ICashierRepository
     public async Task<Cashier?> GetByEmployeeNumberAsync(int employeeNumber, CancellationToken cancellationToken = default)
     {
         return await _context.Cashiers
+            .AsNoTracking() // Added AsNoTracking()
             .FirstOrDefaultAsync(c => c.EmployeeNumber == employeeNumber, cancellationToken);
     }
 
     public async Task<IEnumerable<Cashier>> GetAllAsync(CancellationToken cancellationToken = default)
     {
-        return await _context.Cashiers.ToListAsync(cancellationToken);
+        return await _context.Cashiers
+            .AsNoTracking()
+            .ToListAsync(cancellationToken);
     }
 
     public async Task<IEnumerable<Cashier>> GetByBranchAsync(int branchId, CancellationToken cancellationToken = default)
     {
         var id = BranchId.Create(branchId);
         return await _context.Cashiers
+            .AsNoTracking()
             .Where(c => c.BranchId == id)
             .ToListAsync(cancellationToken);
     }
@@ -43,6 +47,7 @@ public class CashierRepository : ICashierRepository
     public async Task<IEnumerable<Cashier>> GetActiveAsync(CancellationToken cancellationToken = default)
     {
         return await _context.Cashiers
+            .AsNoTracking() // Added AsNoTracking()
             .Where(c => c.IsActive)
             .ToListAsync(cancellationToken);
     }

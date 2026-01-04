@@ -29,6 +29,13 @@ public static class DependencyInjection
                 configuration.GetConnectionString("DefaultConnection"),
                 b => b.MigrationsAssembly(typeof(BlanquitaDbContext).Assembly.FullName)));
 
+        // Memory Cache para optimizar lecturas de FoxPro
+        services.AddMemoryCache(options =>
+        {
+            options.SizeLimit = 1000; // Límite de entradas en caché
+            options.CompactionPercentage = 0.25; // Compactar 25% cuando se alcanza el límite
+        });
+
         // Identity
         services.AddIdentityCore<ApplicationUser>(options => 
         {

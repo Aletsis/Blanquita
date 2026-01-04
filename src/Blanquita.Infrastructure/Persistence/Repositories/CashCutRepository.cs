@@ -23,6 +23,7 @@ public class CashCutRepository : ICashCutRepository
     public async Task<IEnumerable<CashCut>> GetAllAsync(CancellationToken cancellationToken = default)
     {
         return await _context.CashCuts
+            .AsNoTracking()
             .OrderByDescending(c => c.CutDateTime)
             .ToListAsync(cancellationToken);
     }
@@ -30,6 +31,7 @@ public class CashCutRepository : ICashCutRepository
     public async Task<IEnumerable<CashCut>> GetByDateRangeAsync(DateTime startDate, DateTime endDate, CancellationToken cancellationToken = default)
     {
         return await _context.CashCuts
+            .AsNoTracking()
             .Where(c => c.CutDateTime >= startDate && c.CutDateTime <= endDate)
             .OrderByDescending(c => c.CutDateTime)
             .ToListAsync(cancellationToken);
@@ -38,6 +40,7 @@ public class CashCutRepository : ICashCutRepository
     public async Task<IEnumerable<CashCut>> GetByBranchAsync(string branchName, CancellationToken cancellationToken = default)
     {
         return await _context.CashCuts
+            .AsNoTracking()
             .Where(c => c.BranchName == branchName)
             .OrderByDescending(c => c.CutDateTime)
             .ToListAsync(cancellationToken);
@@ -46,9 +49,15 @@ public class CashCutRepository : ICashCutRepository
     public async Task<IEnumerable<CashCut>> GetByCashRegisterAsync(string cashRegisterName, CancellationToken cancellationToken = default)
     {
         return await _context.CashCuts
+            .AsNoTracking()
             .Where(c => c.CashRegisterName == cashRegisterName)
             .OrderByDescending(c => c.CutDateTime)
             .ToListAsync(cancellationToken);
+    }
+
+    public IQueryable<CashCut> GetQueryable()
+    {
+        return _context.CashCuts.AsNoTracking();
     }
 
     public async Task AddAsync(CashCut cashCut, CancellationToken cancellationToken = default)
