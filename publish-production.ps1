@@ -76,34 +76,47 @@ if ($CreateBackup -and (Test-Path $OutputPath)) {
 Write-Info ""
 Write-Info "Paso 4: Limpiando solución..."
 Set-Location $SolutionPath
-dotnet clean -c $Configuration
-if ($LASTEXITCODE -ne 0) {
-    Write-Error "Error al limpiar la solución."
-    exit 1
+$SolutionFile = Get-ChildItem -Path $SolutionPath -Filter "*.sln" | Select-Object -First 1
+if ($SolutionFile) {
+    dotnet clean $SolutionFile.FullName -c $Configuration
+    if ($LASTEXITCODE -ne 0) {
+        Write-Error "Error al limpiar la solución."
+        exit 1
+    }
+    Write-Success "✓ Solución limpiada"
 }
-Write-Success "✓ Solución limpiada"
+else {
+    Write-Warning "No se encontró archivo .sln, omitiendo limpieza..."
+}
 
 # Paso 5: Restaurar dependencias
 Write-Info ""
 Write-Info "Paso 5: Restaurando dependencias..."
-dotnet restore
-if ($LASTEXITCODE -ne 0) {
-    Write-Error "Error al restaurar dependencias."
+if ($SolutionFile) {
+    dotnet restore $SolutionFile.FullName
+    if ($LASTEXITCODE -ne 0) {
+        Write-Error "Error al restaurar dependencias."
+        exit 1
+    }
+    Write-Success "✓ Dependencias restauradas"
+}
+else {
+    Write-Error "No se encontró archivo .sln"
     exit 1
 }
-Write-Success "✓ Dependencias restauradas"
 
 # Paso 6: Ejecutar tests (opcional)
 if (-not $SkipTests) {
     Write-Info ""
     Write-Info "Paso 6: Ejecutando tests..."
-    dotnet test -c $Configuration --no-restore
+    dotnet test $SolutionFile.FullName -c $Configuration --no-restore
     if ($LASTEXITCODE -ne 0) {
         Write-Error "Los tests fallaron. Publicación cancelada."
         exit 1
     }
     Write-Success "✓ Todos los tests pasaron"
-} else {
+}
+else {
     Write-Warning "Paso 6: Tests omitidos (flag -SkipTests activado)"
 }
 
@@ -177,7 +190,8 @@ foreach ($file in $CriticalFiles) {
     $filePath = Join-Path $OutputPath $file
     if (Test-Path $filePath) {
         Write-Success "  ✓ $file"
-    } else {
+    }
+    else {
         Write-Error "  ✗ $file - NO ENCONTRADO"
         $AllFilesExist = $false
     }
