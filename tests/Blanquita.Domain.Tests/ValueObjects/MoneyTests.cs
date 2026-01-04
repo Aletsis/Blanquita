@@ -19,13 +19,17 @@ public class MoneyTests
     }
 
     [Fact]
-    public void Create_NegativeAmount_ShouldThrowException()
+    public void Create_NegativeAmount_ShouldCreateMoney()
     {
         // Arrange
         var amount = -10m;
 
-        // Act & Assert
-        Assert.Throws<ArgumentException>(() => Money.Create(amount));
+        // Act
+        var money = Money.Create(amount);
+
+        // Assert
+        Assert.NotNull(money);
+        Assert.Equal(amount, money.Amount);
     }
 
     [Fact]
