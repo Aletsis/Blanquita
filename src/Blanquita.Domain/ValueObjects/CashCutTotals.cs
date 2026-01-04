@@ -58,21 +58,21 @@ public record CashCutTotals
     }
 
     /// <summary>
-    /// Calcula el efectivo a entregar: Total Tira - Total Recolecciones - Total Tarjetas
+    /// Calcula el efectivo a entregar: Total Tira - Total Tarjetas - Total Recolecciones
     /// </summary>
     public Money CalculateCashToDeliver()
     {
         var collectionsTotal = CalculateCollectionsTotal();
-        var cashToDeliver = TotalSlips.Amount - collectionsTotal.Amount - TotalCards.Amount;
+        var cashToDeliver = TotalSlips.Amount - TotalCards.Amount - collectionsTotal.Amount;
         return Money.Create(cashToDeliver);
     }
 
     /// <summary>
-    /// Calcula el gran total del corte de caja (Total de Tira)
-    /// Este es el monto total de ventas registrado en el día
+    /// Calcula el gran total del corte de caja (Total de Recolecciones)
+    /// Este es el monto total de efectivo recolectado durante el día
     /// </summary>
     public Money CalculateGrandTotal()
     {
-        return TotalSlips;
+        return CalculateCollectionsTotal();
     }
 }

@@ -376,11 +376,11 @@
     }
 
     /// <summary>
-    /// Calcula el efectivo a entregar: Total Tira - Total Recolecciones - Total Tarjetas
+    /// Calcula el efectivo a entregar: Total Tira - Total Tarjetas - Total Recolecciones
     /// </summary>
     private decimal CalculateCashToDeliver()
     {
-        return model.TotalSlips - _totalCollections - model.TotalCards;
+        return model.TotalSlips - model.TotalCards - _totalCollections;
     }
 
     public class CashCutViewModel

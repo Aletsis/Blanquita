@@ -114,7 +114,7 @@ public class PrinterCommandBuilder
         cmds.AddRange(Text($"TOTAL TIRA:                   {FormatMoney(cashCut.TotalSlips)}\n"));
         cmds.AddRange(Text($"TOTAL TARJETAS:               {FormatMoney(cashCut.TotalCards)}\n\n"));
 
-        decimal efectivo = cashCut.TotalSlips - (cashCut.TotalCards + cashCut.GrandTotal);
+        decimal efectivo = cashCut.TotalSlips - cashCut.TotalCards - cashCut.GrandTotal;
         cmds.AddRange(Text($"EFECTIVO A ENTREGAR:          {FormatMoney(efectivo)}\n\n\n\n"));
 
         cmds.AddRange(BoldOff());

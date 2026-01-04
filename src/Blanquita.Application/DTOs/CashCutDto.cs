@@ -18,7 +18,7 @@ public record CashCutDto
     public decimal CollectionsTotal { get; init; }
     
     /// <summary>
-    /// Efectivo a entregar = Total Tira - Total Recolecciones - Total Tarjetas
+    /// Efectivo a entregar = Total Tira - Total Tarjetas - Total Recolecciones
     /// </summary>
     public decimal CashToDeliver { get; init; }
     
