@@ -21,7 +21,7 @@ Write-Info ""
 
 # Obtener la ruta del script
 $ScriptPath = Split-Path -Parent $MyInvocation.MyCommand.Path
-$SolutionPath = Split-Path -Parent $ScriptPath
+$SolutionPath = $ScriptPath  # El script está en la raíz del repositorio
 $ProjectPath = Join-Path $SolutionPath "src\Blanquita.Web"
 $SolutionFile = Get-ChildItem -Path $SolutionPath -Filter "*.sln" | Select-Object -First 1
 
