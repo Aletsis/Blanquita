@@ -43,22 +43,24 @@ public class CashCutTests
     [Fact]
     public void GetGrandTotal_ShouldCalculateCorrectly()
     {
-        // Totals from cash: 1*1000 + 0... = 1000
+        // Grand Total should be TotalSlips (total sales)
+        // Collections: 1*1000 = 1000
         // Slips: 50
         // Cards: 100
-        // GetGrandTotal wraps CalculateGrandTotal which wraps CalculateCollectionsTotal (cash only)
+        // GetGrandTotal should return TotalSlips (50)
         
         var cashCut = CashCut.Create(1, 0, 0, 0, 0, 0, 50m, 100m, "R", "S", "C", "B");
         
         var grandTotal = cashCut.GetGrandTotal();
         
-        Assert.Equal(1000m, grandTotal.Amount);
+        Assert.Equal(50m, grandTotal.Amount);
     }
 
     [Fact]
     public void IsValid_ShouldReturnTrue_WhenTotalGreaterThanZero()
     {
-        var cashCut = CashCut.Create(1, 0, 0, 0, 0, 0, 0, 0, "R", "S", "C", "B");
+        // IsValid checks if GrandTotal (TotalSlips) > 0
+        var cashCut = CashCut.Create(1, 0, 0, 0, 0, 0, 100m, 0, "R", "S", "C", "B");
         Assert.True(cashCut.IsValid());
     }
 

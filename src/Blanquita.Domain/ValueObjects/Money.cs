@@ -11,9 +11,6 @@ public record Money
 
     public static Money Create(decimal amount)
     {
-        if (amount < 0)
-            throw new ArgumentException("Money amount cannot be negative", nameof(amount));
-
         return new Money(amount);
     }
 

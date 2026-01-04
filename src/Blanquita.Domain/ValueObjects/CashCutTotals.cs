@@ -68,12 +68,11 @@ public record CashCutTotals
     }
 
     /// <summary>
-    /// DEPRECATED: Use CalculateCollectionsTotal() instead
-    /// Mantenido por compatibilidad temporal
+    /// Calcula el gran total del corte de caja (Total de Tira)
+    /// Este es el monto total de ventas registrado en el día
     /// </summary>
-    [Obsolete("Use CalculateCollectionsTotal() instead")]
     public Money CalculateGrandTotal()
     {
-        return CalculateCollectionsTotal();
+        return TotalSlips;
     }
 }

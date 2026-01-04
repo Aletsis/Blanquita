@@ -62,4 +62,27 @@ public class CashCutTotalsTests
         
         Assert.Equal(5000m - 3370m - 1000m, result.Amount); // 630
     }
+
+    [Fact]
+    public void CalculateGrandTotal_ShouldReturnTotalSlips()
+    {
+        // Grand Total should be the total sales (TotalSlips)
+        // This allows cash cuts to be created even when there are no cash collections
+        var totals = CashCutTotals.Create(0, 0, 0, 0, 0, 0, 200000m, 45m);
+        
+        var grandTotal = totals.CalculateGrandTotal();
+        
+        Assert.Equal(200000m, grandTotal.Amount);
+    }
+
+    [Fact]
+    public void CalculateGrandTotal_WithCollectionsAndSlips_ShouldReturnTotalSlips()
+    {
+        // Even when there are collections, grand total should still be TotalSlips
+        var totals = CashCutTotals.Create(1, 2, 3, 4, 5, 6, 5000m, 1000m);
+        
+        var grandTotal = totals.CalculateGrandTotal();
+        
+        Assert.Equal(5000m, grandTotal.Amount);
+    }
 }
