@@ -27,6 +27,12 @@
                     <MudSelectItem T="int" Value="@sucursal.Id">@sucursal.Name</MudSelectItem>
                 }
             </MudSelect>
+
+            <MudTextField @bind-Value="Model.Serie" 
+                         Label="Serie de caja" 
+                         Variant="Variant.Outlined" 
+                         Class="mb-3"
+                         HelperText="Serie para identificar tickets emitidos por esta caja" />
             
             <MudTextField @bind-Value="Model.PrinterIp" 
                          Label="IP de Impresora" 
@@ -100,6 +106,8 @@
         
         [Required(ErrorMessage = "El nombre es obligatorio")]
         public string Name { get; set; } = string.Empty;
+
+        public string Serie { get; set; } = string.Empty;
         
         public string PrinterIp { get; set; } = string.Empty;
         

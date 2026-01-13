@@ -23,6 +23,7 @@ public class BlanquitaDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<LabelDesign> LabelDesigns { get; set; } = null!;
     public DbSet<LabelElement> LabelElements { get; set; } = null!;
     public DbSet<ReporteHistorico> ReportesHistoricos { get; set; } = null!;
+    public DbSet<Branch> Branches { get; set; } = null!;
     public DbSet<DetalleReporte> DetallesReporte { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -31,6 +32,17 @@ public class BlanquitaDbContext : IdentityDbContext<ApplicationUser>
 
         // Apply all configurations from the assembly
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(BlanquitaDbContext).Assembly);
+
+        // Configure Branch
+        modelBuilder.Entity<Branch>(entity =>
+        {
+            entity.ToTable("Sucursales"); // Table name "Sucursales"
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Name).HasMaxLength(100).IsRequired();
+            entity.Property(e => e.SeriesCliente).HasMaxLength(50);
+            entity.Property(e => e.SeriesGlobal).HasMaxLength(50);
+            entity.Property(e => e.SeriesDevolucion).HasMaxLength(50);
+        });
 
         // Value converters for Value Objects
         var branchIdConverter = new ValueConverter<BranchId, int>(
@@ -59,6 +71,7 @@ public class BlanquitaDbContext : IdentityDbContext<ApplicationUser>
             entity.ToTable("Cajas");
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Name).HasColumnName("Nombre").IsRequired().HasMaxLength(200);
+            entity.Property(e => e.Serie).HasColumnName("Serie").HasMaxLength(20);
             entity.Property(e => e.BranchId).HasColumnName("Sucursal").HasConversion(branchIdConverter).IsRequired();
             entity.Property(e => e.IsLastRegister).HasColumnName("Ultima").IsRequired();
             
@@ -67,6 +80,8 @@ public class BlanquitaDbContext : IdentityDbContext<ApplicationUser>
                 printerConfig.Property(p => p.IpAddress).HasColumnName("IpImpresora").IsRequired().HasMaxLength(50);
                 printerConfig.Property(p => p.Port).HasColumnName("Port").IsRequired();
             });
+
+
 
             entity.HasIndex(e => e.Name).IsUnique();
         });

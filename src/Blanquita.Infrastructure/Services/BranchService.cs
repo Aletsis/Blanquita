@@ -1,27 +1,112 @@
 using Blanquita.Application.DTOs;
 using Blanquita.Application.Interfaces;
+using Blanquita.Domain.Entities;
+using Blanquita.Infrastructure.Persistence.Context;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace Blanquita.Infrastructure.Services;
 
 public class BranchService : IBranchService
 {
-    private readonly List<BranchDto> _branches = new()
-    {
-        new BranchDto { Id = 6, Name = "Himno Nacional" },
-        new BranchDto { Id = 7, Name = "Pozos" },
-        new BranchDto { Id = 8, Name = "Soledad" },
-        new BranchDto { Id = 9, Name = "Saucito" },
-        new BranchDto { Id = 10, Name = "Chapultepec" }
-    };
+    private readonly BlanquitaDbContext _context;
+    private readonly ILogger<BranchService> _logger;
 
-    public Task<IEnumerable<BranchDto>> GetAllAsync(CancellationToken cancellationToken = default)
+    public BranchService(BlanquitaDbContext context, ILogger<BranchService> logger)
     {
-        return Task.FromResult<IEnumerable<BranchDto>>(_branches);
+        _context = context;
+        _logger = logger;
     }
 
-    public Task<BranchDto?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
+    public async Task<IEnumerable<BranchDto>> GetAllAsync(CancellationToken cancellationToken = default)
     {
-        var branch = _branches.FirstOrDefault(b => b.Id == id);
-        return Task.FromResult(branch);
+        try
+        {
+            return await _context.Branches
+                .Select(b => new BranchDto
+                {
+                    Id = b.Id,
+                    Name = b.Name,
+                    SeriesCliente = b.SeriesCliente,
+                    SeriesGlobal = b.SeriesGlobal,
+                    SeriesDevolucion = b.SeriesDevolucion
+                })
+                .ToListAsync(cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting all branches");
+            throw;
+        }
+    }
+
+    public async Task<BranchDto?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var branch = await _context.Branches.FindAsync(new object?[] { id }, cancellationToken);
+            if (branch == null) return null;
+
+            return new BranchDto
+            {
+                Id = branch.Id,
+                Name = branch.Name,
+                SeriesCliente = branch.SeriesCliente,
+                SeriesGlobal = branch.SeriesGlobal,
+                SeriesDevolucion = branch.SeriesDevolucion
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting branch by id {Id}", id);
+            throw;
+        }
+    }
+
+    public async Task<BranchDto> CreateAsync(BranchDto branchDto, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var branch = Branch.Create(
+                branchDto.Name, 
+                branchDto.SeriesCliente, 
+                branchDto.SeriesGlobal, 
+                branchDto.SeriesDevolucion
+            );
+
+            _context.Branches.Add(branch);
+            await _context.SaveChangesAsync(cancellationToken);
+
+            branchDto.Id = branch.Id;
+            return branchDto;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error creating branch");
+            throw;
+        }
+    }
+
+    public async Task UpdateAsync(BranchDto branchDto, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var branch = await _context.Branches.FindAsync(new object?[] { branchDto.Id }, cancellationToken);
+            if (branch == null) throw new KeyNotFoundException($"Branch with id {branchDto.Id} not found");
+
+            branch.Update(
+                branchDto.Name, 
+                branchDto.SeriesCliente, 
+                branchDto.SeriesGlobal, 
+                branchDto.SeriesDevolucion
+            );
+
+            await _context.SaveChangesAsync(cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error updating branch {Id}", branchDto.Id);
+            throw;
+        }
     }
 }

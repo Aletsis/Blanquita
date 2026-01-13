@@ -281,6 +281,81 @@
         </MudItem>
 
         <MudItem xs="12">
+            <MudCard Elevation="4" Class="rounded-lg animate-slide-up" Style="animation-delay: 0.15s;">
+                <MudCardHeader>
+                    <CardHeaderContent>
+                        <MudText Typo="Typo.h6" Color="Color.Primary">
+                            <MudIcon Icon="@Icons.Material.Filled.Store" Class="mr-2" />
+                            Gestión de Sucursales
+                        </MudText>
+                    </CardHeaderContent>
+                    <CardHeaderActions>
+                        <MudIconButton Icon="@(_sucursalesConfigExpanded ? Icons.Material.Filled.ExpandLess : Icons.Material.Filled.ExpandMore)" 
+                                      Color="Color.Default" 
+                                      OnClick="ExpandSucursalesConfig" />
+                    </CardHeaderActions>
+                </MudCardHeader>
+                <MudCardContent>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
+                        Gestione las sucursales y sus series de facturación.
+                    </MudText>
+                    <MudCollapse Expanded="_sucursalesConfigExpanded">
+                        <MudTable Items="@sucursales" 
+                                 Hover="true" 
+                                 Breakpoint="Breakpoint.Sm" 
+                                 Elevation="0"
+                                 Striped="true">
+                            <ToolBarContent>
+                                <MudText Typo="Typo.h6">
+                                    <MudIcon Icon="@Icons.Material.Filled.Store" Size="Size.Small" Class="mr-2" />
+                                    Sucursales Registradas
+                                </MudText>
+                                <MudSpacer />
+                                <MudButton Variant="Variant.Filled" 
+                                          StartIcon="@Icons.Material.Filled.Add" 
+                                          Color="Color.Primary" 
+                                          OnClick="() => AbrirDialogoSucursal()">
+                                    Nueva Sucursal
+                                </MudButton>
+                            </ToolBarContent>
+                            <HeaderContent>
+                                <MudTh>Nombre</MudTh>
+                                <MudTh>Serie Cliente</MudTh>
+                                <MudTh>Serie Global</MudTh>
+                                <MudTh>Serie Devolución</MudTh>
+                                <MudTh Style="text-align: center;">Acciones</MudTh>
+                            </HeaderContent>
+                            <RowTemplate>
+                                <MudTd DataLabel="Nombre">
+                                    <div class="d-flex align-center">
+                                        <MudIcon Icon="@Icons.Material.Filled.Store" Size="Size.Small" Class="mr-2" />
+                                        <MudText Typo="Typo.body2" Class="font-weight-bold">@context.Name</MudText>
+                                    </div>
+                                </MudTd>
+                                <MudTd DataLabel="Serie Cliente">@context.SeriesCliente</MudTd>
+                                <MudTd DataLabel="Serie Global">@context.SeriesGlobal</MudTd>
+                                <MudTd DataLabel="Serie Devolución">@context.SeriesDevolucion</MudTd>
+                                <MudTd DataLabel="Acciones" Style="text-align: center;">
+                                    <MudTooltip Text="Editar sucursal">
+                                        <MudIconButton Icon="@Icons.Material.Filled.Edit" 
+                                                      Size="Size.Small" 
+                                                      Color="Color.Primary" 
+                                                      OnClick="() => AbrirDialogoSucursal(context)" />
+                                    </MudTooltip>
+                                </MudTd>
+                            </RowTemplate>
+                            <NoRecordsContent>
+                                <MudPaper Elevation="0" Class="pa-8 d-flex flex-column align-center justify-center bg-transparent">
+                                    <MudText Typo="Typo.body2" Class="text-muted">No hay sucursales registradas</MudText>
+                                </MudPaper>
+                            </NoRecordsContent>
+                        </MudTable>
+                    </MudCollapse>
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+
+        <MudItem xs="12">
             <MudCard Elevation="4" Class="rounded-lg animate-slide-up" Style="animation-delay: 0.2s;">
                 <MudCardHeader>
                     <CardHeaderContent>
@@ -424,7 +499,9 @@
     private bool _loadingPrinters = false;
     private bool _zebraConfigExpanded = false;
     private bool _dbfConfigExpanded = false;
+
     private bool _cajasConfigExpanded = false;
+    private bool _sucursalesConfigExpanded = false;
     private bool _isInitialized = false;
 
     // Variables para gestión de cajas
@@ -454,6 +531,7 @@
     private void ExpandZebraConfig() => _zebraConfigExpanded = !_zebraConfigExpanded;
     private void ExpandDbfConfig() => _dbfConfigExpanded = !_dbfConfigExpanded;
     private void ExpandCajasConfig() => _cajasConfigExpanded = !_cajasConfigExpanded;
+    private void ExpandSucursalesConfig() => _sucursalesConfigExpanded = !_sucursalesConfigExpanded;
 
     private async Task AbrirDialogoArchivo(TipoArchivoDbf tipoArchivo)
     {
@@ -637,6 +715,56 @@
     private void EstablecerRutaPorTipo(TipoArchivoDbf tipo, string ruta) => _configuracion.EstablecerRutaPorTipo(tipo, ruta);
     private bool ValidarRuta(string ruta) => ConfigService.ValidarRutaArchivo(ruta);
 
+
+
+    // ===== Métodos para gestión de sucursales =====
+    private async Task AbrirDialogoSucursal(BranchDto? sucursal = null)
+    {
+        var parameters = new DialogParameters();
+        if (sucursal != null)
+        {
+            parameters.Add("Model", new BranchDto 
+            { 
+                Id = sucursal.Id, 
+                Name = sucursal.Name, 
+                SeriesCliente = sucursal.SeriesCliente,
+                SeriesGlobal = sucursal.SeriesGlobal,
+                SeriesDevolucion = sucursal.SeriesDevolucion
+            });
+        }
+
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Small, FullWidth = true };
+        var title = sucursal == null ? "Nueva Sucursal" : "Editar Sucursal";
+        var dialog = await DialogService.ShowAsync<DialogoSucursal>(title, parameters, options);
+        var result = await dialog.Result;
+
+        if (!result.Canceled && result.Data is BranchDto branchResult)
+        {
+            try
+            {
+                if (sucursal == null)
+                {
+                    await BranchService.CreateAsync(branchResult);
+                    Snackbar.Add("Sucursal agregada exitosamente", Severity.Success);
+                }
+                else
+                {
+                    await BranchService.UpdateAsync(branchResult);
+                    Snackbar.Add("Sucursal actualizada exitosamente", Severity.Success);
+                }
+                
+                // Recargar lista
+                sucursales = await BranchService.GetAllAsync();
+                StateHasChanged();
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError(ex, "Error al guardar sucursal");
+                Snackbar.Add($"Error al guardar: {ex.Message}", Severity.Error);
+            }
+        }
+    }
+
     // ===== Métodos para gestión de cajas =====
     
     private string GetSucursalName(int id) => sucursales.FirstOrDefault(s => s.Id == id)?.Name ?? id.ToString();
@@ -650,6 +778,7 @@
             {
                 Id = caja.Id,
                 Name = caja.Name,
+                Serie = caja.Serie,
                 PrinterIp = caja.PrinterIp,
                 PrinterPort = caja.PrinterPort,
                 BranchId = caja.BranchId,
@@ -671,6 +800,7 @@
                     var createDto = new CreateCashRegisterDto
                     {
                         Name = cajaResult.Name,
+                        Serie = cajaResult.Serie,
                         PrinterIp = cajaResult.PrinterIp,
                         PrinterPort = cajaResult.PrinterPort,
                         BranchId = cajaResult.BranchId,
@@ -685,6 +815,7 @@
                     {
                         Id = cajaResult.Id,
                         Name = cajaResult.Name,
+                        Serie = cajaResult.Serie,
                         PrinterIp = cajaResult.PrinterIp,
                         PrinterPort = cajaResult.PrinterPort,
                         BranchId = cajaResult.BranchId,

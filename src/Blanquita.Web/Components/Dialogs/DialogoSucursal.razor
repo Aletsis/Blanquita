@@ -1,0 +1,65 @@
+@using Blanquita.Application.DTOs
+@using Microsoft.AspNetCore.Components.Forms
+@using System.ComponentModel.DataAnnotations
+@inject ISnackbar Snackbar
+@inject IBranchService BranchService
+@inject ILogger<DialogoSucursal> Logger
+
+<MudDialog>
+    <DialogContent>
+        <MudForm @ref="form" Model="@Model" @bind-IsValid="@success">
+            <MudTextField @bind-Value="Model.Name" 
+                         Label="Nombre de sucursal" 
+                         Required="true" 
+                         RequiredError="El nombre es obligatorio" 
+                         Variant="Variant.Outlined" 
+                         Class="mb-3" />
+            
+            <MudTextField @bind-Value="Model.SeriesCliente" 
+                         Label="Serie Clientes" 
+                         Variant="Variant.Outlined" 
+                         Class="mb-3" 
+                         HelperText="Serie para facturas de clientes (ej. A, B)" />
+                         
+            <MudTextField @bind-Value="Model.SeriesGlobal" 
+                         Label="Serie Global" 
+                         Variant="Variant.Outlined" 
+                         Class="mb-3" 
+                         HelperText="Serie para facturas de venta global" />
+                         
+            <MudTextField @bind-Value="Model.SeriesDevolucion" 
+                         Label="Serie Devolución" 
+                         Variant="Variant.Outlined" 
+                         Class="mb-3" 
+                         HelperText="Serie para notas de devolución" />
+        </MudForm>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel" Variant="Variant.Outlined">Cancelar</MudButton>
+        <MudButton Color="Color.Primary" 
+                   OnClick="Submit" 
+                   Variant="Variant.Filled"
+                   StartIcon="@Icons.Material.Filled.Save">
+            Guardar
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] IMudDialogInstance MudDialog { get; set; }
+    [Parameter] public BranchDto Model { get; set; } = new();
+
+    private MudForm form;
+    private bool success;
+
+    private void Cancel() => MudDialog.Cancel();
+
+    private async Task Submit()
+    {
+        await form.Validate();
+        if (form.IsValid)
+        {
+            MudDialog.Close(DialogResult.Ok(Model));
+        }
+    }
+}

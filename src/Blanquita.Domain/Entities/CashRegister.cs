@@ -8,6 +8,7 @@ namespace Blanquita.Domain.Entities;
 public class CashRegister : BaseEntity
 {
     public string Name { get; private set; }
+    public string Serie { get; private set; }
     public PrinterConfiguration PrinterConfig { get; private set; }
     public BranchId BranchId { get; private set; }
     public bool IsLastRegister { get; private set; }
@@ -15,23 +16,24 @@ public class CashRegister : BaseEntity
     // EF Core constructor
     private CashRegister() { }
 
-    private CashRegister(string name, PrinterConfiguration printerConfig, BranchId branchId, bool isLastRegister = false)
+    private CashRegister(string name, string serie, PrinterConfiguration printerConfig, BranchId branchId, bool isLastRegister = false)
     {
         Name = name;
+        Serie = serie;
         PrinterConfig = printerConfig;
         BranchId = branchId;
         IsLastRegister = isLastRegister;
     }
 
-    public static CashRegister Create(string name, string printerIp, int printerPort, int branchId, bool isLastRegister = false)
+    public static CashRegister Create(string name, string serie, string printerIp, int printerPort, int branchId, bool isLastRegister = false)
     {
         if (string.IsNullOrWhiteSpace(name))
             throw new ArgumentException("Name cannot be empty", nameof(name));
-
+        
         var printerConfig = PrinterConfiguration.Create(printerIp, printerPort);
         var branch = BranchId.Create(branchId);
 
-        return new CashRegister(name, printerConfig, branch, isLastRegister);
+        return new CashRegister(name, serie ?? string.Empty, printerConfig, branch, isLastRegister);
     }
 
     public void UpdateName(string name)
@@ -40,6 +42,11 @@ public class CashRegister : BaseEntity
             throw new ArgumentException("Name cannot be empty", nameof(name));
 
         Name = name;
+    }
+
+    public void UpdateSerie(string serie)
+    {
+        Serie = serie ?? string.Empty;
     }
 
     public void UpdatePrinterConfiguration(string printerIp, int printerPort)
