@@ -49,6 +49,14 @@ public sealed class Sucursal : IEquatable<Sucursal>
     }
 
     /// <summary>
+    /// Crea una instancia de Sucursal con código y nombre personalizados.
+    /// </summary>
+    public static Sucursal Create(string codigo, string nombre)
+    {
+        return new Sucursal(codigo, nombre);
+    }
+
+    /// <summary>
     /// Crea una instancia de Sucursal a partir de su código.
     /// </summary>
     public static Sucursal? FromCodigo(string codigo)

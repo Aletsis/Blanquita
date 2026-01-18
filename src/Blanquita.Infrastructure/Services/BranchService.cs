@@ -27,6 +27,7 @@ public class BranchService : IBranchService
                 {
                     Id = b.Id,
                     Name = b.Name,
+                    Code = b.Code,
                     SeriesCliente = b.SeriesCliente,
                     SeriesGlobal = b.SeriesGlobal,
                     SeriesDevolucion = b.SeriesDevolucion
@@ -51,6 +52,7 @@ public class BranchService : IBranchService
             {
                 Id = branch.Id,
                 Name = branch.Name,
+                Code = branch.Code,
                 SeriesCliente = branch.SeriesCliente,
                 SeriesGlobal = branch.SeriesGlobal,
                 SeriesDevolucion = branch.SeriesDevolucion
@@ -69,6 +71,7 @@ public class BranchService : IBranchService
         {
             var branch = Branch.Create(
                 branchDto.Name, 
+                branchDto.Code,
                 branchDto.SeriesCliente, 
                 branchDto.SeriesGlobal, 
                 branchDto.SeriesDevolucion
@@ -96,6 +99,7 @@ public class BranchService : IBranchService
 
             branch.Update(
                 branchDto.Name, 
+                branchDto.Code,
                 branchDto.SeriesCliente, 
                 branchDto.SeriesGlobal, 
                 branchDto.SeriesDevolucion

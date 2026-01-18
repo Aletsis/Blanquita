@@ -21,7 +21,7 @@ public static class DbfReaderFactory
     /// <returns>Instancia de DbfDataReader</returns>
     public static DbfDataReader.DbfDataReader CreateReader(string filePath)
     {
-        var stream = File.OpenRead(filePath);
+        var stream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
         return new DbfDataReader.DbfDataReader(stream, DefaultOptions);
     }
 
@@ -43,7 +43,7 @@ public static class DbfReaderFactory
     /// <returns>Instancia de DbfDataReader</returns>
     public static DbfDataReader.DbfDataReader CreateReader(string filePath, DbfDataReaderOptions options)
     {
-        var stream = File.OpenRead(filePath);
+        var stream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
         return new DbfDataReader.DbfDataReader(stream, options);
     }
 }

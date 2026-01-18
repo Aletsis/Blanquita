@@ -63,7 +63,7 @@ public class FoxProDiagnosticService : IFoxProDiagnosticService
 
             try
             {
-                using var stream = File.OpenRead(path);
+                using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
                 var options = new DbfDataReaderOptions { Encoding = Encoding.GetEncoding(28591) };
                 
                 resultado.Logs.Add($"[{DateTime.Now:HH:mm:ss}] Intentando abrir conexión DBF...");
@@ -145,7 +145,7 @@ public class FoxProDiagnosticService : IFoxProDiagnosticService
 
             try
             {
-                using var stream = File.OpenRead(path);
+                using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
                 var options = new DbfDataReaderOptions { Encoding = Encoding.GetEncoding(28591) };
                 using var reader = new DbfDataReader.DbfDataReader(stream, options);
 

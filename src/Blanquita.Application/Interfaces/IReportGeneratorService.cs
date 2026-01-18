@@ -11,8 +11,8 @@ public interface IReportGeneratorService
     /// <summary>
     /// Genera los datos del reporte para una sucursal y fecha específica.
     /// </summary>
-    /// <param name="sucursal">Nombre de la sucursal</param>
+    /// <param name="sucursal">Sucursal seleccionada</param>
     /// <param name="fecha">Fecha del reporte</param>
     /// <returns>Lista de filas del reporte con los totales por caja</returns>
-    Task<List<ReportRowDto>> GenerarReportDataAsync(string sucursal, DateTime fecha);
+    Task<List<ReportRowDto>> GenerarReportDataAsync(BranchDto sucursal, DateTime fecha);
 }

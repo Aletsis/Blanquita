@@ -15,6 +15,7 @@
 @inject IDialogService DialogService
 @inject IJSRuntime JS
 @inject ILogger<Reportes> Logger
+@inject IBranchService BranchService
 
 <PageTitle>Generar Reportes - Sistema de Reportes</PageTitle>
 
@@ -34,17 +35,20 @@
                         Parámetros del Reporte
                     </MudText>
 
-                    <MudSelect @bind-Value="sucursalSeleccionada"
+                    <MudSelect T="BranchDto" @bind-Value="sucursalSeleccionada"
                                Label="Sucursal"
                                Variant="Variant.Outlined"
                                Required="true"
                                Class="mb-3"
+                               ToStringFunc="@(b => b?.Name)"
                                AnchorOrigin="Origin.BottomCenter">
-                        <MudSelectItem Value="@("Himno")">Himno</MudSelectItem>
-                        <MudSelectItem Value="@("Pozos")">Pozos</MudSelectItem>
-                        <MudSelectItem Value="@("Soledad")">Soledad</MudSelectItem>
-                        <MudSelectItem Value="@("Saucito")">Saucito</MudSelectItem>
-                        <MudSelectItem Value="@("Chapultepec")">Chapultepec</MudSelectItem>
+                        @if (sucursales != null)
+                        {
+                            @foreach (var suc in sucursales)
+                            {
+                                <MudSelectItem Value="@suc">@suc.Name</MudSelectItem>
+                            }
+                        }
                     </MudSelect>
 
                     <MudDatePicker @bind-Date="fechaSeleccionada"
@@ -61,7 +65,7 @@
                                FullWidth="true"
                                StartIcon="@Icons.Material.Filled.PlayArrow"
                                OnClick="GenerarReporte"
-                               Disabled="@(generando || string.IsNullOrEmpty(sucursalSeleccionada) || fechaSeleccionada == null)"
+                               Disabled="@(generando || sucursalSeleccionada == null || fechaSeleccionada == null)"
                                Size="Size.Large"
                                Class="py-2">
                         @if (generando)
@@ -131,7 +135,7 @@
                         <MudProgressCircular Size="Size.Large" Indeterminate="true" Color="Color.Primary" />
                         <MudText Typo="Typo.h6" Class="mt-4">Generando reporte...</MudText>
                         <MudText Typo="Typo.body2" Color="Color.Secondary">
-                            Procesando datos de @sucursalSeleccionada para @fechaSeleccionada?.ToString("dd/MM/yyyy")
+                            Procesando datos de @sucursalSeleccionada?.Name para @fechaSeleccionada?.ToString("dd/MM/yyyy")
                         </MudText>
                     </MudCardContent>
                 </MudCard>
@@ -143,7 +147,7 @@
                         <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-3">
                             <MudText Typo="Typo.h6" Color="Color.Primary">
                                 <MudIcon Icon="@Icons.Material.Filled.TableChart" Class="mr-2" />
-                                Resultados - @sucursalSeleccionada (@fechaSeleccionada?.ToString("dd/MM/yyyy"))
+                                Resultados - @sucursalSeleccionada?.Name (@fechaSeleccionada?.ToString("dd/MM/yyyy"))
                             </MudText>
 
                             <MudStack Row="true" Spacing="2">
@@ -238,7 +242,7 @@
                         else
                         {
                             <MudAlert Severity="Severity.Info" Class="mt-2 rounded-lg">
-                                No se encontraron datos para la sucursal <strong>@sucursalSeleccionada</strong> en la fecha <strong>@fechaSeleccionada?.ToString("dd/MM/yyyy")</strong>
+                                No se encontraron datos para la sucursal <strong>@sucursalSeleccionada?.Name</strong> en la fecha <strong>@fechaSeleccionada?.ToString("dd/MM/yyyy")</strong>
                             </MudAlert>
                         }
                     </MudCardContent>
@@ -284,7 +288,8 @@
 
 
 @code {
-    private string sucursalSeleccionada = "Himno";
+    private BranchDto? sucursalSeleccionada;
+    private IEnumerable<BranchDto> sucursales = new List<BranchDto>();
     private DateTime? fechaSeleccionada = DateTime.Today;
     private bool generando = false;
     private bool guardando = false;
@@ -295,9 +300,26 @@
     private decimal? totalCorteManual;
     private string notasReporte = "";
 
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            sucursales = await BranchService.GetAllAsync();
+            if (sucursales.Any())
+            {
+                sucursalSeleccionada = sucursales.FirstOrDefault(s => s.Name == "Himno") ?? sucursales.First();
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add("Error al cargar sucursales", Severity.Error);
+        }
+    }
+
     private async Task GenerarReporte()
     {
-        if (string.IsNullOrEmpty(sucursalSeleccionada) || fechaSeleccionada == null)
+        if (sucursalSeleccionada == null || fechaSeleccionada == null)
         {
             Snackbar.Add("Debe seleccionar una sucursal y una fecha", Severity.Warning);
             return;
@@ -319,7 +341,7 @@
 
         try
         {
-            datosReporte = await ReportGeneratorService.GenerarReportDataAsync(sucursalSeleccionada, fechaSeleccionada.Value);
+            datosReporte = await ReportGeneratorService.GenerarReportDataAsync(sucursalSeleccionada!, fechaSeleccionada.Value);
 
             if (datosReporte != null && datosReporte.Any())
             {
@@ -380,7 +402,7 @@
         // Mostrar diálogo de confirmación
         var parameters = new DialogParameters
         {
-            { "Sucursal", sucursalSeleccionada },
+            { "Sucursal", sucursalSeleccionada?.Name },
             { "Fecha", fechaSeleccionada?.ToString("dd/MM/yyyy") },
             { "TotalSistema", totalSistema },
             { "TotalManual", totalCorteManual },
@@ -399,7 +421,7 @@
 
         try
         {
-            var sucursal = Sucursal.FromNombre(sucursalSeleccionada) ?? Sucursal.Himno;
+            var sucursal = Sucursal.Create(sucursalSeleccionada!.Code, sucursalSeleccionada.Name);
             var detalles = datosReporte.Select(d => DetalleReporte.Crear(
                 d.Fecha, 
                 d.Caja, 
@@ -451,7 +473,7 @@
         try
         {
             var contenido = await ExportService.ExportToExcelAsync(datosReporte, "Reporte");
-            var nombreArchivo = $"Reporte_{sucursalSeleccionada}_{fechaSeleccionada:yyyyMMdd}.xlsx";
+            var nombreArchivo = $"Reporte_{sucursalSeleccionada?.Name}_{fechaSeleccionada:yyyyMMdd}.xlsx";
 
             await DescargarArchivo(contenido, nombreArchivo, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
 
@@ -473,8 +495,8 @@
 
         try
         {
-            var contenido = await ExportService.ExportToPdfAsync(datosReporte, $"Reporte - {sucursalSeleccionada}");
-            var nombreArchivo = $"Reporte_{sucursalSeleccionada}_{fechaSeleccionada:yyyyMMdd}.pdf";
+            var contenido = await ExportService.ExportToPdfAsync(datosReporte, $"Reporte - {sucursalSeleccionada?.Name}");
+            var nombreArchivo = $"Reporte_{sucursalSeleccionada?.Name}_{fechaSeleccionada:yyyyMMdd}.pdf";
 
             await DescargarArchivo(contenido, nombreArchivo, "application/pdf");
 

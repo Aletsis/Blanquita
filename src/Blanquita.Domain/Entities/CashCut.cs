@@ -50,7 +50,7 @@ public class CashCut : BaseEntity
             totalHundreds, totalFifties, totalTwenties, totalSlips, totalCards);
 
         return new CashCut(totals, cashRegisterName, supervisorName, cashierName,
-            branchName, DateTime.Now);
+            branchName, DateTime.UtcNow);
     }
 
     public Money GetGrandTotal() => Totals.CalculateGrandTotal();

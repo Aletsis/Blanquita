@@ -86,10 +86,14 @@ public class CashCollectionRepository : ICashCollectionRepository
     public async Task<int> GetNextFolioAsync(string cashRegisterName, CancellationToken cancellationToken = default)
     {
         var today = DateTime.Today;
+        var startUtc = today.Kind == DateTimeKind.Utc ? today : today.ToUniversalTime();
+        var endUtc = startUtc.AddDays(1);
+
         var maxFolio = await _context.CashCollections
             .Where(c => c.CashRegisterName == cashRegisterName 
                    && !c.IsForCashCut 
-                   && c.CollectionDateTime.Date == today)
+                   && c.CollectionDateTime >= startUtc 
+                   && c.CollectionDateTime < endUtc)
             .MaxAsync(c => (int?)c.Folio, cancellationToken);
         
         return (maxFolio ?? 0) + 1;
@@ -98,10 +102,14 @@ public class CashCollectionRepository : ICashCollectionRepository
     public async Task<IEnumerable<CashCollection>> GetPendingCollectionsByRegisterAsync(string cashRegisterName, CancellationToken cancellationToken = default)
     {
         var today = DateTime.Today;
+        var startUtc = today.Kind == DateTimeKind.Utc ? today : today.ToUniversalTime();
+        var endUtc = startUtc.AddDays(1);
+
         return await _context.CashCollections
             .Where(c => c.CashRegisterName == cashRegisterName 
                    && !c.IsForCashCut 
-                   && c.CollectionDateTime.Date == today)
+                   && c.CollectionDateTime >= startUtc 
+                   && c.CollectionDateTime < endUtc)
             .OrderBy(c => c.CollectionDateTime)
             .ToListAsync(cancellationToken);
     }

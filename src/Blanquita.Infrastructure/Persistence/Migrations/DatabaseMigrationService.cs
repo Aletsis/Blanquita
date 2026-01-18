@@ -1,99 +1,98 @@
 using Blanquita.Infrastructure.Persistence.Context;
+using Blanquita.Infrastructure.Persistence.Identity;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
-using Microsoft.AspNetCore.Identity;
-using Blanquita.Infrastructure.Persistence.Identity;
 
 namespace Blanquita.Infrastructure.Persistence.Migrations;
 
-/// <summary>
-/// Servicio responsable de verificar y migrar la base de datos al iniciar la aplicación
-/// utilizando EF Core Migrations.
-/// </summary>
 public class DatabaseMigrationService
 {
     private readonly BlanquitaDbContext _context;
-    private readonly UserManager<ApplicationUser> _userManager;
     private readonly ILogger<DatabaseMigrationService> _logger;
+    private readonly UserManager<ApplicationUser> _userManager;
+    private readonly RoleManager<IdentityRole> _roleManager;
 
     public DatabaseMigrationService(
-        BlanquitaDbContext context,
+        BlanquitaDbContext context, 
+        ILogger<DatabaseMigrationService> logger,
         UserManager<ApplicationUser> userManager,
-        ILogger<DatabaseMigrationService> logger)
+        RoleManager<IdentityRole> roleManager)
     {
         _context = context;
-        _userManager = userManager;
         _logger = logger;
+        _userManager = userManager;
+        _roleManager = roleManager;
     }
 
-    /// <summary>
-    /// Aplica cualquier migración pendiente a la base de datos.
-    /// Crea la base de datos si no existe.
-    /// </summary>
-    public async Task EnsureDatabaseAsync(CancellationToken cancellationToken = default)
+    public async Task EnsureDatabaseAsync()
     {
         try
         {
-            _logger.LogInformation("Iniciando verificación de base de datos con EF Core...");
-            try
-            {
-                // Explicitly open the connection to ensure it works and prevent EF from thinking it doesn't exist
-                // This resolves issues where EF tries to create the DB on 'master' despite it existing
-                await _context.Database.OpenConnectionAsync(cancellationToken);
+            _logger.LogInformation("Iniciando migración de base de datos...");
+            await _context.Database.MigrateAsync();
+            _logger.LogInformation("Migración de base de datos completada exitosamente.");
 
-                // Aplica migraciones
-                await _context.Database.MigrateAsync(cancellationToken);
-                
-                await _context.Database.CloseConnectionAsync();
-            }
-            catch (Exception ex)
-            {
-                 _logger.LogError(ex, "Error during manual connection open/migrate.");
-                 throw;
-            }
-
-            await SeedDefaultUserAsync();
-            
-            _logger.LogInformation("Base de datos actualizada correctamente.");
+            await SeedDataAsync();
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error crítico al aplicar migraciones de base de datos.");
+            _logger.LogError(ex, "Ocurrió un error durante la migración de la base de datos.");
             throw;
         }
     }
 
-
-    private async Task SeedDefaultUserAsync()
+    private async Task SeedDataAsync()
     {
         try 
         {
-            var adminUser = await _userManager.FindByNameAsync("Admin");
+            _logger.LogInformation("Verificando datos semilla...");
+
+            // Seed Roles
+            if (!await _roleManager.RoleExistsAsync("Admin"))
+            {
+                await _roleManager.CreateAsync(new IdentityRole("Admin"));
+                _logger.LogInformation("Rol 'Admin' creado.");
+            }
+
+            if (!await _roleManager.RoleExistsAsync("User"))
+            {
+                await _roleManager.CreateAsync(new IdentityRole("User"));
+                _logger.LogInformation("Rol 'User' creado.");
+            }
+
+            // Seed Admin User
+            var adminEmail = "admin@blanquita.com";
+            var adminUser = await _userManager.FindByEmailAsync(adminEmail);
+
             if (adminUser == null)
             {
-                _logger.LogInformation("Creando usuario Administrador por defecto...");
-                var user = new ApplicationUser 
+                adminUser = new ApplicationUser 
                 { 
-                    UserName = "Admin", 
-                    Email = "admin@blanquita.com", 
-                    EmailConfirmed = true,
-                    FullName = "Administrador Sistema"
+                    UserName = "admin", 
+                    Email = adminEmail,
+                    FullName = "Administrador del Sistema",
+                    EmailConfirmed = true 
                 };
-                
-                var result = await _userManager.CreateAsync(user, "Blanquita.123");
+
+                var result = await _userManager.CreateAsync(adminUser, "Blanquita.123");
+
                 if (result.Succeeded)
                 {
+                    await _userManager.AddToRoleAsync(adminUser, "Admin");
                     _logger.LogInformation("Usuario Administrador creado exitosamente.");
                 }
                 else
                 {
-                    _logger.LogError("Error al crear usuario Admin: {Errors}", string.Join(", ", result.Errors.Select(e => e.Description)));
+                    var errors = string.Join(", ", result.Errors.Select(e => e.Description));
+                    _logger.LogError($"Error al crear usuario administrador: {errors}");
                 }
             }
         }
         catch (Exception ex)
         {
-             _logger.LogError(ex, "Error al seedear datos iniciales.");
+            _logger.LogError(ex, "Error durante el proceso de seeding.");
+            throw;
         }
     }
 }

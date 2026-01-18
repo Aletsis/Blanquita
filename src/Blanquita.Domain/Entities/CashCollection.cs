@@ -53,7 +53,7 @@ public class CashCollection : BaseEntity
             hundreds, fifties, twenties);
 
         return new CashCollection(denominations, cashRegisterName, cashierName,
-            supervisorName, DateTime.Now, folio, isForCashCut);
+            supervisorName, DateTime.UtcNow, folio, isForCashCut);
     }
 
     public Money GetTotalAmount() => Denominations.CalculateTotal();

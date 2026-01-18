@@ -37,10 +37,10 @@ public class ReporteHistorico : BaseEntity
         List<DetalleReporte> detalles)
     {
         Sucursal = sucursal ?? throw new ArgumentNullException(nameof(sucursal));
-        Fecha = fecha;
+        Fecha = fecha.ToUniversalTime();
         TotalSistema = totalSistema;
         TotalCorteManual = totalCorteManual;
-        FechaGeneracion = DateTime.Now;
+        FechaGeneracion = DateTime.UtcNow;
         Notas = string.Empty;
         _detalles = detalles ?? new List<DetalleReporte>();
     }

@@ -29,15 +29,12 @@ public class ReportGeneratorService : IReportGeneratorService
         _logger = logger;
     }
 
-    public async Task<List<ReportRowDto>> GenerarReportDataAsync(string sucursal, DateTime fecha)
+    public async Task<List<ReportRowDto>> GenerarReportDataAsync(BranchDto sucursal, DateTime fecha)
     {
         var result = new List<ReportRowDto>();
         
-        // Get Branch Series Config
-        var series = SeriesDocumentoSucursal.ObtenerPorNombre(sucursal);
-
-        _logger.LogInformation("Iniciando generación de reporte para {Sucursal} en fecha {Fecha:dd/MM/yyyy}", sucursal, fecha);
-        _logger.LogDebug("Series - Cliente: {SerieCliente}, Global: {SerieGlobal}, Devolucion: {SerieDevolucion}", series.SerieCliente, series.SerieGlobal, series.SerieDevolucion);
+        _logger.LogInformation("Iniciando generación de reporte para {Sucursal} en fecha {Fecha:dd/MM/yyyy}", sucursal.Name, fecha);
+        _logger.LogDebug("Series - Cliente: {SerieCliente}, Global: {SerieGlobal}, Devolucion: {SerieDevolucion}", sucursal.SeriesCliente, sucursal.SeriesGlobal, sucursal.SeriesDevolucion);
 
         try
         {
@@ -54,7 +51,7 @@ public class ReportGeneratorService : IReportGeneratorService
             }
 
             // Paso 2: Obtener todos los documentos de la fecha y sucursal
-            _logger.LogInformation("Obteniendo documentos para {Sucursal}", sucursal);
+            _logger.LogInformation("Obteniendo documentos para {Sucursal}", sucursal.Name);
             var documentos = await _documentRepository.GetByDateAndBranchAsync(fecha, 1);
             _logger.LogInformation("Total de documentos encontrados: {Count}", documentos.Count());
 
@@ -83,7 +80,7 @@ public class ReportGeneratorService : IReportGeneratorService
                 // Procesar facturas (Cliente) - usar CTEXTOEX03 para identificar la caja
                 // Solo se procesan UNA VEZ por caja, sin importar cuántos cortes tenga
                 var docsCliente = documentos.Where(d =>
-                    d.Serie == series.SerieCliente &&
+                    d.Serie == sucursal.SeriesCliente &&
                     d.CajaTexto.Equals(nombreCaja, StringComparison.OrdinalIgnoreCase)).ToList();
 
                 foreach (var doc in docsCliente)
@@ -108,7 +105,7 @@ public class ReportGeneratorService : IReportGeneratorService
                         {
                             // Búsqueda O(1) en el diccionario en lugar de O(n) con FirstOrDefault
                             if (documentosIndex.TryGetValue(clave, out var docEncontrado) 
-                                && docEncontrado.Serie == series.SerieGlobal)
+                                && docEncontrado.Serie == sucursal.SeriesGlobal)
                             {
                                 ventaGlobal += docEncontrado.Total;
                                 idsDocumentosGlobalesProcesados.Add(clave);
@@ -134,7 +131,7 @@ public class ReportGeneratorService : IReportGeneratorService
                         {
                             // Búsqueda O(1) en el diccionario en lugar de O(n) con FirstOrDefault
                             if (documentosIndex.TryGetValue(clave, out var docEncontrado) 
-                                && docEncontrado.Serie == series.SerieDevolucion)
+                                && docEncontrado.Serie == sucursal.SeriesDevolucion)
                             {
                                 devolucion += docEncontrado.Total;
                                 idsDocumentosDevolucionesProcesados.Add(clave);

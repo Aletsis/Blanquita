@@ -122,7 +122,7 @@ public class BlanquitaDbContext : IdentityDbContext<ApplicationUser>
             entity.Property<decimal>("CantidadTotal")
                 .HasColumnType("decimal(18,2)")
                 .HasComputedColumnSql(
-                "CAST([Mil] * 1000 + [Quinientos] * 500 + [Doscientos] * 200 + [Cien] * 100 + [Cincuenta] * 50 + [Veinte] * 20 AS decimal(18,2))");
+                "CAST(\"Mil\" * 1000 + \"Quinientos\" * 500 + \"Doscientos\" * 200 + \"Cien\" * 100 + \"Cincuenta\" * 50 + \"Veinte\" * 20 AS decimal(18,2))", stored: true);
 
             // Índices para optimizar consultas frecuentes
             entity.HasIndex(e => e.CollectionDateTime)
@@ -174,7 +174,7 @@ public class BlanquitaDbContext : IdentityDbContext<ApplicationUser>
             entity.Property<decimal>("GranTotal")
                 .HasColumnType("decimal(18,2)")
                 .HasComputedColumnSql(
-                "CAST([TotalM] * 1000 + [TotalQ] * 500 + [TotalD] * 200 + [TotalC] * 100 + [TotalCi] * 50 + [TotalV] * 20 AS decimal(18,2))");
+                "CAST(\"TotalM\" * 1000 + \"TotalQ\" * 500 + \"TotalD\" * 200 + \"TotalC\" * 100 + \"TotalCi\" * 50 + \"TotalV\" * 20 AS decimal(18,2))", stored: true);
 
             // Índices para optimizar consultas frecuentes
             entity.HasIndex(e => e.CutDateTime)

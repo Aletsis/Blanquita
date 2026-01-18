@@ -25,7 +25,7 @@ public static class DependencyInjection
     {
         // DbContext
         services.AddDbContext<BlanquitaDbContext>(options =>
-            options.UseSqlServer(
+            options.UseNpgsql(
                 configuration.GetConnectionString("DefaultConnection"),
                 b => b.MigrationsAssembly(typeof(BlanquitaDbContext).Assembly.FullName)));
 

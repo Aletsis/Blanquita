@@ -320,6 +320,7 @@
                             </ToolBarContent>
                             <HeaderContent>
                                 <MudTh>Nombre</MudTh>
+                                <MudTh>Código</MudTh>
                                 <MudTh>Serie Cliente</MudTh>
                                 <MudTh>Serie Global</MudTh>
                                 <MudTh>Serie Devolución</MudTh>
@@ -332,6 +333,7 @@
                                         <MudText Typo="Typo.body2" Class="font-weight-bold">@context.Name</MudText>
                                     </div>
                                 </MudTd>
+                                <MudTd DataLabel="Código">@context.Code</MudTd>
                                 <MudTd DataLabel="Serie Cliente">@context.SeriesCliente</MudTd>
                                 <MudTd DataLabel="Serie Global">@context.SeriesGlobal</MudTd>
                                 <MudTd DataLabel="Serie Devolución">@context.SeriesDevolucion</MudTd>
@@ -726,7 +728,8 @@
             parameters.Add("Model", new BranchDto 
             { 
                 Id = sucursal.Id, 
-                Name = sucursal.Name, 
+                Name = sucursal.Name,
+                Code = sucursal.Code,
                 SeriesCliente = sucursal.SeriesCliente,
                 SeriesGlobal = sucursal.SeriesGlobal,
                 SeriesDevolucion = sucursal.SeriesDevolucion

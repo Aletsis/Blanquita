@@ -2,28 +2,28 @@
 
 #nullable disable
 
-namespace Blanquita.Infrastructure.Persistence.Migrations.EF
+namespace Blanquita.Infrastructure.Migrations
 {
     /// <inheritdoc />
-    public partial class AddDpiToPrinter : Migration
+    public partial class AddBranchCode : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.AddColumn<int>(
-                name: "Dpi",
-                table: "Impresoras",
-                type: "int",
+            migrationBuilder.AddColumn<string>(
+                name: "Code",
+                table: "Sucursales",
+                type: "text",
                 nullable: false,
-                defaultValue: 0);
+                defaultValue: "");
         }
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropColumn(
-                name: "Dpi",
-                table: "Impresoras");
+                name: "Code",
+                table: "Sucursales");
         }
     }
 }
