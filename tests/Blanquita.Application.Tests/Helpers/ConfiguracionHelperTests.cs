@@ -14,7 +14,8 @@ public class ConfiguracionHelperTests
             Pos10041Path = "path/to/pos1.dbf",
             Pos10042Path = "path/to/pos2.dbf",
             Mgw10008Path = "path/to/mgw8.dbf",
-            Mgw10005Path = "path/to/mgw5.dbf"
+            Mgw10005Path = "path/to/mgw5.dbf",
+            Mgw10045Path = "path/to/mgw45.dbf"
         };
     }
 
@@ -26,7 +27,9 @@ public class ConfiguracionHelperTests
         Assert.Equal("path/to/pos1.dbf", config.ObtenerRutaPorTipo(TipoArchivoDbf.Pos10041));
         Assert.Equal("path/to/pos2.dbf", config.ObtenerRutaPorTipo(TipoArchivoDbf.Pos10042));
         Assert.Equal("path/to/mgw8.dbf", config.ObtenerRutaPorTipo(TipoArchivoDbf.Mgw10008));
+
         Assert.Equal("path/to/mgw5.dbf", config.ObtenerRutaPorTipo(TipoArchivoDbf.Mgw10005));
+        Assert.Equal("path/to/mgw45.dbf", config.ObtenerRutaPorTipo(TipoArchivoDbf.Mgw10045));
     }
 
     [Fact]
@@ -71,7 +74,9 @@ public class ConfiguracionHelperTests
         
         Assert.Contains(TipoArchivoDbf.Pos10042, missing);
         Assert.Contains(TipoArchivoDbf.Mgw10008, missing);
+
         Assert.Contains(TipoArchivoDbf.Mgw10005, missing);
+        Assert.Contains(TipoArchivoDbf.Mgw10045, missing);
         Assert.DoesNotContain(TipoArchivoDbf.Pos10041, missing);
     }
 }

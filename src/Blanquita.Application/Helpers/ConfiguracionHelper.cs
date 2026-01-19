@@ -25,6 +25,7 @@ public static class ConfiguracionHelper
             TipoArchivoDbf.Pos10042 => configuracion.Pos10042Path,
             TipoArchivoDbf.Mgw10008 => configuracion.Mgw10008Path,
             TipoArchivoDbf.Mgw10005 => configuracion.Mgw10005Path,
+            TipoArchivoDbf.Mgw10045 => configuracion.Mgw10045Path,
             _ => string.Empty
         };
     }
@@ -57,6 +58,9 @@ public static class ConfiguracionHelper
             case TipoArchivoDbf.Mgw10005:
                 configuracion.Mgw10005Path = ruta;
                 break;
+            case TipoArchivoDbf.Mgw10045:
+                configuracion.Mgw10045Path = ruta;
+                break;
         }
     }
 
@@ -73,6 +77,7 @@ public static class ConfiguracionHelper
             TipoArchivoDbf.Pos10042 => "POS10042.DBF",
             TipoArchivoDbf.Mgw10008 => "MGW10008.DBF",
             TipoArchivoDbf.Mgw10005 => "MGW10005.DBF",
+            TipoArchivoDbf.Mgw10045 => "MGW10045.DBF",
             _ => string.Empty
         };
     }
@@ -89,7 +94,8 @@ public static class ConfiguracionHelper
         return !string.IsNullOrWhiteSpace(configuracion.Pos10041Path) &&
                !string.IsNullOrWhiteSpace(configuracion.Pos10042Path) &&
                !string.IsNullOrWhiteSpace(configuracion.Mgw10008Path) &&
-               !string.IsNullOrWhiteSpace(configuracion.Mgw10005Path);
+               !string.IsNullOrWhiteSpace(configuracion.Mgw10005Path) &&
+               !string.IsNullOrWhiteSpace(configuracion.Mgw10045Path);
     }
 
     /// <summary>
@@ -115,6 +121,27 @@ public static class ConfiguracionHelper
         if (string.IsNullOrWhiteSpace(configuracion.Mgw10005Path))
             faltantes.Add(TipoArchivoDbf.Mgw10005);
 
+        if (string.IsNullOrWhiteSpace(configuracion.Mgw10045Path))
+            faltantes.Add(TipoArchivoDbf.Mgw10045);
+
         return faltantes;
+    }
+
+    /// <summary>
+    /// Obtiene las columnas esperadas para cada tipo de archivo DBF.
+    /// </summary>
+    /// <param name="tipo">Tipo de archivo DBF</param>
+    /// <returns>Lista de nombres de columnas esperadas</returns>
+    public static List<string> ObtenerColumnasEsperadas(TipoArchivoDbf tipo)
+    {
+        return tipo switch
+        {
+            TipoArchivoDbf.Pos10041 => new List<string> { "CIDCAJA", "CSERIENOTA" },
+            TipoArchivoDbf.Pos10042 => new List<string> { "CFECHACOR", "CIDCAJA", "CFACTURA", "CDEVOLUCIO" },
+            TipoArchivoDbf.Mgw10008 => new List<string> { "CFECHA", "CIDDOCUM02", "CTOTAL", "CSERIEDO01", "CFOLIO", "CTEXTOEX03", "CNETO", "CIMPUESTO1", "CCANCELADO", "CIMPORTE03" },
+            TipoArchivoDbf.Mgw10005 => new List<string> { "CCODIGOP01", "CNOMBREP01", "CPRECIO1", "CIMPUESTO1" },
+            TipoArchivoDbf.Mgw10045 => new List<string> { "Cfechaemi", "Choraemi", "Cserie", "Cfolio", "Crfc", "Crazon", "Cestado", "Centregado", "Cautusba01", "Cuuid", "Ciddocto" },
+            _ => new List<string>()
+        };
     }
 }

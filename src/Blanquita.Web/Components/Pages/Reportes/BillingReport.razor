@@ -1,0 +1,296 @@
+@page "/reportes/facturacion-cliente"
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize]
+@using Blanquita.Application.DTOs
+@using Blanquita.Application.Queries.FoxPro.GetBillingReport
+@using MediatR
+@using Blanquita.Application.Interfaces.Repositories
+@using Blanquita.Application.Interfaces
+@inject IMediator Mediator
+@inject IBranchService BranchService
+@inject ISnackbar Snackbar
+@inject IJSRuntime JS
+@inject ILogger<BillingReport> Logger
+@inject IExportService ExportService
+
+<PageTitle>Reporte de Facturación por Cliente</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4 animate-fade-in">
+    <MudText Typo="Typo.h4" Class="mb-6 font-weight-bold" Style="background: linear-gradient(45deg, #667eea, #764ba2); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+        <MudIcon Icon="@Icons.Material.Filled.ReceiptLong" Class="mr-2" Size="Size.Large" Color="Color.Primary" />
+        Reporte de Facturación por Cliente
+    </MudText>
+
+    <MudGrid>
+        <!-- Formulario de parámetros -->
+        <MudItem xs="12" md="4">
+            <MudCard Elevation="4" Class="rounded-lg">
+                <MudCardContent Class="pa-4">
+                    <MudText Typo="Typo.h6" Class="mb-4" Color="Color.Primary">
+                        <MudIcon Icon="@Icons.Material.Filled.FilterAlt" Size="Size.Small" Class="mr-2" />
+                        Parámetros
+                    </MudText>
+
+                    <MudSelect T="BranchDto" @bind-Value="sucursalSeleccionada"
+                               Label="Sucursal"
+                               Variant="Variant.Outlined"
+                               Required="true"
+                               Class="mb-3"
+                               ToStringFunc="@(b => b?.Name)"
+                               AnchorOrigin="Origin.BottomCenter">
+                        @if (sucursales != null)
+                        {
+                            @foreach (var suc in sucursales)
+                            {
+                                <MudSelectItem Value="@suc">@suc.Name</MudSelectItem>
+                            }
+                        }
+                    </MudSelect>
+
+                    <MudDatePicker @bind-Date="fechaSeleccionada"
+                                   Label="Fecha"
+                                   Variant="Variant.Outlined"
+                                   Required="true"
+                                   MaxDate="DateTime.Today"
+                                   Class="mb-3" />
+
+                    @if (sucursalSeleccionada != null)
+                    {
+                         <MudText Typo="Typo.body2" Class="mb-2" Color="Color.Secondary">
+                            Serie Cliente: <strong>@sucursalSeleccionada.SeriesCliente</strong>
+                        </MudText>
+                    }
+
+                    <MudDivider Class="my-3" />
+
+                    <MudButton Variant="Variant.Filled"
+                               Color="Color.Primary"
+                               FullWidth="true"
+                               StartIcon="@Icons.Material.Filled.Search"
+                               OnClick="GenerarReporte"
+                               Disabled="@(generando || sucursalSeleccionada == null || fechaSeleccionada == null)"
+                               Size="Size.Large"
+                               Class="py-2">
+                        @if (generando)
+                        {
+                            <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                            <text>Consultando...</text>
+                        }
+                        else
+                        {
+                            <text>Consultar</text>
+                        }
+                    </MudButton>
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+
+        <!-- Resultados -->
+        <MudItem xs="12" md="8">
+            @if (generando)
+            {
+                <MudCard Elevation="4" Class="rounded-lg pa-8 text-center animate-fade-in">
+                    <MudCardContent>
+                        <MudProgressCircular Size="Size.Large" Indeterminate="true" Color="Color.Primary" />
+                        <MudText Typo="Typo.h6" Class="mt-4">Consultando facturas...</MudText>
+                    </MudCardContent>
+                </MudCard>
+            }
+            else if (reporteGenerado && datosReporte != null)
+            {
+                <MudCard Elevation="4" Class="rounded-lg animate-slide-up">
+                    <MudCardContent Class="pa-4">
+                        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-3">
+                             <MudText Typo="Typo.h6" Color="Color.Primary">
+                                <MudIcon Icon="@Icons.Material.Filled.TableChart" Class="mr-2" />
+                                Resultados
+                            </MudText>
+                            <MudChip T="string" Color="Color.Info" Variant="Variant.Outlined">Total Registros: @datosReporte.Count</MudChip>
+                            <MudStack Row="true" Spacing="2">
+                                <MudButton Variant="Variant.Outlined"
+                                           StartIcon="@Icons.Material.Filled.Download"
+                                           Color="Color.Success"
+                                           OnClick="ExportarExcel"
+                                           Size="Size.Small">
+                                    Excel
+                                </MudButton>
+                                <MudButton Variant="Variant.Outlined"
+                                           StartIcon="@Icons.Material.Filled.PictureAsPdf"
+                                           Color="Color.Error"
+                                           OnClick="ExportarPDF"
+                                           Size="Size.Small">
+                                    PDF
+                                </MudButton>
+                            </MudStack>
+                        </MudStack>
+
+                        @if (datosReporte.Any())
+                        {
+                            <MudTable Items="@datosReporte" Dense="true" Hover="true" Striped="true" Elevation="0" Bordered="true" HorizontalScrollbar="true" Breakpoint="Breakpoint.None">
+                                <HeaderContent>
+                                    <MudTh>Fecha Emi</MudTh>
+                                    <MudTh>Hora</MudTh>
+                                    <MudTh>Serie</MudTh>
+                                    <MudTh>Folio</MudTh>
+                                    <MudTh>RFC</MudTh>
+                                    <MudTh>Razón Social</MudTh>
+                                    <MudTh>Neto</MudTh>
+                                    <MudTh>IVA</MudTh>
+                                    <MudTh>Total</MudTh>
+                                    <MudTh>Cancelado</MudTh>
+                                    <MudTh>Estado</MudTh>
+                                    <MudTh>Entregado</MudTh>
+                                    <MudTh>UUID</MudTh>
+                                    <MudTh>Fecha Doc</MudTh>
+                                    <MudTh>Serie Nota</MudTh>
+                                    <MudTh>Folio Nota</MudTh>
+                                </HeaderContent>
+                                <RowTemplate>
+                                    <MudTd DataLabel="Fecha Emi">@context.FechaEmision.ToString("dd/MM/yyyy")</MudTd>
+                                    <MudTd DataLabel="Hora">@context.HoraEmision</MudTd>
+                                    <MudTd DataLabel="Serie">@context.Serie</MudTd>
+                                    <MudTd DataLabel="Folio">@context.Folio</MudTd>
+                                    <MudTd DataLabel="RFC">@context.Rfc</MudTd>
+                                    <MudTd DataLabel="Razon">
+                                        <MudText Typo="Typo.caption">@context.RazonSocial</MudText>
+                                    </MudTd>
+                                    <MudTd DataLabel="Neto" Style="text-align: right;">@context.Neto.ToString("C2")</MudTd>
+                                    <MudTd DataLabel="IVA" Style="text-align: right;">@context.Impuesto1.ToString("C2")</MudTd>
+                                    <MudTd DataLabel="Total" Style="text-align: right; font-weight:bold;">@context.Total.ToString("C2")</MudTd>
+                                    <MudTd DataLabel="Cancelado">@context.Cancelado</MudTd>
+                                    <MudTd DataLabel="Estado">@context.Estado</MudTd>
+                                    <MudTd DataLabel="Entregado">@context.Entregado</MudTd>
+                                    <MudTd DataLabel="UUID">
+                                        <MudTooltip Text="@context.Uuid">
+                                            <MudIcon Icon="@Icons.Material.Filled.Fingerprint" Size="Size.Small" />
+                                        </MudTooltip>
+                                    </MudTd>
+                                    <MudTd DataLabel="Fecha Doc">@context.Fecha.ToString("dd/MM/yyyy")</MudTd>
+                                    <MudTd DataLabel="Serie Nota">@context.TextoExtra3</MudTd>
+                                    <MudTd DataLabel="Folio Nota">@context.ImporteExtra3</MudTd>
+                                </RowTemplate>
+                                <FooterContent>
+                                    <MudTh Style="font-weight: bold; text-align: right;" colspan="6">TOTALES:</MudTh>
+                                    <MudTh Style="font-weight: bold; text-align: right;">@datosReporte.Sum(x => x.Neto).ToString("C2")</MudTh>
+                                    <MudTh Style="font-weight: bold; text-align: right;">@datosReporte.Sum(x => x.Impuesto1).ToString("C2")</MudTh>
+                                    <MudTh Style="font-weight: bold; text-align: right;">@datosReporte.Sum(x => x.Total).ToString("C2")</MudTh>
+                                    <MudTh colspan="7"></MudTh>
+                                </FooterContent>
+                            </MudTable>
+                        }
+                        else
+                        {
+                            <MudAlert Severity="Severity.Info" Class="mt-2">No se encontraron facturas.</MudAlert>
+                        }
+                    </MudCardContent>
+                </MudCard>
+            }
+        </MudItem>
+    </MudGrid>
+</MudContainer>
+
+<style>
+    .animate-fade-in { animation: fadeIn 0.5s ease-out; }
+    .animate-slide-up { animation: slideUp 0.5s ease-out; }
+    @@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    @@keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+</style>
+
+@code {
+    private BranchDto? sucursalSeleccionada;
+    private IEnumerable<BranchDto> sucursales = new List<BranchDto>();
+    private DateTime? fechaSeleccionada = DateTime.Today;
+    private bool generando = false;
+    private bool reporteGenerado = false;
+    private List<BillingReportItemDto>? datosReporte;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            sucursales = await BranchService.GetAllAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add("Error al cargar sucursales", Severity.Error);
+        }
+    }
+
+    private async Task GenerarReporte()
+    {
+        if (sucursalSeleccionada == null || fechaSeleccionada == null)
+            return;
+
+        if (string.IsNullOrEmpty(sucursalSeleccionada.SeriesCliente))
+        {
+             Snackbar.Add("La sucursal seleccionada no tiene configurada una Serie Cliente", Severity.Warning);
+             return;
+        }
+
+        generando = true;
+        reporteGenerado = false;
+        datosReporte = null;
+
+        try
+        {
+            var query = new GetBillingReportQuery(fechaSeleccionada.Value, sucursalSeleccionada.SeriesCliente);
+            var result = await Mediator.Send(query);
+            datosReporte = result.ToList();
+            reporteGenerado = true;
+            
+            if (datosReporte.Any())
+                Snackbar.Add($"Se encontraron {datosReporte.Count} registros", Severity.Success);
+            else
+                Snackbar.Add("No se encontraron registros", Severity.Info);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error al consultar: {ex.Message}", Severity.Error);
+            Logger.LogError(ex, "Error al generar reporte de facturación");
+        }
+        finally
+        {
+            generando = false;
+        }
+    }
+
+    private async Task ExportarExcel()
+    {
+        if (datosReporte == null || !datosReporte.Any()) return;
+
+        try
+        {
+            var contenido = await ExportService.ExportToExcelAsync(datosReporte, "FacturacionCliente");
+            var nombreArchivo = $"FacturacionCliente_{sucursalSeleccionada?.Name}_{fechaSeleccionada:yyyyMMdd}.xlsx";
+            await DescargarArchivo(contenido, nombreArchivo, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+            Snackbar.Add("Reporte exportado exitosamente a Excel", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error al exportar a Excel: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task ExportarPDF()
+    {
+        if (datosReporte == null || !datosReporte.Any()) return;
+
+        try
+        {
+            var contenido = await ExportService.ExportToPdfAsync(datosReporte, $"Facturación Cliente - {sucursalSeleccionada?.Name}");
+            var nombreArchivo = $"FacturacionCliente_{sucursalSeleccionada?.Name}_{fechaSeleccionada:yyyyMMdd}.pdf";
+            await DescargarArchivo(contenido, nombreArchivo, "application/pdf");
+            Snackbar.Add("Reporte exportado exitosamente a PDF", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error al exportar a PDF: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task DescargarArchivo(byte[] contenido, string nombreArchivo, string contentType)
+    {
+        var base64 = Convert.ToBase64String(contenido);
+        await JS.InvokeVoidAsync("fileDownloadHelper.downloadFile", nombreArchivo, contentType, base64);
+    }
+}

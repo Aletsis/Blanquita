@@ -18,4 +18,14 @@ public interface IFoxProDocumentRepository
         DateTime date, 
         int branchId, 
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Genera el reporte de facturación por cliente.
+    /// Cruza información de MGW10045 y MGW10008.
+    /// </summary>
+    Task<IEnumerable<BillingReportItemDto>> GetBillingReportAsync(
+        DateTime date, 
+        string serie, 
+        CancellationToken cancellationToken = default);
 }
+

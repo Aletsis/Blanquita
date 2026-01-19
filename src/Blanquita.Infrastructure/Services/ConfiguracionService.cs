@@ -51,6 +51,7 @@ public class ConfiguracionService : IConfiguracionService
                          configEntity.Pos10042Path = oldConfig.Pos10042Path ?? string.Empty;
                          configEntity.Mgw10008Path = oldConfig.Mgw10008Path ?? string.Empty;
                          configEntity.Mgw10005Path = oldConfig.Mgw10005Path ?? string.Empty;
+                         configEntity.Mgw10045Path = string.Empty; // Valor por defecto
                          configEntity.PrinterName = oldConfig.PrinterName ?? string.Empty;
                          configEntity.PrinterIp = oldConfig.PrinterIp ?? string.Empty;
                          
@@ -129,6 +130,7 @@ public class ConfiguracionService : IConfiguracionService
             ValidarRutaDbf(configuracion.Pos10042Path, "POS10042.DBF", resultado);
             ValidarRutaDbf(configuracion.Mgw10008Path, "MGW10008.DBF", resultado);
             ValidarRutaDbf(configuracion.Mgw10005Path, "MGW10005.DBF", resultado);
+            ValidarRutaDbf(configuracion.Mgw10045Path, "MGW10045.DBF", resultado);
 
             // Validar configuración de impresoras (advertencias, no errores)
             if (string.IsNullOrWhiteSpace(configuracion.PrinterName))
@@ -177,6 +179,7 @@ public class ConfiguracionService : IConfiguracionService
             TipoArchivoDbf.Pos10042 => "POS10042.DBF",
             TipoArchivoDbf.Mgw10008 => "MGW10008.DBF",
             TipoArchivoDbf.Mgw10005 => "MGW10005.DBF",
+            TipoArchivoDbf.Mgw10045 => "MGW10045.DBF",
             _ => "archivo.dbf"
         };
     }
@@ -219,6 +222,7 @@ public class ConfiguracionService : IConfiguracionService
             Pos10042Path = entity.Pos10042Path,
             Mgw10008Path = entity.Mgw10008Path,
             Mgw10005Path = entity.Mgw10005Path,
+            Mgw10045Path = entity.Mgw10045Path,
             PrinterName = entity.PrinterName,
             PrinterIp = entity.PrinterIp,
             PrinterPort = entity.PrinterPort,
@@ -234,6 +238,7 @@ public class ConfiguracionService : IConfiguracionService
         entity.Pos10042Path = dto.Pos10042Path;
         entity.Mgw10008Path = dto.Mgw10008Path;
         entity.Mgw10005Path = dto.Mgw10005Path;
+        entity.Mgw10045Path = dto.Mgw10045Path;
         entity.PrinterName = dto.PrinterName;
         entity.PrinterIp = dto.PrinterIp;
         entity.PrinterPort = dto.PrinterPort;

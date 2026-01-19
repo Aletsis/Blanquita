@@ -141,4 +141,137 @@ public class FoxProDocumentRepository : IFoxProDocumentRepository
             throw new FoxProDataReadException("Error al leer documentos", filePath, ex);
         }
     }
+    public async Task<IEnumerable<BillingReportItemDto>> GetBillingReportAsync(
+        DateTime date, 
+        string serie, 
+        CancellationToken cancellationToken = default)
+    {
+        var config = await _configService.ObtenerConfiguracionAsync();
+        var invoicesPath = config.Mgw10045Path;
+        var documentsPath = config.Mgw10008Path;
+
+        if (string.IsNullOrEmpty(invoicesPath) || !File.Exists(invoicesPath))
+        {
+            _logger.LogWarning("Archivo MGW10045 no encontrado o no configurado: {FilePath}", invoicesPath);
+            return Enumerable.Empty<BillingReportItemDto>();
+        }
+
+        if (string.IsNullOrEmpty(documentsPath) || !File.Exists(documentsPath))
+        {
+            _logger.LogWarning("Archivo MGW10008 no encontrado o no configurado: {FilePath}", documentsPath);
+            throw new FoxProFileNotFoundException(documentsPath);
+        }
+
+        var billingItems = new Dictionary<string, BillingReportItemDto>();
+
+        try
+        {
+            // Paso 1: Leer MGW10045 y filtrar por fecha y serie
+            using (var reader = _readerFactory.CreateReader(invoicesPath))
+            {
+                // Validar columnas requeridas
+                ValidateColumns(reader, "MGW10045", 
+                    "CFECHAEMI", "CSERIE", "CFOLIO", "CRFC", "CRAZON", "CUUID", "CIDDOCTO", "CHORAEMI");
+
+                while (reader.Read())
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+
+                    try 
+                    {
+                        var docDate = reader.GetDateTimeSafe("CFECHAEMI");
+                        var docSerie = reader.GetStringSafe("CSERIE");
+
+                        if (docDate.Date == date.Date && 
+                            docSerie.Equals(serie, StringComparison.OrdinalIgnoreCase))
+                        {
+                            var item = FoxProBillingMapper.MapFromInvoice(reader);
+                            if (!string.IsNullOrEmpty(item.IdDocumento))
+                            {
+                                billingItems[item.IdDocumento] = item;
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Error al leer registro de factura (MGW10045). Posible error de datos.");
+                    }
+                }
+            }
+
+            _logger.LogInformation("Encontradas {Count} facturas en MGW10045 para fecha {Date} y serie {Serie}", 
+                billingItems.Count, date.Date, serie);
+
+            if (billingItems.Count == 0)
+            {
+                return Enumerable.Empty<BillingReportItemDto>();
+            }
+
+            // Paso 2: Leer MGW10008 y cruzar información
+            using (var reader = _readerFactory.CreateReader(documentsPath))
+            {
+                // Validar columnas requeridas
+                ValidateColumns(reader, "MGW10008", 
+                    "CIDDOCUM01", "CNETO", "CTOTAL", "CIMPUESTO1", "CCANCELADO", 
+                    "CESTADO", "CENTREGADO", "CAUTUSBA01", "CFECHA", "CTEXTOEX03", "CIMPORTE03");
+
+                while (reader.Read())
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+
+                    try
+                    {
+                        var idDocumento = reader.GetStringSafe("CIDDOCUM01"); // Using CIDDOCUM01 as generic ID/PK in 10008
+
+                        if (billingItems.TryGetValue(idDocumento, out var item))
+                        {
+                            // Actualizar item con datos de MGW10008
+                            billingItems[idDocumento] = FoxProBillingMapper.MapFromDocument(item, reader);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                         _logger.LogWarning(ex, "Error al leer registro de documento (MGW10008). Posible error de datos.");
+                    }
+                }
+            }
+            
+            return billingItems.Values.OrderBy(x => x.Folio).ToList();
+        }
+        catch (OperationCanceledException)
+        {
+            _logger.LogInformation("Búsqueda de reporte de facturación cancelada");
+            throw;
+        }
+        catch (InvalidOperationException) // Re-throw validation errors directly
+        {
+            throw;
+        }
+        catch (Exception ex) when (ex is not FoxProFileNotFoundException)
+        {
+            _logger.LogError(ex, "Error al generar reporte de facturación");
+            throw new FoxProDataReadException("Error al leer archivos DBF para reporte", invoicesPath, ex);
+        }
+    }
+
+    private void ValidateColumns(IFoxProDataReader reader, string fileName, params string[] columns)
+    {
+        var missingColumns = new List<string>();
+        foreach (var col in columns)
+        {
+            try
+            {
+                reader.GetOrdinal(col);
+            }
+            catch
+            {
+                missingColumns.Add(col);
+            }
+        }
+
+        if (missingColumns.Any())
+        {
+            throw new InvalidOperationException($"Faltan las siguientes columnas en {fileName}: {string.Join(", ", missingColumns)}. Verifique la estructura del archivo.");
+        }
+    }
 }

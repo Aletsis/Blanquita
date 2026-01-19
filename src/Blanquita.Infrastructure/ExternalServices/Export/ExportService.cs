@@ -39,12 +39,15 @@ public class ExportService : IExportService
                 }
 
                 // Get properties
-                var properties = typeof(T).GetProperties(BindingFlags.Public | BindingFlags.Instance);
+                var properties = typeof(T).GetProperties(BindingFlags.Public | BindingFlags.Instance)
+                                    .Where(p => p.Name != "IdDocumento") // Filter out internal Id
+                                    .ToArray();
                 
                 // Headers
                 for (int i = 0; i < properties.Length; i++)
                 {
-                    worksheet.Cell(1, i + 1).Value = properties[i].Name;
+                    var displayNameAttr = properties[i].GetCustomAttribute<System.ComponentModel.DisplayNameAttribute>();
+                    worksheet.Cell(1, i + 1).Value = displayNameAttr != null ? displayNameAttr.DisplayName : properties[i].Name;
                 }
 
                 // Style headers
@@ -66,11 +69,35 @@ public class ExportService : IExportService
                         {
                             var cell = worksheet.Cell(row, col + 1);
                             
-                            // Format based on type
+                            // Format based on type and property name
                             if (value is DateTime dateTime)
                             {
                                 cell.Value = dateTime;
-                                cell.Style.DateFormat.Format = "dd/MM/yyyy HH:mm:ss";
+                                // Specific logic for Time-like fields if any property name suggests it, otherwise Date only
+                                if (properties[col].Name.Contains("Hora", StringComparison.OrdinalIgnoreCase))
+                                {
+                                    cell.Style.DateFormat.Format = "HH:mm";
+                                }
+                                else 
+                                {
+                                    cell.Style.DateFormat.Format = "dd/MM";
+                                }
+                            }
+                            else if (properties[col].Name.Contains("Hora", StringComparison.OrdinalIgnoreCase))
+                            {
+                                var text = value.ToString();
+                                if (!string.IsNullOrEmpty(text) && text.Length > 5)
+                                {
+                                    text = text.Substring(0, 5);
+                                }
+                                cell.Value = text;
+                                cell.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+                            }
+                            else if (properties[col].Name == "ImporteExtra3" && (value is decimal || value is double || value is float)) 
+                            {
+                                // "Folio nota" needs to be number only, no currency format
+                                cell.Value = Convert.ToDecimal(value);
+                                cell.Style.NumberFormat.Format = "0";
                             }
                             else if (value is decimal || value is double || value is float)
                             {
@@ -84,10 +111,43 @@ public class ExportService : IExportService
                             else
                             {
                                 cell.Value = value.ToString();
+                                // Ensure text stays on one line
+                                cell.Style.Alignment.WrapText = false; 
                             }
                         }
                     }
                     row++;
+                }
+
+                // Add Totals Row
+                var totalsRow = worksheet.Row(row);
+                totalsRow.Style.Font.SetBold();
+                totalsRow.Style.Fill.SetBackgroundColor(XLColor.FromHtml("#e0e0e0"));
+                totalsRow.Style.Border.TopBorder = XLBorderStyleValues.Medium;
+
+                bool labelAdded = false;
+
+                for (int col = 0; col < properties.Length; col++)
+                {
+                    var propName = properties[col].Name;
+                    
+                    if (propName == "Neto" || propName == "Impuesto1" || propName == "Total")
+                    {
+                         var sum = dataList.Sum(item => 
+                         {
+                             var val = properties[col].GetValue(item);
+                             return val != null ? Convert.ToDecimal(val) : 0m;
+                         });
+                         
+                         var cell = worksheet.Cell(row, col + 1);
+                         cell.Value = sum;
+                         cell.Style.NumberFormat.Format = "$#,##0.00";
+                    }
+                    else if (!labelAdded)
+                    {
+                         worksheet.Cell(row, col + 1).Value = "TOTALES";
+                         labelAdded = true;
+                    }
                 }
 
                 // Auto-fit columns
@@ -121,14 +181,16 @@ public class ExportService : IExportService
                     return Array.Empty<byte>();
                 }
 
-                var properties = typeof(T).GetProperties(BindingFlags.Public | BindingFlags.Instance);
+                var properties = typeof(T).GetProperties(BindingFlags.Public | BindingFlags.Instance)
+                                    .Where(p => p.Name != "IdDocumento") // Filter out internal Id
+                                    .ToArray();
 
                 var document = Document.Create(container =>
                 {
                     container.Page(page =>
                     {
                         page.Size(PageSizes.Letter.Landscape());
-                        page.Margin(30);
+                        page.Margin(20);
                         page.PageColor(Colors.White);
                         page.DefaultTextStyle(x => x.FontSize(9));
 
@@ -150,15 +212,40 @@ public class ExportService : IExportService
 
                         // Content
                         page.Content()
-                            .PaddingVertical(5)
+                            .PaddingVertical(3)
                             .Table(table =>
                             {
                                 // Define columns
                                 table.ColumnsDefinition(columns =>
                                 {
-                                    foreach (var _ in properties)
+                                    foreach (var prop in properties)
                                     {
-                                        columns.RelativeColumn();
+                                        if (prop.Name.Contains("Hora") || prop.Name == "Serie" || prop.Name.Contains("Fecha") ||
+                                            prop.Name == "Cancelado" || prop.Name == "Estado" || prop.Name == "Entregado" || 
+                                            prop.Name == "Cautusba01" || prop.Name == "TextoExtra3")
+                                        {
+                                            columns.ConstantColumn(30); // Narrow columns
+                                        }
+                                        else if (prop.Name == "Folio" || prop.Name == "ImporteExtra3")
+                                        {
+                                            columns.ConstantColumn(35); // Narrow columns
+                                        }
+                                        else if (prop.Name == "Rfc")
+                                        {
+                                             columns.ConstantColumn(50);
+                                        }
+                                        else if (prop.Name == "RazonSocial")
+                                        {
+                                             columns.RelativeColumn(3); // Give more space but allow truncate
+                                        }
+                                        else if (prop.Name == "Uuid")
+                                        {
+                                             columns.RelativeColumn(3);
+                                        }
+                                        else
+                                        {
+                                            columns.RelativeColumn();
+                                        }
                                     }
                                 });
 
@@ -167,8 +254,11 @@ public class ExportService : IExportService
                                 {
                                     foreach (var prop in properties)
                                     {
+                                        var displayNameAttr = prop.GetCustomAttribute<System.ComponentModel.DisplayNameAttribute>();
+                                        var headerText = displayNameAttr != null ? displayNameAttr.DisplayName : prop.Name;
+
                                         header.Cell().Background(Colors.Grey.Darken3)
-                                            .Padding(3).Text(prop.Name)
+                                            .Padding(3).Text(headerText)
                                             .FontColor(Colors.White).Bold().FontSize(8);
                                     }
                                 });
@@ -185,22 +275,83 @@ public class ExportService : IExportService
                                         {
                                             if (value is DateTime dateTime)
                                             {
-                                                cell.Text(dateTime.ToString("dd/MM/yyyy HH:mm")).FontSize(8);
+                                                if (prop.Name.Contains("Hora", StringComparison.OrdinalIgnoreCase))
+                                                {
+                                                     cell.Text(dateTime.ToString("HH:mm")).FontSize(7).LineHeight(1);
+                                                }
+                                                else
+                                                {
+                                                     cell.Text(dateTime.ToString("dd/MM")).FontSize(7).LineHeight(1);
+                                                }
+                                            }
+                                            else if (prop.Name == "ImporteExtra3" && (value is decimal || value is double || value is float))
+                                            {
+                                                // Folio Nota: Number, no currency
+                                                cell.AlignRight().Text(Convert.ToDecimal(value).ToString("0")).FontSize(7).LineHeight(1);
                                             }
                                             else if (value is decimal || value is double || value is float)
                                             {
-                                                cell.AlignRight().Text(Convert.ToDecimal(value).ToString("C2", _culturaMX)).FontSize(8);
+                                                cell.AlignRight().Text(Convert.ToDecimal(value).ToString("C2", _culturaMX)).FontSize(7).LineHeight(1);
                                             }
                                             else
                                             {
-                                                cell.Text(value.ToString()).FontSize(8);
+                                                var text = value.ToString();
+                                                
+                                                if (prop.Name.Contains("Hora", StringComparison.OrdinalIgnoreCase))
+                                                {
+                                                    if (!string.IsNullOrEmpty(text) && text.Length > 5)
+                                                    {
+                                                        text = text.Substring(0, 5);
+                                                    }
+                                                }
+                                                else if (prop.Name == "RazonSocial" && text.Length > 25)
+                                                {
+                                                    text = text.Substring(0, 22) + "...";
+                                                }
+                                                else if (prop.Name == "Rfc" && text.Length > 10)
+                                                {
+                                                     text = text.Substring(0, 9);
+                                                }
+                                                else if (prop.Name == "Uuid" && text.Length > 25)
+                                                {
+                                                     text = text.Substring(0, 22) + "...";
+                                                }
+
+                                                // QuestPDF 2024+ formatting
+                                                cell.Text(text).FontSize(7).LineHeight(1); 
                                             }
                                         }
                                         else
                                         {
-                                            cell.Text("").FontSize(8);
+                                            cell.Text("").FontSize(6);
                                         }
                                     }
+                                }
+
+                                // Totals Row
+                                for (int i = 0; i < properties.Length; i++)
+                                {
+                                     var prop = properties[i];
+                                     var cell = table.Cell().Background(Colors.Grey.Lighten3).BorderTop(1).Padding(3);
+                                     
+                                     if (prop.Name == "Neto" || prop.Name == "Impuesto1" || prop.Name == "Total")
+                                     {
+                                         var sum = dataList.Sum(item => 
+                                         {
+                                             var val = prop.GetValue(item);
+                                             return val != null ? Convert.ToDecimal(val) : 0m;
+                                         });
+                                         
+                                         cell.AlignRight().Text(sum.ToString("C2", _culturaMX)).FontSize(7).Bold().LineHeight(1);
+                                     }
+                                     else if (i == 5) // First column
+                                     {
+                                         cell.Text("TOTALES").FontSize(7).Bold().LineHeight(1);
+                                     }
+                                     else
+                                     {
+                                         cell.Text("");
+                                     }
                                 }
                             });
 

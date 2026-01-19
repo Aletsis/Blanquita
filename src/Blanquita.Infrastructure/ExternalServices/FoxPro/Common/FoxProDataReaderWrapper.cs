@@ -30,8 +30,26 @@ public class FoxProDataReaderWrapper : IFoxProDataReader
         // DbfDataReader methods might throw or return generic values, handling requires care.
         // DbfDataReader doesn't have IsDBNull easily exposed in same way as IDataRecord usually.
         // We rely on GetValue returning DBNull.Value or null
-        var value = _reader.GetValue(ordinal);
-        return value == null || value == DBNull.Value;
+        try
+        {
+            var value = _reader.GetValue(ordinal);
+            return value == null || value == DBNull.Value;
+        }
+        catch (ArgumentOutOfRangeException)
+        {
+            // If the column index is out of range for this specific record (corrupt/truncated row),
+            // treat it as NULL safe to skip.
+            return true;
+        }
+        catch (IndexOutOfRangeException)
+        {
+            return true;
+        }
+        catch
+        {
+            // Any other error reading the value implies we should treat it as null/missing
+            return true;
+        }
     }
 
     public void Dispose()

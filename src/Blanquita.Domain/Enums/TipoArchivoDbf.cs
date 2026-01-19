@@ -23,5 +23,10 @@ public enum TipoArchivoDbf
     /// <summary>
     /// Archivo MGW10005.DBF - Datos de gestión
     /// </summary>
-    Mgw10005 = 4
+    Mgw10005 = 4,
+
+    /// <summary>
+    /// Archivo MGW10045.DBF - Datos de gestión adicional
+    /// </summary>
+    Mgw10045 = 5
 }

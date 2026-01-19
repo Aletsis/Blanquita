@@ -10,6 +10,8 @@
 @inject IConfiguracionService ConfigService
 @inject IMediator Mediator
 @inject ISnackbar Snackbar
+@using Blanquita.Application.Helpers
+@using Blanquita.Domain.Enums
 
 <PageTitle>Diagnóstico - Sistema de Reportes</PageTitle>
 
@@ -278,6 +280,61 @@
             </MudCard>
         </MudItem>
 
+        <!-- Card para MGW10045 -->
+        <MudItem xs="12">
+            <MudCard Elevation="3" Class="rounded-lg animate-slide-up" Style="animation-delay: 0.5s;">
+                <MudCardHeader>
+                     <CardHeaderAvatar>
+                        <MudAvatar Color="Color.Error" Variant="Variant.Filled">
+                            <MudIcon Icon="@Icons.Material.Filled.QrCodeScanner" />
+                        </MudAvatar>
+                    </CardHeaderAvatar>
+                    <CardHeaderContent>
+                        <MudText Typo="Typo.h6">MGW10045.DBF</MudText>
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">CFDI (UUID)</MudText>
+                    </CardHeaderContent>
+                    <CardHeaderActions>
+                        <MudButton Variant="Variant.Outlined"
+                                   Color="Color.Primary"
+                                   StartIcon="@Icons.Material.Filled.PlayArrow"
+                                   OnClick="() => EjecutarDiagnostico(5)"
+                                   Disabled="@(ejecutando5 || string.IsNullOrEmpty(config.Mgw10045Path))">
+                            @if (ejecutando5)
+                            {
+                                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                                <text>Ejecutando...</text>
+                            }
+                            else
+                            {
+                                <text>Verificar</text>
+                            }
+                        </MudButton>
+                    </CardHeaderActions>
+                </MudCardHeader>
+                 <MudCardContent>
+                    <MudText Typo="Typo.body2" Class="mb-2">
+                         <MudIcon Icon="@Icons.Material.Filled.Folder" Size="Size.Small" Class="mr-1 vertical-align-middle" Color="Color.Default" />
+                         <strong>Ruta:</strong> 
+                        @if (!string.IsNullOrEmpty(config.Mgw10045Path))
+                        {
+                            <span class="ml-1">@config.Mgw10045Path</span>
+                        }
+                        else
+                        {
+                            <MudChip T="string" Color="Color.Warning" Size="Size.Small" Class="ml-2">No configurado</MudChip>
+                        }
+                    </MudText>
+
+                    @if (resultado5 != null)
+                    {
+                        <div class="mt-4 animate-fade-in">
+                            <ComponenteDiagnostico Resultado="@resultado5" />
+                        </div>
+                    }
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+
     </MudGrid>
 </MudContainer>
 
@@ -303,15 +360,9 @@
 </style>
 
 @code {
-    private bool ejecutando1, ejecutando2, ejecutando3, ejecutando4, ejecutandoTodos;
-    private DiagnosticoResultado? resultado1, resultado2, resultado3, resultado4;
+    private bool ejecutando1, ejecutando2, ejecutando3, ejecutando4, ejecutando5, ejecutandoTodos;
+    private DiagnosticoResultado? resultado1, resultado2, resultado3, resultado4, resultado5;
     private ConfiguracionDto config = new();
-
-    // Columnas esperadas según el uso en el sistema
-    private readonly List<string> colsPos10041 = new() { "CIDCAJA", "CSERIENOTA" };
-    private readonly List<string> colsPos10042 = new() { "CFECHACOR", "CIDCAJA", "CFACTURA", "CDEVOLUCIO" };
-    private readonly List<string> colsMgw10008 = new() { "CFECHA", "CIDDOCUM02", "CTOTAL", "CSERIEDO01", "CFOLIO", "CTEXTOEX03" };
-    private readonly List<string> colsMgw10005 = new() { "CCODIGOP01", "CNOMBREP01", "CPRECIO1", "CIMPUESTO1" };
 
     protected override async Task OnInitializedAsync()
     {
@@ -336,19 +387,23 @@
             {
                 case 1:
                     ruta = config.Pos10041Path;
-                    columnasEsperadas = colsPos10041;
+                    columnasEsperadas = ConfiguracionHelper.ObtenerColumnasEsperadas(TipoArchivoDbf.Pos10041);
                     break;
                 case 2:
                     ruta = config.Pos10042Path;
-                    columnasEsperadas = colsPos10042;
+                    columnasEsperadas = ConfiguracionHelper.ObtenerColumnasEsperadas(TipoArchivoDbf.Pos10042);
                     break;
                 case 3:
                     ruta = config.Mgw10008Path;
-                    columnasEsperadas = colsMgw10008;
+                    columnasEsperadas = ConfiguracionHelper.ObtenerColumnasEsperadas(TipoArchivoDbf.Mgw10008);
                     break;
                 case 4:
                     ruta = config.Mgw10005Path;
-                    columnasEsperadas = colsMgw10005;
+                    columnasEsperadas = ConfiguracionHelper.ObtenerColumnasEsperadas(TipoArchivoDbf.Mgw10005);
+                    break;
+                case 5:
+                    ruta = config.Mgw10045Path;
+                    columnasEsperadas = ConfiguracionHelper.ObtenerColumnasEsperadas(TipoArchivoDbf.Mgw10045);
                     break;
             }
 
@@ -376,6 +431,10 @@
                     ejecutando4 = true;
                     resultado4 = null;
                     break;
+                case 5:
+                    ejecutando5 = true;
+                    resultado5 = null;
+                    break;
             }
 
             StateHasChanged();
@@ -399,6 +458,9 @@
                     break;
                 case 4:
                     resultado4 = resultado;
+                    break;
+                case 5:
+                    resultado5 = resultado;
                     break;
             }
 
@@ -426,6 +488,9 @@
                 case 4:
                     ejecutando4 = false;
                     break;
+                case 5:
+                    ejecutando5 = false;
+                    break;
             }
         }
     }
@@ -438,6 +503,7 @@
         await EjecutarDiagnostico(2);
         await EjecutarDiagnostico(3);
         await EjecutarDiagnostico(4);
+        await EjecutarDiagnostico(5);
 
         ejecutandoTodos = false;
 

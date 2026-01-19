@@ -147,7 +147,7 @@
                         <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-3">
                             <MudText Typo="Typo.h6" Color="Color.Primary">
                                 <MudIcon Icon="@Icons.Material.Filled.TableChart" Class="mr-2" />
-                                Resultados - @sucursalSeleccionada?.Name (@fechaSeleccionada?.ToString("dd/MM/yyyy"))
+                                Resultados - @sucursalReporte?.Name (@fechaReporte?.ToString("dd/MM/yyyy"))
                             </MudText>
 
                             <MudStack Row="true" Spacing="2">
@@ -242,7 +242,7 @@
                         else
                         {
                             <MudAlert Severity="Severity.Info" Class="mt-2 rounded-lg">
-                                No se encontraron datos para la sucursal <strong>@sucursalSeleccionada?.Name</strong> en la fecha <strong>@fechaSeleccionada?.ToString("dd/MM/yyyy")</strong>
+                                No se encontraron datos para la sucursal <strong>@sucursalReporte?.Name</strong> en la fecha <strong>@fechaReporte?.ToString("dd/MM/yyyy")</strong>
                             </MudAlert>
                         }
                     </MudCardContent>
@@ -298,7 +298,12 @@
     private List<ReportRowDto>? datosReporte;
     private decimal totalSistema = 0;
     private decimal? totalCorteManual;
+
     private string notasReporte = "";
+
+    // Variables para mantener el estado del reporte generado
+    private BranchDto? sucursalReporte;
+    private DateTime? fechaReporte;
 
 
     protected override async Task OnInitializedAsync()
@@ -339,9 +344,16 @@
         totalCorteManual = null;
         notasReporte = "";
 
+        var sucursalParaReporte = sucursalSeleccionada;
+        var fechaParaReporte = fechaSeleccionada;
+
         try
         {
-            datosReporte = await ReportGeneratorService.GenerarReportDataAsync(sucursalSeleccionada!, fechaSeleccionada.Value);
+            datosReporte = await ReportGeneratorService.GenerarReportDataAsync(sucursalParaReporte!, fechaParaReporte.Value);
+
+            // Actualizar variables del reporte generado
+            sucursalReporte = sucursalParaReporte;
+            fechaReporte = fechaParaReporte;
 
             if (datosReporte != null && datosReporte.Any())
             {
@@ -393,7 +405,7 @@
 
     private async Task GuardarEnHistorico()
     {
-        if (datosReporte == null || !datosReporte.Any())
+        if (datosReporte == null || !datosReporte.Any() || sucursalReporte == null || fechaReporte == null)
         {
             Snackbar.Add("No hay datos para guardar", Severity.Warning);
             return;
@@ -402,8 +414,8 @@
         // Mostrar diálogo de confirmación
         var parameters = new DialogParameters
         {
-            { "Sucursal", sucursalSeleccionada?.Name },
-            { "Fecha", fechaSeleccionada?.ToString("dd/MM/yyyy") },
+            { "Sucursal", sucursalReporte?.Name },
+            { "Fecha", fechaReporte?.ToString("dd/MM/yyyy") },
             { "TotalSistema", totalSistema },
             { "TotalManual", totalCorteManual },
             { "Diferencia", totalCorteManual.HasValue ? totalCorteManual.Value - totalSistema : (decimal?)null },
@@ -421,7 +433,7 @@
 
         try
         {
-            var sucursal = Sucursal.Create(sucursalSeleccionada!.Code, sucursalSeleccionada.Name);
+            var sucursal = Sucursal.Create(sucursalReporte!.Code, sucursalReporte!.Name);
             var detalles = datosReporte.Select(d => DetalleReporte.Crear(
                 d.Fecha, 
                 d.Caja, 
@@ -432,7 +444,7 @@
 
             var reporte = ReporteHistorico.Crear(
                 sucursal,
-                fechaSeleccionada.Value,
+                fechaReporte!.Value,
                 totalSistema,
                 totalCorteManual ?? 0,
                 detalles
@@ -464,7 +476,7 @@
 
     private async Task ExportarExcel()
     {
-        if (datosReporte == null || !datosReporte.Any())
+        if (datosReporte == null || !datosReporte.Any() || sucursalReporte == null || fechaReporte == null)
         {
             Snackbar.Add("No hay datos para exportar", Severity.Warning);
             return;
@@ -473,7 +485,7 @@
         try
         {
             var contenido = await ExportService.ExportToExcelAsync(datosReporte, "Reporte");
-            var nombreArchivo = $"Reporte_{sucursalSeleccionada?.Name}_{fechaSeleccionada:yyyyMMdd}.xlsx";
+            var nombreArchivo = $"Reporte_{sucursalReporte?.Name}_{fechaReporte:yyyyMMdd}.xlsx";
 
             await DescargarArchivo(contenido, nombreArchivo, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
 
@@ -487,7 +499,7 @@
 
     private async Task ExportarPDF()
     {
-        if (datosReporte == null || !datosReporte.Any())
+        if (datosReporte == null || !datosReporte.Any() || sucursalReporte == null || fechaReporte == null)
         {
             Snackbar.Add("No hay datos para exportar", Severity.Warning);
             return;
@@ -495,8 +507,8 @@
 
         try
         {
-            var contenido = await ExportService.ExportToPdfAsync(datosReporte, $"Reporte - {sucursalSeleccionada?.Name}");
-            var nombreArchivo = $"Reporte_{sucursalSeleccionada?.Name}_{fechaSeleccionada:yyyyMMdd}.pdf";
+            var contenido = await ExportService.ExportToPdfAsync(datosReporte, $"Reporte - {sucursalReporte?.Name}");
+            var nombreArchivo = $"Reporte_{sucursalReporte?.Name}_{fechaReporte:yyyyMMdd}.pdf";
 
             await DescargarArchivo(contenido, nombreArchivo, "application/pdf");
 
