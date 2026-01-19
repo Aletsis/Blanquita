@@ -13,6 +13,7 @@
 @inject ISnackbar Snackbar
 @inject IDialogService DialogService
 @inject ILogger<Historico> Logger
+@inject IBranchService BranchService
 
 <PageTitle>Histórico - Sistema de Reportes</PageTitle>
 
@@ -36,7 +37,7 @@
                                        Clearable="true" OnClearButtonClick="LimpiarFiltros" ToStringFunc="@(s => s?.Nombre ?? "Todas")"
                                        AnchorOrigin="Origin.BottomCenter">
                                 <MudSelectItem Value="@((Sucursal?)null)">Todas</MudSelectItem>
-                                @foreach (var sucursal in Sucursal.ObtenerTodas())
+                                @foreach (var sucursal in sucursalesDisponibles)
                                 {
                                     <MudSelectItem Value="@sucursal">@sucursal.Nombre</MudSelectItem>
                                 }
@@ -185,11 +186,28 @@
     private Sucursal? sucursalFiltro = null;
     private DateTime? fechaInicio;
     private DateTime? fechaFin;
+    private List<Sucursal> sucursalesDisponibles = new();
 
     protected override async Task OnInitializedAsync()
     {
         Logger.LogInformation("Inicializando página de histórico de reportes");
+        await CargarSucursales();
         await CargarReportes();
+    }
+
+    private async Task CargarSucursales()
+    {
+        try 
+        {
+            var branches = await BranchService.GetAllAsync();
+            sucursalesDisponibles = branches.Select(b => Sucursal.Create(b.Code, b.Name)).ToList();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error al cargar sucursales");
+            // Fallback to static list if service fails? Or just empty.
+            // sucursalesDisponibles = Sucursal.ObtenerTodas().ToList();
+        }
     }
 
     private async Task CargarReportes()

@@ -266,7 +266,13 @@ public class BlanquitaDbContext : IdentityDbContext<ApplicationUser>
         {
             entity.ToTable("ReportesHistoricos");
             entity.HasKey(e => e.Id);
-            entity.Property(e => e.Sucursal).HasColumnName("Sucursal").HasConversion(sucursalConverter).IsRequired().HasMaxLength(10);
+            entity.OwnsOne(e => e.Sucursal, sucursal =>
+            {
+                sucursal.Property(s => s.Codigo).HasColumnName("SucursalCodigo").IsRequired().HasMaxLength(10);
+                sucursal.Property(s => s.Nombre).HasColumnName("SucursalNombre").IsRequired().HasMaxLength(100);
+                sucursal.HasIndex(s => s.Codigo);
+            });
+
             entity.Property(e => e.Fecha).HasColumnName("Fecha").IsRequired();
             entity.Property(e => e.TotalSistema).HasColumnName("TotalSistema").HasColumnType("decimal(18,2)").IsRequired();
             entity.Property(e => e.TotalCorteManual).HasColumnName("TotalCorteManual").HasColumnType("decimal(18,2)").IsRequired();
@@ -289,9 +295,11 @@ public class BlanquitaDbContext : IdentityDbContext<ApplicationUser>
             
             entity.HasIndex(e => e.FechaGeneracion)
                 .HasDatabaseName("IX_ReportesHistoricos_FechaGeneracion");
-            
-            entity.HasIndex(e => new { e.Sucursal, e.Fecha })
-                .HasDatabaseName("IX_ReportesHistoricos_Sucursal_Fecha");
+                
+             // Previously combined index needs to reference the new columns if needed, but simple index on Code might be enough or we skip it for now.
+             // Entity Framework will handle the index on owned type properties if configured inside OwnsOne or generally.
+             // We added HasIndex(s => s.Codigo) inside OwnsOne so it will be indexed.
+
         });
 
         // Configure DetalleReporte

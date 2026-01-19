@@ -31,7 +31,7 @@ public class EfReporteHistoricoRepository : IReporteHistoricoRepository
     }
 
     public async Task<List<ReporteHistorico>> SearchAsync(
-        string? sucursal, 
+        Blanquita.Domain.ValueObjects.Sucursal? sucursal, 
         DateTime? fechaInicio, 
         DateTime? fechaFin, 
         CancellationToken cancellationToken = default)
@@ -41,31 +41,9 @@ public class EfReporteHistoricoRepository : IReporteHistoricoRepository
             .Include(r => r.Detalles)
             .AsQueryable();
 
-        // Note: filtering by Sucursal requires checking how it's stored. 
-        // We use value converter to string (Codigo).
-        // If 'sucursal' param is Name, we need to convert it?
-        // Usually search param is Name or Code. The entity has Sucursal VO.
-        // Assuming sucursal param is Name strings as per old implementation?
-        
-        if (!string.IsNullOrEmpty(sucursal))
+        if (sucursal != null)
         {
-            // If the input is a name, we need to find the code.
-            // Or we fetch all and filter in memory if the converter makes it hard, but that's inefficient.
-            // However, with ValueConverter, EF Core translates 'r.Sucursal' to the column value (string Code).
-            // So we need to compare against a Sucursal object or the converted value.
-            // Since EF Core 5+, we can compare properties.
-            // But 'sucursal' string might be Name.
-            // Let's assume we filter by code if possible, or mapping is needed.
-            
-            // The previous implementation used 'Sucursal' string in DTO which was Name.
-            // ReporteService (JSON) filtered by comparing strings.
-            
-            // To be safe and since Sucursal is a small set of values:
-            var sucursalObj = Blanquita.Domain.ValueObjects.Sucursal.FromNombre(sucursal);
-            if (sucursalObj != null)
-            {
-                 query = query.Where(r => r.Sucursal == sucursalObj);
-            }
+            query = query.Where(r => r.Sucursal.Codigo == sucursal.Codigo);
         }
 
         if (fechaInicio.HasValue)

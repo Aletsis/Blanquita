@@ -45,9 +45,8 @@ public class ReporteHistoricoService : IReporteHistoricoService
     public async Task<List<ReporteHistorico>> BuscarReportesAsync(BuscarReportesRequest request, CancellationToken cancellationToken = default)
     {
         var (inicio, fin) = request.GetNormalizedDateRange();
-        var sucursalNombre = request.Sucursal?.Nombre;
 
-        return await _repository.SearchAsync(sucursalNombre, inicio, fin, cancellationToken);
+        return await _repository.SearchAsync(request.Sucursal, inicio, fin, cancellationToken);
     }
 
     public async Task ActualizarReporteAsync(ReporteHistorico reporte, CancellationToken cancellationToken = default)

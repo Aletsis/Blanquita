@@ -13,7 +13,7 @@ public interface IReporteHistoricoRepository
     Task<List<ReporteHistorico>> GetAllAsync(CancellationToken cancellationToken = default);
     
     Task<List<ReporteHistorico>> SearchAsync(
-        string? sucursal, 
+        Sucursal? sucursal, 
         DateTime? fechaInicio, 
         DateTime? fechaFin, 
         CancellationToken cancellationToken = default);
