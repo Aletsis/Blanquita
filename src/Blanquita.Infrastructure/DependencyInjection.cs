@@ -89,7 +89,7 @@ public static class DependencyInjection
         services.AddScoped<IExportService, ExportService>();
 
         // FoxPro Repositories (New Architecture)
-        services.AddScoped<Application.Interfaces.Repositories.IFoxProProductRepository, 
+        services.AddScoped<Application.Interfaces.Repositories.IProductCatalogRepository, 
             ExternalServices.FoxPro.Repositories.FoxProProductRepository>();
         services.AddScoped<Application.Interfaces.Repositories.IFoxProDocumentRepository, 
             ExternalServices.FoxPro.Repositories.FoxProDocumentRepository>();

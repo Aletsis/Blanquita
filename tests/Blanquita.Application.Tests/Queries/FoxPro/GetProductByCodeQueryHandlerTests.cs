@@ -9,13 +9,13 @@ namespace Blanquita.Application.Tests.Queries.FoxPro;
 
 public class GetProductByCodeQueryHandlerTests
 {
-    private readonly Mock<IFoxProProductRepository> _mockRepository;
+    private readonly Mock<IProductCatalogRepository> _mockRepository;
     private readonly Mock<ILogger<GetProductByCodeQueryHandler>> _mockLogger;
     private readonly GetProductByCodeQueryHandler _handler;
 
     public GetProductByCodeQueryHandlerTests()
     {
-        _mockRepository = new Mock<IFoxProProductRepository>();
+        _mockRepository = new Mock<IProductCatalogRepository>();
         _mockLogger = new Mock<ILogger<GetProductByCodeQueryHandler>>();
         _handler = new GetProductByCodeQueryHandler(_mockRepository.Object, _mockLogger.Object);
     }

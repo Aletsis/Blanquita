@@ -1,0 +1,130 @@
+@page "/productos/buscador"
+@using Blanquita.Application.DTOs
+@using Blanquita.Application.Queries.Products.SearchProducts
+@using MediatR
+@inject IMediator Mediator
+@inject ISnackbar Snackbar
+@inject ILogger<BuscadorProductos> Logger
+
+<PageTitle>Buscador de Productos</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4 animated fadeIn">
+    <MudText Typo="Typo.h4" Class="mb-6 font-weight-bold" Style="background: linear-gradient(45deg, #1e88e5, #5e35b1); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+        <MudIcon Icon="@Icons.Material.Filled.Search" Class="mr-2" Size="Size.Large" Color="Color.Primary" />
+        Buscador de Productos
+    </MudText>
+
+    <MudGrid>
+        <MudItem xs="12">
+            <MudCard Elevation="4" Class="pa-4 rounded-lg">
+                <MudCardContent>
+                    <div class="d-flex gap-4 align-center">
+                        <MudTextField @bind-Value="searchTerm"
+                                      Label="Buscar por Nombre, Código o PLU"
+                                      Variant="Variant.Outlined"
+                                      Adornment="Adornment.End"
+                                      AdornmentIcon="@Icons.Material.Filled.Search"
+                                      OnKeyUp="HandleKeyUp"
+                                      Immediate="true"
+                                      FullWidth="true" />
+                        
+                        <MudButton Variant="Variant.Filled"
+                                   Color="Color.Primary"
+                                   OnClick="BuscarProductos"
+                                   Disabled="@(buscando || string.IsNullOrWhiteSpace(searchTerm))"
+                                   Height="56px"
+                                   Class="px-8">
+                            @if (buscando)
+                            {
+                                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                                <text>Buscando...</text>
+                            }
+                            else
+                            {
+                                <text>Buscar</text>
+                            }
+                        </MudButton>
+                    </div>
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+
+        <MudItem xs="12">
+            <MudTable Items="@productos" Hover="true" Breakpoint="Breakpoint.Sm" Loading="@buscando" LoadingProgressColor="Color.Info" Elevation="4" Class="rounded-lg">
+                <HeaderContent>
+                    <MudTh>Código</MudTh>
+                    <MudTh>Nombre</MudTh>
+                    <MudTh>Precio</MudTh>
+                    <MudTh>Impuesto</MudTh>
+                    <MudTh>Cód. Alterno</MudTh>
+                    <MudTh>Nom. Alterno</MudTh>
+                    <MudTh>Clave SAT</MudTh>
+                    <MudTh>PLU</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="Código">
+                        <MudChip T="string" Color="Color.Primary" Size="Size.Small" Variant="Variant.Text">@context.Code</MudChip>
+                    </MudTd>
+                    <MudTd DataLabel="Nombre">@context.Name</MudTd>
+                    <MudTd DataLabel="Precio">@context.Price.ToString("C2")</MudTd>
+                    <MudTd DataLabel="Impuesto">@context.Tax.ToString("0.##")%</MudTd>
+                    <MudTd DataLabel="Cód. Alterno">@context.AlternateCode</MudTd>
+                    <MudTd DataLabel="Nom. Alterno">@context.AlternateName</MudTd>
+                    <MudTd DataLabel="Clave SAT">@context.SatKey</MudTd>
+                    <MudTd DataLabel="PLU">
+                        @if (!string.IsNullOrEmpty(context.Plu))
+                        {
+                            <MudChip T="string" Color="Color.Secondary" Size="Size.Small">@context.Plu</MudChip>
+                        }
+                    </MudTd>
+                </RowTemplate>
+                <PagerContent>
+                    <MudTablePager />
+                </PagerContent>
+                <NoRecordsContent>
+                     <MudText Typo="Typo.body1" Class="pa-4 text-muted">No se encontraron productos.</MudText>
+                </NoRecordsContent>
+            </MudTable>
+        </MudItem>
+    </MudGrid>
+</MudContainer>
+
+@code {
+    private string searchTerm = "";
+    private bool buscando = false;
+    private IEnumerable<ProductSearchDto> productos = new List<ProductSearchDto>();
+
+    private async Task BuscarProductos()
+    {
+        if (string.IsNullOrWhiteSpace(searchTerm)) return;
+
+        buscando = true;
+        try
+        {
+            var query = new SearchProductsQuery(searchTerm);
+            productos = await Mediator.Send(query);
+            
+            if (!productos.Any())
+            {
+                Snackbar.Add("No se encontraron coincidencias.", Severity.Info);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error al buscar productos");
+            Snackbar.Add("Error al realizar la búsqueda.", Severity.Error);
+        }
+        finally
+        {
+            buscando = false;
+        }
+    }
+
+    private async Task HandleKeyUp(KeyboardEventArgs args)
+    {
+        if (args.Key == "Enter")
+        {
+            await BuscarProductos();
+        }
+    }
+}

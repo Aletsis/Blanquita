@@ -139,7 +139,7 @@ public static class ConfiguracionHelper
             TipoArchivoDbf.Pos10041 => new List<string> { "CIDCAJA", "CSERIENOTA" },
             TipoArchivoDbf.Pos10042 => new List<string> { "CFECHACOR", "CIDCAJA", "CFACTURA", "CDEVOLUCIO" },
             TipoArchivoDbf.Mgw10008 => new List<string> { "CFECHA", "CIDDOCUM02", "CTOTAL", "CSERIEDO01", "CFOLIO", "CTEXTOEX03", "CNETO", "CIMPUESTO1", "CCANCELADO", "CIMPORTE03" },
-            TipoArchivoDbf.Mgw10005 => new List<string> { "CCODIGOP01", "CNOMBREP01", "CPRECIO1", "CIMPUESTO1" },
+            TipoArchivoDbf.Mgw10005 => new List<string> { "CCODIGOP01", "CNOMBREP01", "CTIPOPRO01", "CMETODOC01", "CPRECIO1", "CIMPUESTO1", "CCODALTERN", "CNOMALTERN", "CDESCCORTA", "CCLAVESAT", "CTEXTOEX01" },
             TipoArchivoDbf.Mgw10045 => new List<string> { "Cfechaemi", "Choraemi", "Cserie", "Cfolio", "Crfc", "Crazon", "Cestado", "Centregado", "Cautusba01", "Cuuid", "Ciddocto" },
             _ => new List<string>()
         };

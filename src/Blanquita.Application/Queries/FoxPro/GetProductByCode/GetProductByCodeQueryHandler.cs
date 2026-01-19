@@ -10,11 +10,11 @@ namespace Blanquita.Application.Queries.FoxPro.GetProductByCode;
 /// </summary>
 public class GetProductByCodeQueryHandler : IRequestHandler<GetProductByCodeQuery, ProductDto?>
 {
-    private readonly IFoxProProductRepository _productRepository;
+    private readonly IProductCatalogRepository _productRepository;
     private readonly ILogger<GetProductByCodeQueryHandler> _logger;
 
     public GetProductByCodeQueryHandler(
-        IFoxProProductRepository productRepository,
+        IProductCatalogRepository productRepository,
         ILogger<GetProductByCodeQueryHandler> logger)
     {
         _productRepository = productRepository;

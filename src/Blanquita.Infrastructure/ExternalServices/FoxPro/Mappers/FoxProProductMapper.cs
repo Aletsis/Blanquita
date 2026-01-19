@@ -21,4 +21,22 @@ public static class FoxProProductMapper
             TaxRate = reader.GetDecimalSafe("CIMPUESTO1")
         };
     }
+
+    /// <summary>
+    /// Mapea un registro del reader a ProductSearchDto.
+    /// </summary>
+    public static ProductSearchDto MapToSearchDto(IFoxProDataReader reader)
+    {
+        return new ProductSearchDto
+        {
+            Code = reader.GetStringSafe("CCODIGOP01"),
+            Name = reader.GetStringSafe("CNOMBREP01"),
+            Price = reader.GetDecimalSafe("CPRECIO1"),
+            Tax = reader.GetDecimalSafe("CIMPUESTO1"),
+            AlternateCode = reader.GetStringSafe("CCODALTERN"),
+            AlternateName = reader.GetStringSafe("CNOMALTERN"),
+            SatKey = reader.GetStringSafe("CCLAVESAT"),
+            Plu = reader.GetStringSafe("CTEXTOEX01")
+        };
+    }
 }
