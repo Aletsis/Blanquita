@@ -99,6 +99,8 @@ public static class DependencyInjection
             ExternalServices.FoxPro.Repositories.FoxProCashRegisterRepository>();
         services.AddScoped<Application.Interfaces.Repositories.IFoxProDiagnosticService, 
             ExternalServices.FoxPro.Services.FoxProDiagnosticService>();
+        services.AddScoped<Application.Interfaces.Repositories.IClientCatalogRepository,
+            ExternalServices.FoxPro.Repositories.FoxProClientRepository>();
 
         // Report Services
         // Report Services

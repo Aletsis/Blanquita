@@ -67,7 +67,9 @@ public class ConfiguracionServiceTests
             Pos10042Path = "",
             Mgw10008Path = "",
             Mgw10005Path = "",
-            Mgw10045Path = ""
+            Mgw10045Path = "",
+            Mgw10002Path = "",
+            Mgw10011Path = ""
         };
 
         _configManagerMock.Setup(x => x.ValidatePath(It.IsAny<string>())).Returns(false);
@@ -86,6 +88,8 @@ public class ConfiguracionServiceTests
             Mgw10008Path = "valid/path3",
             Mgw10005Path = "valid/path4",
             Mgw10045Path = "valid/path5",
+            Mgw10002Path = "valid/path6",
+            Mgw10011Path = "valid/path7",
             PrinterName = "Printer1"
         };
 
@@ -96,6 +100,7 @@ public class ConfiguracionServiceTests
         var saved = await _context.SystemConfigurations.FirstOrDefaultAsync();
         Assert.NotNull(saved);
         Assert.Equal("valid/path1", saved.Pos10041Path);
+        Assert.Equal("valid/path6", saved.Mgw10002Path);
         Assert.Equal("Printer1", saved.PrinterName);
     }
 
@@ -120,7 +125,9 @@ public class ConfiguracionServiceTests
             Pos10042Path = "path2",
             Mgw10008Path = "path3",
             Mgw10005Path = "path4",
-            Mgw10045Path = "path5"
+            Mgw10045Path = "path5",
+            Mgw10002Path = "path6",
+            Mgw10011Path = "path7"
         };
 
         _configManagerMock.Setup(x => x.ValidatePath(It.IsAny<string>())).Returns(true);
@@ -150,6 +157,8 @@ public class ConfiguracionServiceTests
         Assert.Equal("MGW10008.DBF", _service.ObtenerNombreArchivo(TipoArchivoDbf.Mgw10008));
         Assert.Equal("MGW10005.DBF", _service.ObtenerNombreArchivo(TipoArchivoDbf.Mgw10005));
         Assert.Equal("MGW10045.DBF", _service.ObtenerNombreArchivo(TipoArchivoDbf.Mgw10045));
+        Assert.Equal("MGW10002.DBF", _service.ObtenerNombreArchivo(TipoArchivoDbf.Mgw10002));
+        Assert.Equal("MGW10011.DBF", _service.ObtenerNombreArchivo(TipoArchivoDbf.Mgw10011));
     }
 
     [Fact]

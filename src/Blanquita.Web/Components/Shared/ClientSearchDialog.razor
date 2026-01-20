@@ -1,0 +1,103 @@
+@using Blanquita.Application.DTOs
+@using Blanquita.Application.Interfaces.Repositories
+@inject IClientCatalogRepository ClientRepository
+@inject ISnackbar Snackbar
+
+<MudDialog>
+    <DialogContent>
+        <MudContainer MaxWidth="MaxWidth.Medium" Class="pa-0">
+            <MudTextField @bind-Value="searchTerm"
+                          Label="Buscar Cliente (Nombre, RFC o Código)"
+                          Variant="Variant.Outlined"
+                          Adornment="Adornment.End"
+                          AdornmentIcon="@Icons.Material.Filled.Search"
+                          OnAdornmentClick="BuscarClientes"
+                          OnKeyUp="@(async (e) => { if (e.Key == "Enter") await BuscarClientes(); })"
+                          Immediate="true"
+                          Class="mb-4" />
+
+            @if (isLoading)
+            {
+                <MudProgressLinear Color="Color.Primary" Indeterminate="true" Class="mb-4" />
+            }
+
+            @if (clientes.Any())
+            {
+                <MudTable Items="@clientes" Hover="true" Breakpoint="Breakpoint.Sm" OnRowClick="SeleccionarCliente" T="ClientSearchDto">
+                    <HeaderContent>
+                        <MudTh>Código</MudTh>
+                        <MudTh>Nombre</MudTh>
+                        <MudTh>RFC</MudTh>
+                        <MudTh>Direcciones</MudTh>
+                        <MudTh></MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd DataLabel="Código">@context.Code</MudTd>
+                        <MudTd DataLabel="Nombre">@context.Name</MudTd>
+                        <MudTd DataLabel="RFC">@context.Rfc</MudTd>
+                        <MudTd DataLabel="Direcciones">
+                            @if (context.Addresses.Any())
+                            {
+                                <MudChip T="string" Color="Color.Info" Size="Size.Small">@context.Addresses.Count</MudChip>
+                            }
+                            else
+                            {
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">Sin dirección</MudText>
+                            }
+                        </MudTd>
+                        <MudTd>
+                            <MudButton Variant="Variant.Text" Color="Color.Primary" Size="Size.Small">Seleccionar</MudButton>
+                        </MudTd>
+                    </RowTemplate>
+                </MudTable>
+            }
+            else if (hasSearched && !isLoading)
+            {
+                <MudAlert Severity="Severity.Info">No se encontraron clientes con el término "@searchTerm".</MudAlert>
+            }
+        </MudContainer>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancelar</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] IMudDialogInstance MudDialog { get; set; } = default!;
+
+    private string searchTerm = string.Empty;
+    private List<ClientSearchDto> clientes = new();
+    private bool isLoading = false;
+    private bool hasSearched = false;
+
+    private async Task BuscarClientes()
+    {
+        if (string.IsNullOrWhiteSpace(searchTerm)) return;
+
+        isLoading = true;
+        hasSearched = false;
+        clientes.Clear();
+
+        try
+        {
+            var results = await ClientRepository.SearchAsync(searchTerm);
+            clientes = results.ToList();
+            hasSearched = true;
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error al buscar clientes: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void SeleccionarCliente(TableRowClickEventArgs<ClientSearchDto> args)
+    {
+        MudDialog.Close(DialogResult.Ok(args.Item));
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+}

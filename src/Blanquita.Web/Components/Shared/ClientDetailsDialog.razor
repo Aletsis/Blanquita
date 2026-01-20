@@ -1,0 +1,107 @@
+@using Blanquita.Application.DTOs
+
+<MudDialog>
+    <DialogContent>
+        <MudContainer MaxWidth="MaxWidth.Medium" Class="pa-0">
+            <MudTabs Elevation="2" Rounded="true" ApplyEffectsToContainer="true" PanelClass="pa-6">
+                <MudTabPanel Text="General" Icon="@Icons.Material.Filled.Person">
+                    <MudGrid>
+                        <MudItem xs="12" sm="6">
+                            <MudTextField Value="@Client.Code" Label="Código" Variant="Variant.Outlined" ReadOnly="true"/>
+                        </MudItem>
+                        <MudItem xs="12" sm="6">
+                             <MudTextField Value="@Client.Name" Label="Nombre / Razón Social" Variant="Variant.Outlined" ReadOnly="true"/>
+                        </MudItem>
+                        <MudItem xs="12" sm="6">
+                             <MudTextField Value="@Phone" Label="Teléfono" Variant="Variant.Outlined" ReadOnly="true"/>
+                        </MudItem>
+                         <MudItem xs="12" sm="6">
+                             <MudTextField Value="@Emails" Label="Email" Variant="Variant.Outlined" ReadOnly="true"/>
+                        </MudItem>
+                        <MudItem xs="12" sm="6">
+                             <MudTextField Value="@(Client.RegistrationDate != DateTime.MinValue ? Client.RegistrationDate.ToShortDateString() : "")" Label="Fecha de Alta" Variant="Variant.Outlined" ReadOnly="true"/>
+                        </MudItem>
+                    </MudGrid>
+                </MudTabPanel>
+                <MudTabPanel Text="Facturación" Icon="@Icons.Material.Filled.Receipt">
+                     <MudGrid>
+                        <MudItem xs="12" sm="6">
+                            <MudTextField Value="@Client.Rfc" Label="RFC" Variant="Variant.Outlined" ReadOnly="true"/>
+                        </MudItem>
+                        <MudItem xs="12" sm="6">
+                             <MudTextField Value="@Client.PaymentMethod" Label="Método de Pago" Variant="Variant.Outlined" ReadOnly="true"/>
+                        </MudItem>
+                        <MudItem xs="12" sm="6">
+                             <MudTextField Value="@Client.CfdiUse" Label="Uso de CFDI" Variant="Variant.Outlined" ReadOnly="true"/>
+                        </MudItem>
+                         <MudItem xs="12" sm="6">
+                             <MudTextField Value="@Client.FiscalRegime" Label="Régimen Fiscal" Variant="Variant.Outlined" ReadOnly="true"/>
+                        </MudItem>
+                    </MudGrid>
+                </MudTabPanel>
+                <MudTabPanel Text="Dirección" Icon="@Icons.Material.Filled.Place">
+                    @if(Address != null)
+                    {
+                         <MudGrid>
+                            <MudItem xs="12">
+                                <MudTextField Value="@Address.Street" Label="Calle" Variant="Variant.Outlined" ReadOnly="true"/>
+                            </MudItem>
+                            <MudItem xs="12" sm="6">
+                                 <MudTextField Value="@Address.ExteriorNumber" Label="Número Exterior" Variant="Variant.Outlined" ReadOnly="true"/>
+                            </MudItem>
+                            <MudItem xs="12" sm="6">
+                                 <MudTextField Value="@Address.InteriorNumber" Label="Número Interior" Variant="Variant.Outlined" ReadOnly="true"/>
+                            </MudItem>
+                             <MudItem xs="12" sm="6">
+                                 <MudTextField Value="@Address.Colony" Label="Colonia" Variant="Variant.Outlined" ReadOnly="true"/>
+                            </MudItem>
+                            <MudItem xs="12" sm="6">
+                                 <MudTextField Value="@Address.ZipCode" Label="Código Postal" Variant="Variant.Outlined" ReadOnly="true"/>
+                            </MudItem>
+                            <MudItem xs="12" sm="6">
+                                 <MudTextField Value="@Address.City" Label="Ciudad" Variant="Variant.Outlined" ReadOnly="true"/>
+                            </MudItem>
+                            <MudItem xs="12" sm="6">
+                                 <MudTextField Value="@Address.Municipality" Label="Municipio" Variant="Variant.Outlined" ReadOnly="true"/>
+                            </MudItem>
+                             <MudItem xs="12" sm="6">
+                                 <MudTextField Value="@Address.State" Label="Estado" Variant="Variant.Outlined" ReadOnly="true"/>
+                            </MudItem>
+                            <MudItem xs="12" sm="6">
+                                 <MudTextField Value="@Address.Country" Label="País" Variant="Variant.Outlined" ReadOnly="true"/>
+                            </MudItem>
+                        </MudGrid>
+                    }
+                    else
+                    {
+                        <MudAlert Severity="Severity.Info">El cliente no tiene dirección registrada.</MudAlert>
+                    }
+                </MudTabPanel>
+            </MudTabs>
+        </MudContainer>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Close" Color="Color.Primary">Cerrar</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] IMudDialogInstance MudDialog { get; set; } = default!;
+
+    [Parameter] public ClientSearchDto Client { get; set; } = new();
+
+    private ClientAddressDto? Address => Client.Addresses.FirstOrDefault();
+
+    private string Phone => Address?.Phone ?? "";
+
+    private string Emails {
+        get {
+            var emails = new List<string>();
+            if (!string.IsNullOrWhiteSpace(Client.Email)) emails.Add(Client.Email);
+            if (Address != null && !string.IsNullOrWhiteSpace(Address.Email) && !emails.Contains(Address.Email)) emails.Add(Address.Email);
+            return string.Join("; ", emails);
+        }
+    }
+
+    private void Close() => MudDialog.Cancel();
+}

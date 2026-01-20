@@ -335,6 +335,116 @@
             </MudCard>
         </MudItem>
 
+        <!-- Card para MGW10002 -->
+        <MudItem xs="12">
+            <MudCard Elevation="3" Class="rounded-lg animate-slide-up" Style="animation-delay: 0.6s;">
+                <MudCardHeader>
+                    <CardHeaderAvatar>
+                        <MudAvatar Color="Color.Primary" Variant="Variant.Filled">
+                            <MudIcon Icon="@Icons.Material.Filled.People" />
+                        </MudAvatar>
+                    </CardHeaderAvatar>
+                    <CardHeaderContent>
+                        <MudText Typo="Typo.h6">MGW10002.DBF</MudText>
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">Datos de Cliente</MudText>
+                    </CardHeaderContent>
+                    <CardHeaderActions>
+                        <MudButton Variant="Variant.Outlined"
+                                   Color="Color.Primary"
+                                   StartIcon="@Icons.Material.Filled.PlayArrow"
+                                   OnClick="() => EjecutarDiagnostico(6)"
+                                   Disabled="@(ejecutando6 || string.IsNullOrEmpty(config.Mgw10002Path))">
+                            @if (ejecutando6)
+                            {
+                                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                                <text>Ejecutando...</text>
+                            }
+                            else
+                            {
+                                <text>Verificar</text>
+                            }
+                        </MudButton>
+                    </CardHeaderActions>
+                </MudCardHeader>
+                <MudCardContent>
+                    <MudText Typo="Typo.body2" Class="mb-2">
+                         <MudIcon Icon="@Icons.Material.Filled.Folder" Size="Size.Small" Class="mr-1 vertical-align-middle" Color="Color.Default" />
+                         <strong>Ruta:</strong> 
+                        @if (!string.IsNullOrEmpty(config.Mgw10002Path))
+                        {
+                            <span class="ml-1">@config.Mgw10002Path</span>
+                        }
+                        else
+                        {
+                            <MudChip T="string" Color="Color.Warning" Size="Size.Small" Class="ml-2">No configurado</MudChip>
+                        }
+                    </MudText>
+
+                    @if (resultado6 != null)
+                    {
+                        <div class="mt-4 animate-fade-in">
+                            <ComponenteDiagnostico Resultado="@resultado6" />
+                        </div>
+                    }
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+
+        <!-- Card para MGW10011 -->
+        <MudItem xs="12">
+            <MudCard Elevation="3" Class="rounded-lg animate-slide-up" Style="animation-delay: 0.7s;">
+                <MudCardHeader>
+                    <CardHeaderAvatar>
+                        <MudAvatar Color="Color.Secondary" Variant="Variant.Filled">
+                            <MudIcon Icon="@Icons.Material.Filled.Place" />
+                        </MudAvatar>
+                    </CardHeaderAvatar>
+                    <CardHeaderContent>
+                        <MudText Typo="Typo.h6">MGW10011.DBF</MudText>
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">Direcciones</MudText>
+                    </CardHeaderContent>
+                    <CardHeaderActions>
+                        <MudButton Variant="Variant.Outlined"
+                                   Color="Color.Primary"
+                                   StartIcon="@Icons.Material.Filled.PlayArrow"
+                                   OnClick="() => EjecutarDiagnostico(7)"
+                                   Disabled="@(ejecutando7 || string.IsNullOrEmpty(config.Mgw10011Path))">
+                            @if (ejecutando7)
+                            {
+                                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                                <text>Ejecutando...</text>
+                            }
+                            else
+                            {
+                                <text>Verificar</text>
+                            }
+                        </MudButton>
+                    </CardHeaderActions>
+                </MudCardHeader>
+                <MudCardContent>
+                    <MudText Typo="Typo.body2" Class="mb-2">
+                         <MudIcon Icon="@Icons.Material.Filled.Folder" Size="Size.Small" Class="mr-1 vertical-align-middle" Color="Color.Default" />
+                         <strong>Ruta:</strong> 
+                        @if (!string.IsNullOrEmpty(config.Mgw10011Path))
+                        {
+                            <span class="ml-1">@config.Mgw10011Path</span>
+                        }
+                        else
+                        {
+                            <MudChip T="string" Color="Color.Warning" Size="Size.Small" Class="ml-2">No configurado</MudChip>
+                        }
+                    </MudText>
+
+                    @if (resultado7 != null)
+                    {
+                        <div class="mt-4 animate-fade-in">
+                            <ComponenteDiagnostico Resultado="@resultado7" />
+                        </div>
+                    }
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+
     </MudGrid>
 </MudContainer>
 
@@ -360,8 +470,8 @@
 </style>
 
 @code {
-    private bool ejecutando1, ejecutando2, ejecutando3, ejecutando4, ejecutando5, ejecutandoTodos;
-    private DiagnosticoResultado? resultado1, resultado2, resultado3, resultado4, resultado5;
+    private bool ejecutando1, ejecutando2, ejecutando3, ejecutando4, ejecutando5, ejecutando6, ejecutando7, ejecutandoTodos;
+    private DiagnosticoResultado? resultado1, resultado2, resultado3, resultado4, resultado5, resultado6, resultado7;
     private ConfiguracionDto config = new();
 
     protected override async Task OnInitializedAsync()
@@ -405,6 +515,14 @@
                     ruta = config.Mgw10045Path;
                     columnasEsperadas = ConfiguracionHelper.ObtenerColumnasEsperadas(TipoArchivoDbf.Mgw10045);
                     break;
+                case 6:
+                    ruta = config.Mgw10002Path;
+                    columnasEsperadas = ConfiguracionHelper.ObtenerColumnasEsperadas(TipoArchivoDbf.Mgw10002);
+                    break;
+                case 7:
+                    ruta = config.Mgw10011Path;
+                    columnasEsperadas = ConfiguracionHelper.ObtenerColumnasEsperadas(TipoArchivoDbf.Mgw10011);
+                    break;
             }
 
             if (string.IsNullOrEmpty(ruta))
@@ -435,6 +553,14 @@
                     ejecutando5 = true;
                     resultado5 = null;
                     break;
+                case 6:
+                    ejecutando6 = true;
+                    resultado6 = null;
+                    break;
+                case 7:
+                    ejecutando7 = true;
+                    resultado7 = null;
+                    break;
             }
 
             StateHasChanged();
@@ -461,6 +587,12 @@
                     break;
                 case 5:
                     resultado5 = resultado;
+                    break;
+                case 6:
+                    resultado6 = resultado;
+                    break;
+                case 7:
+                    resultado7 = resultado;
                     break;
             }
 
@@ -491,6 +623,12 @@
                 case 5:
                     ejecutando5 = false;
                     break;
+                case 6:
+                    ejecutando6 = false;
+                    break;
+                case 7:
+                    ejecutando7 = false;
+                    break;
             }
         }
     }
@@ -504,6 +642,8 @@
         await EjecutarDiagnostico(3);
         await EjecutarDiagnostico(4);
         await EjecutarDiagnostico(5);
+        await EjecutarDiagnostico(6);
+        await EjecutarDiagnostico(7);
 
         ejecutandoTodos = false;
 

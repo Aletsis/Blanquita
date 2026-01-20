@@ -1,0 +1,125 @@
+@page "/clientes"
+@using Blanquita.Application.DTOs
+@using Blanquita.Application.Interfaces.Repositories
+@using Blanquita.Web.Components.Shared
+@inject IClientCatalogRepository ClientRepository
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+
+<PageTitle>Buscador de Clientes</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-4">
+    <MudText Typo="Typo.h4" Class="mb-4">Buscador de Clientes (FoxPro)</MudText>
+
+    <MudPaper Class="pa-4 mb-4" Elevation="3">
+        <MudGrid>
+            <MudItem xs="12" md="8">
+                <MudTextField @bind-Value="searchTerm"
+                              Label="Buscar Cliente (Nombre, RFC o Código)"
+                              Variant="Variant.Outlined"
+                              Adornment="Adornment.End"
+                              AdornmentIcon="@Icons.Material.Filled.Search"
+                              OnAdornmentClick="BuscarClientes"
+                              OnKeyUp="@(async (e) => { if (e.Key == "Enter") await BuscarClientes(); })"
+                              Immediate="true" />
+            </MudItem>
+            <MudItem xs="12" md="4" Class="d-flex align-center">
+                <MudButton Variant="Variant.Filled" 
+                           Color="Color.Primary" 
+                           OnClick="BuscarClientes" 
+                           FullWidth="true" 
+                           StartIcon="@Icons.Material.Filled.Search"
+                           Disabled="@isLoading">
+                    @if (isLoading)
+                    {
+                        <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true"/>
+                        <MudText Class="ms-2">Buscando...</MudText>
+                    }
+                    else
+                    {
+                        <MudText>Buscar</MudText>
+                    }
+                </MudButton>
+            </MudItem>
+        </MudGrid>
+    </MudPaper>
+
+    @if (clientes.Any())
+    {
+        <MudTable Items="@clientes" Hover="true" Breakpoint="Breakpoint.Sm" Elevation="3">
+            <HeaderContent>
+                <MudTh>Código</MudTh>
+                <MudTh>Nombre</MudTh>
+                <MudTh>RFC</MudTh>
+                <MudTh>Teléfono</MudTh>
+                <MudTh>Acciones</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd DataLabel="Código">@context.Code</MudTd>
+                <MudTd DataLabel="Nombre">@context.Name</MudTd>
+                <MudTd DataLabel="RFC">@context.Rfc</MudTd>
+                <MudTd DataLabel="Teléfono">
+                     @if (context.Addresses.Any(a => !string.IsNullOrEmpty(a.Phone)))
+                     {
+                         @context.Addresses.First(a => !string.IsNullOrEmpty(a.Phone)).Phone
+                     }
+                     else
+                     {
+                         <MudText Typo="Typo.caption" Color="Color.Secondary">--</MudText>
+                     }
+                </MudTd>
+                <MudTd DataLabel="Acciones">
+                    <MudButton Variant="Variant.Outlined" 
+                               Color="Color.Primary" 
+                               Size="Size.Small" 
+                               StartIcon="@Icons.Material.Filled.Visibility"
+                               OnClick="@(() => VerDetalles(context))">
+                        Ver Detalles
+                    </MudButton>
+                </MudTd>
+            </RowTemplate>
+        </MudTable>
+    }
+    else if (hasSearched && !isLoading)
+    {
+        <MudAlert Severity="Severity.Info" Class="mt-4">No se encontraron clientes con el término "@searchTerm". Asegúrese de que la configuración de rutas DBF sea correcta.</MudAlert>
+    }
+</MudContainer>
+
+@code {
+    private string searchTerm = string.Empty;
+    private List<ClientSearchDto> clientes = new();
+    private bool isLoading = false;
+    private bool hasSearched = false;
+
+    private async Task BuscarClientes()
+    {
+        if (string.IsNullOrWhiteSpace(searchTerm)) return;
+
+        isLoading = true;
+        hasSearched = false;
+        clientes.Clear();
+
+        try
+        {
+            var results = await ClientRepository.SearchAsync(searchTerm);
+            clientes = results.ToList();
+            hasSearched = true;
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error al buscar clientes: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void VerDetalles(ClientSearchDto cliente)
+    {
+        var parameters = new DialogParameters { ["Client"] = cliente };
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium, FullWidth = true };
+        DialogService.Show<ClientDetailsDialog>($"Detalles del Cliente: {cliente.Name}", parameters, options);
+    }
+}

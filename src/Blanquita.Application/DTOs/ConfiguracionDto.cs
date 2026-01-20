@@ -34,6 +34,16 @@ public class ConfiguracionDto
     public string Mgw10045Path { get; set; } = string.Empty;
 
     /// <summary>
+    /// Ruta del archivo MGW10002.DBF
+    /// </summary>
+    public string Mgw10002Path { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Ruta del archivo MGW10011.DBF
+    /// </summary>
+    public string Mgw10011Path { get; set; } = string.Empty;
+
+    /// <summary>
     /// Nombre de la impresora principal
     /// </summary>
     public string PrinterName { get; set; } = string.Empty;

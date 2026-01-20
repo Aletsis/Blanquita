@@ -26,6 +26,8 @@ public static class ConfiguracionHelper
             TipoArchivoDbf.Mgw10008 => configuracion.Mgw10008Path,
             TipoArchivoDbf.Mgw10005 => configuracion.Mgw10005Path,
             TipoArchivoDbf.Mgw10045 => configuracion.Mgw10045Path,
+            TipoArchivoDbf.Mgw10002 => configuracion.Mgw10002Path,
+            TipoArchivoDbf.Mgw10011 => configuracion.Mgw10011Path,
             _ => string.Empty
         };
     }
@@ -61,6 +63,12 @@ public static class ConfiguracionHelper
             case TipoArchivoDbf.Mgw10045:
                 configuracion.Mgw10045Path = ruta;
                 break;
+            case TipoArchivoDbf.Mgw10002:
+                configuracion.Mgw10002Path = ruta;
+                break;
+            case TipoArchivoDbf.Mgw10011:
+                configuracion.Mgw10011Path = ruta;
+                break;
         }
     }
 
@@ -78,6 +86,8 @@ public static class ConfiguracionHelper
             TipoArchivoDbf.Mgw10008 => "MGW10008.DBF",
             TipoArchivoDbf.Mgw10005 => "MGW10005.DBF",
             TipoArchivoDbf.Mgw10045 => "MGW10045.DBF",
+            TipoArchivoDbf.Mgw10002 => "MGW10002.DBF",
+            TipoArchivoDbf.Mgw10011 => "MGW10011.DBF",
             _ => string.Empty
         };
     }
@@ -95,7 +105,9 @@ public static class ConfiguracionHelper
                !string.IsNullOrWhiteSpace(configuracion.Pos10042Path) &&
                !string.IsNullOrWhiteSpace(configuracion.Mgw10008Path) &&
                !string.IsNullOrWhiteSpace(configuracion.Mgw10005Path) &&
-               !string.IsNullOrWhiteSpace(configuracion.Mgw10045Path);
+               !string.IsNullOrWhiteSpace(configuracion.Mgw10045Path) &&
+               !string.IsNullOrWhiteSpace(configuracion.Mgw10002Path) &&
+               !string.IsNullOrWhiteSpace(configuracion.Mgw10011Path);
     }
 
     /// <summary>
@@ -124,6 +136,12 @@ public static class ConfiguracionHelper
         if (string.IsNullOrWhiteSpace(configuracion.Mgw10045Path))
             faltantes.Add(TipoArchivoDbf.Mgw10045);
 
+        if (string.IsNullOrWhiteSpace(configuracion.Mgw10002Path))
+            faltantes.Add(TipoArchivoDbf.Mgw10002);
+
+        if (string.IsNullOrWhiteSpace(configuracion.Mgw10011Path))
+            faltantes.Add(TipoArchivoDbf.Mgw10011);
+
         return faltantes;
     }
 
@@ -141,6 +159,8 @@ public static class ConfiguracionHelper
             TipoArchivoDbf.Mgw10008 => new List<string> { "CFECHA", "CIDDOCUM02", "CTOTAL", "CSERIEDO01", "CFOLIO", "CTEXTOEX03", "CNETO", "CIMPUESTO1", "CCANCELADO", "CIMPORTE03" },
             TipoArchivoDbf.Mgw10005 => new List<string> { "CCODIGOP01", "CNOMBREP01", "CTIPOPRO01", "CMETODOC01", "CPRECIO1", "CIMPUESTO1", "CCODALTERN", "CNOMALTERN", "CDESCCORTA", "CCLAVESAT", "CTEXTOEX01" },
             TipoArchivoDbf.Mgw10045 => new List<string> { "Cfechaemi", "Choraemi", "Cserie", "Cfolio", "Crfc", "Crazon", "Cestado", "Centregado", "Cautusba01", "Cuuid", "Ciddocto" },
+            TipoArchivoDbf.Mgw10002 => new List<string> { "Cidclien01", "Ccodigoc01", "Crazonso01", "Cfechaalta", "Crfc", "Cemail1", "Cmetodopag", "Cusocfdi", "Cregimfisc" },
+            TipoArchivoDbf.Mgw10011 => new List<string> { "Cidcatal01", "Cnombrec01", "Cnumeroe01", "Cnumeroi01", "Ccolonia", "Ccodigop01", "Ctelefono1", "Cemail", "Cpais", "Cestado", "Cciudad", "Cmunicipio" },
             _ => new List<string>()
         };
     }
