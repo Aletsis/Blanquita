@@ -1,0 +1,270 @@
+@using Blanquita.Application.Interfaces
+@using System.IO
+@inject IFileSystemService FileSystemService
+@inject ILogger<DialogoSeleccionCarpeta> Logger
+
+<MudDialog>
+    <DialogContent>
+        <MudText Typo="Typo.body1" Class="mb-4">
+            Seleccione la carpeta de destino para las facturas.
+        </MudText>
+
+        <MudTextField @bind-Value="rutaCarpeta"
+                      Label="Ruta de la carpeta"
+                      Variant="Variant.Outlined"
+                      HelperText="Ejemplo: C:\Datos\Facturas"
+                      Immediate="true"
+                      OnBlur="ValidarRuta"
+                      Class="mb-3" />
+
+        @if (!string.IsNullOrEmpty(mensajeValidacion))
+        {
+            <MudAlert Severity="@severidadMensaje" Class="mb-3">@mensajeValidacion</MudAlert>
+        }
+
+        <MudDivider Class="my-3" />
+
+        <MudText Typo="Typo.body2" Class="mb-2">
+            <strong>Explorador de carpetas del servidor:</strong>
+        </MudText>
+
+        <MudSelect T="string" 
+                   Label="Unidad" 
+                   Value="unidadSeleccionada" 
+                   Variant="Variant.Outlined"
+                   ValueChanged="OnUnidadChanged"
+                   Class="mb-2">
+            @foreach (var drive in unidades)
+            {
+                <MudSelectItem Value="@drive">@drive</MudSelectItem>
+            }
+        </MudSelect>
+
+        <MudTextField @bind-Value="carpetaActual"
+                      Label="Carpeta actual"
+                      Variant="Variant.Outlined"
+                      ReadOnly="true"
+                      Class="mb-2" />
+
+        <MudPaper Elevation="0" Class="pa-2" Style="max-height: 300px; overflow-y: auto; border: 1px solid #e0e0e0;">
+            @if (cargandoDirectorio)
+            {
+                <MudProgressLinear Indeterminate="true" />
+            }
+            else
+            {
+                <MudList T="string" Dense="true">
+                    @if (!string.IsNullOrEmpty(carpetaActual) && !string.IsNullOrEmpty(directorioParent))
+                    {
+                        <MudListItem Icon="@Icons.Material.Filled.ArrowUpward" OnClick="SubirDirectorio">
+                            <MudText Typo="Typo.body2">..</MudText>
+                        </MudListItem>
+                        <MudDivider />
+                    }
+
+                    @foreach (var carpeta in carpetas)
+                    {
+                        <MudListItem Icon="@Icons.Material.Filled.Folder" 
+                                     OnClick="() => AbrirCarpeta(carpeta)">
+                            <MudText Typo="Typo.body2">@FileSystemService.GetFileName(carpeta)</MudText>
+                        </MudListItem>
+                    }
+
+                    @if (!carpetas.Any())
+                    {
+                        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="pa-2">
+                            No hay subcarpetas
+                        </MudText>
+                    }
+                </MudList>
+            }
+        </MudPaper>
+    </DialogContent>
+
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancelar</MudButton>
+        <MudButton Color="Color.Primary" 
+                   Variant="Variant.Filled" 
+                   OnClick="Submit"
+                   Disabled="@(string.IsNullOrEmpty(rutaCarpeta))">
+            Seleccionar
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] 
+    IMudDialogInstance MudDialog { get; set; } = default!;
+
+    [Parameter] 
+    public string CarpetaInicial { get; set; } = "";
+
+    private string rutaCarpeta = "";
+    private string mensajeValidacion = "";
+    private Severity severidadMensaje = Severity.Normal;
+    
+    private List<string> unidades = new();
+    private string unidadSeleccionada = "";
+    private string carpetaActual = "";
+    private string? directorioParent = null;
+    private List<string> carpetas = new();
+    private bool cargandoDirectorio = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        rutaCarpeta = CarpetaInicial;
+        
+        try
+        {
+            var drivesEnumerable = await FileSystemService.GetAvailableDrivesAsync();
+            unidades = drivesEnumerable.ToList();
+
+            if (unidades.Any())
+            {
+                // Try to determine initial drive/folder from provided path if valid
+                if (!string.IsNullOrEmpty(rutaCarpeta) && FileSystemService.DirectoryExists(rutaCarpeta))
+                {
+                     try 
+                     {
+                        var root = Path.GetPathRoot(rutaCarpeta);
+                        // Check if root is in simple format "C:\" matching our units list or similar
+                        var matchingDrive = unidades.FirstOrDefault(u => u.Equals(root, StringComparison.OrdinalIgnoreCase));
+                        
+                        if (matchingDrive != null)
+                        {
+                            unidadSeleccionada = matchingDrive;
+                            carpetaActual = rutaCarpeta;
+                        } 
+                        else 
+                        {
+                            unidadSeleccionada = unidades.First();
+                            carpetaActual = unidadSeleccionada;
+                        }
+                     }
+                     catch 
+                     {
+                        unidadSeleccionada = unidades.First();
+                        carpetaActual = unidadSeleccionada;
+                     }
+                }
+                else
+                {
+                    unidadSeleccionada = unidades.First();
+                    carpetaActual = unidadSeleccionada;
+                }
+                
+                await CargarContenidoDirectorioAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error al cargar unidades disponibles");
+            mensajeValidacion = "Error al cargar unidades del sistema";
+            severidadMensaje = Severity.Error;
+        }
+
+        if (!string.IsNullOrEmpty(rutaCarpeta))
+        {
+            ValidarRuta();
+        }
+    }
+
+    private void ValidarRuta()
+    {
+        if (string.IsNullOrWhiteSpace(rutaCarpeta))
+        {
+            mensajeValidacion = "";
+            return;
+        }
+
+        try
+        {
+            if (FileSystemService.DirectoryExists(rutaCarpeta))
+            {
+                mensajeValidacion = "✓ Carpeta existente";
+                severidadMensaje = Severity.Success;
+            }
+            else
+            {
+                mensajeValidacion = "⚠ La carpeta no existe";
+                severidadMensaje = Severity.Warning;
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error al validar ruta: {Ruta}", rutaCarpeta);
+            mensajeValidacion = "✗ Ruta inválida";
+            severidadMensaje = Severity.Error;
+        }
+    }
+
+    private async Task OnUnidadChanged(string nuevaUnidad)
+    {
+        unidadSeleccionada = nuevaUnidad;
+        carpetaActual = nuevaUnidad;
+        rutaCarpeta = carpetaActual; // Optional: Update input when switching unit
+        await CargarContenidoDirectorioAsync();
+    }
+
+    private async Task CargarContenidoDirectorioAsync()
+    {
+        cargandoDirectorio = true;
+        carpetas.Clear();
+        mensajeValidacion = "";
+
+        try
+        {
+            // Verify access
+            if (!FileSystemService.HasDirectoryAccess(carpetaActual))
+            {
+                mensajeValidacion = "⚠ No tiene permisos para acceder a esta carpeta";
+                severidadMensaje = Severity.Warning;
+                return;
+            }
+
+            directorioParent = FileSystemService.GetParentDirectory(carpetaActual);
+
+            var directoriosEnumerable = await FileSystemService.GetDirectoriesAsync(carpetaActual);
+            carpetas = directoriosEnumerable.ToList();
+            
+            // Also update the text field to reflect current navigation
+            rutaCarpeta = carpetaActual;
+            ValidarRuta();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error al cargar contenido del directorio: {Carpeta}", carpetaActual);
+            mensajeValidacion = $"Error al cargar carpeta: {ex.Message}";
+            severidadMensaje = Severity.Error;
+        }
+        finally
+        {
+            cargandoDirectorio = false;
+        }
+    }
+
+    private async Task AbrirCarpeta(string carpeta)
+    {
+        carpetaActual = carpeta;
+        await CargarContenidoDirectorioAsync();
+    }
+
+    private async Task SubirDirectorio()
+    {
+        if (!string.IsNullOrEmpty(directorioParent))
+        {
+            carpetaActual = directorioParent;
+            await CargarContenidoDirectorioAsync();
+        }
+    }
+
+    private void Submit()
+    {
+        MudDialog.Close(DialogResult.Ok(rutaCarpeta));
+    }
+
+    private void Cancel()
+    {
+        MudDialog.Cancel();
+    }
+}

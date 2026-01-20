@@ -20,10 +20,36 @@
 <PageTitle>Configuración - Sistema de Reportes</PageTitle>
 
 <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4 animated fadeIn">
-    <MudText Typo="Typo.h4" Class="mb-6 font-weight-bold" Style="background: linear-gradient(45deg, #1e88e5, #5e35b1); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
-        <MudIcon Icon="@Icons.Material.Filled.Settings" Class="mr-2" Size="Size.Large" Color="Color.Primary" />
-        Configuración del Sistema
-    </MudText>
+    <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-6">
+        <MudText Typo="Typo.h4" Class="font-weight-bold" Style="background: linear-gradient(45deg, #1e88e5, #5e35b1); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+            <MudIcon Icon="@Icons.Material.Filled.Settings" Class="mr-2" Size="Size.Large" Color="Color.Primary" />
+            Configuración del Sistema
+        </MudText>
+        <MudStack Row="true" Spacing="2">
+            <MudTooltip Text="Verificar conexión a base de datos">
+                <MudIconButton Icon="@Icons.Material.Filled.BugReport" Color="Color.Info" OnClick="IrADiagnostico" Variant="Variant.Outlined" />
+            </MudTooltip>
+             <MudTooltip Text="Restablecer valores">
+                <MudIconButton Icon="@Icons.Material.Filled.Restore" OnClick="LimpiarFormulario" Variant="Variant.Outlined" />
+            </MudTooltip>
+            <MudButton Variant="Variant.Filled" 
+                      StartIcon="@Icons.Material.Filled.Save" 
+                      Color="Color.Primary" 
+                      OnClick="GuardarConfiguracion" 
+                      Disabled="@_guardando"
+                      Class="ml-2">
+                @if (_guardando) 
+                { 
+                    <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" /> 
+                    <text>Guardando...</text> 
+                } 
+                else 
+                { 
+                    <text>Guardar Cambios</text> 
+                }
+            </MudButton>
+        </MudStack>
+    </MudStack>
 
     <MudGrid>
         <MudItem xs="12">
@@ -230,38 +256,56 @@
                                 </MudCard>
                             </MudItem>
                         </MudGrid>
-                        <MudDivider Class="my-4" />
-                        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
-                            <MudButton Variant="Variant.Outlined" 
-                                      StartIcon="@Icons.Material.Filled.BugReport" 
-                                      Color="Color.Info" 
-                                      OnClick="IrADiagnostico">
-                                Verificar Conexión
-                            </MudButton>
-                            <MudStack Row="true" Spacing="2">
-                                <MudButton Variant="Variant.Outlined" 
-                                          StartIcon="@Icons.Material.Filled.Restore" 
-                                          OnClick="LimpiarFormulario">
-                                    Limpiar
-                                </MudButton>
-                                <MudButton Variant="Variant.Filled" 
-                                          StartIcon="@Icons.Material.Filled.Save" 
-                                          Color="Color.Primary" 
-                                          OnClick="GuardarConfiguracion" 
-                                          Disabled="@_guardando"
-                                          Size="Size.Medium">
-                                    @if (_guardando) 
-                                    { 
-                                        <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" /> 
-                                        <text>Guardando...</text> 
-                                    } 
-                                    else 
-                                    { 
-                                        <text>Guardar Configuración</text> 
-                                    }
-                                </MudButton>
-                            </MudStack>
-                        </MudStack>
+
+                    </MudCollapse>
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+
+        <MudItem xs="12">
+            <MudCard Elevation="4" Class="rounded-lg animate-slide-up" Style="animation-delay: 0.12s;">
+                <MudCardHeader>
+                    <CardHeaderContent>
+                        <MudText Typo="Typo.h6" Color="Color.Primary">
+                            <MudIcon Icon="@Icons.Material.Filled.Description" Class="mr-2" />
+                            Configuración de Facturación
+                        </MudText>
+                    </CardHeaderContent>
+                    <CardHeaderActions>
+                        <MudIconButton Icon="@(_facturasConfigExpanded ? Icons.Material.Filled.ExpandLess : Icons.Material.Filled.ExpandMore)" 
+                                      Color="Color.Default" 
+                                      OnClick="ExpandFacturasConfig" />
+                    </CardHeaderActions>
+                </MudCardHeader>
+                <MudCardContent>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
+                        Configure la ruta donde se almacenarán las facturas generadas.
+                    </MudText>
+                    <MudCollapse Expanded="_facturasConfigExpanded">
+                        <MudCard Outlined="true" Class="pa-3">
+                            <MudText Typo="Typo.subtitle1" Class="mb-2 font-weight-bold">
+                                <MudIcon Icon="@Icons.Material.Filled.FolderSpecial" Size="Size.Small" Class="mr-1" />
+                                Ruta de Facturas
+                            </MudText>
+                            <MudTextField @bind-Value="_configuracion.FacturasPath" 
+                                         Label="Ruta de la carpeta" 
+                                         Variant="Variant.Outlined" 
+                                         ReadOnly="true" 
+                                         Adornment="Adornment.End" 
+                                         AdornmentIcon="@Icons.Material.Filled.FolderOpen" 
+                                         OnAdornmentClick="AbrirDialogoCarpetaFacturas" 
+                                         Class="mb-2"
+                                         Margin="Margin.Dense" />
+                            @if (!string.IsNullOrEmpty(_configuracion.FacturasPath)) 
+                            { 
+                                <MudChip T="string" 
+                                        Size="Size.Small" 
+                                        Color="@(ValidarDirectorio(_configuracion.FacturasPath) ? Color.Success : Color.Error)" 
+                                        Icon="@(ValidarDirectorio(_configuracion.FacturasPath) ? Icons.Material.Filled.CheckCircle : Icons.Material.Filled.Error)">
+                                    @(ValidarDirectorio(_configuracion.FacturasPath) ? "Carpeta encontrada" : "Carpeta no encontrada")
+                                </MudChip> 
+                            }
+                        </MudCard>
                     </MudCollapse>
                 </MudCardContent>
             </MudCard>
@@ -579,6 +623,7 @@
     private bool _loadingPrinters = false;
     private bool _zebraConfigExpanded = false;
     private bool _dbfConfigExpanded = false;
+    private bool _facturasConfigExpanded = false;
 
     private bool _cajasConfigExpanded = false;
     private bool _sucursalesConfigExpanded = false;
@@ -610,6 +655,7 @@
 
     private void ExpandZebraConfig() => _zebraConfigExpanded = !_zebraConfigExpanded;
     private void ExpandDbfConfig() => _dbfConfigExpanded = !_dbfConfigExpanded;
+    private void ExpandFacturasConfig() => _facturasConfigExpanded = !_facturasConfigExpanded;
     private void ExpandCajasConfig() => _cajasConfigExpanded = !_cajasConfigExpanded;
     private void ExpandSucursalesConfig() => _sucursalesConfigExpanded = !_sucursalesConfigExpanded;
 
@@ -640,6 +686,34 @@
         {
             Logger.LogError(ex, "Error al seleccionar archivo para {TipoArchivo}", tipoArchivo);
             Snackbar.Add($"Error al seleccionar archivo: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task AbrirDialogoCarpetaFacturas()
+    {
+        try
+        {
+            var rutaActual = _configuracion.FacturasPath;
+
+            var dialogOptions = new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true };
+            var parameters = new DialogParameters
+            {
+                { "CarpetaInicial", rutaActual }
+            };
+
+            var dialog = await DialogService.ShowAsync<DialogoSeleccionCarpeta>("Seleccionar Carpeta", parameters, dialogOptions);
+            var result = await dialog.Result;
+
+            if (!result.Canceled && result.Data is string rutaSeleccionada)
+            {
+                _configuracion.FacturasPath = rutaSeleccionada;
+                Logger.LogInformation("Ruta de facturas actualizada: {Ruta}", rutaSeleccionada);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error al seleccionar carpeta de facturas");
+            Snackbar.Add($"Error al seleccionar carpeta: {ex.Message}", Severity.Error);
         }
     }
 
@@ -794,6 +868,7 @@
     private string ObtenerRutaPorTipo(TipoArchivoDbf tipo) => _configuracion.ObtenerRutaPorTipo(tipo);
     private void EstablecerRutaPorTipo(TipoArchivoDbf tipo, string ruta) => _configuracion.EstablecerRutaPorTipo(tipo, ruta);
     private bool ValidarRuta(string ruta) => ConfigService.ValidarRutaArchivo(ruta);
+    private bool ValidarDirectorio(string ruta) => ConfigService.ValidarRutaDirectorio(ruta);
 
 
 

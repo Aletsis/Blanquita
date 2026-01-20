@@ -32,6 +32,12 @@ public interface IConfiguracionService
     bool ValidarRutaArchivo(string ruta);
 
     /// <summary>
+    /// Valida que una ruta de directorio existe
+    /// </summary>
+    /// <param name="ruta">Ruta del directorio</param>
+    bool ValidarRutaDirectorio(string ruta);
+
+    /// <summary>
     /// Obtiene el nombre del archivo DBF según su tipo
     /// </summary>
     /// <param name="tipo">Tipo de archivo DBF</param>

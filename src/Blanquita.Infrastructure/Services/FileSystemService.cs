@@ -91,6 +91,27 @@ public class FileSystemService : IFileSystemService
         }
     }
 
+
+    public bool DirectoryExists(string path)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                return false;
+            }
+
+            var exists = Directory.Exists(path);
+            _logger.LogDebug("Directory exists check for {Path}: {Exists}", path, exists);
+            return exists;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error checking if directory exists: {Path}", path);
+            return false;
+        }
+    }
+
     public bool FileExists(string filePath)
     {
         try

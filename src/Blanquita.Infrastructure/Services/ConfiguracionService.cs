@@ -136,6 +136,15 @@ public class ConfiguracionService : IConfiguracionService
             ValidarRutaDbf(configuracion.Mgw10002Path, "MGW10002.DBF", resultado);
             ValidarRutaDbf(configuracion.Mgw10011Path, "MGW10011.DBF", resultado);
 
+            // Validar ruta de facturas
+            if (!string.IsNullOrWhiteSpace(configuracion.FacturasPath))
+            {
+                if (!Directory.Exists(configuracion.FacturasPath))
+                {
+                    resultado.AgregarError("La ruta de facturas no existe");
+                }
+            }
+
             // Validar configuración de impresoras (advertencias, no errores)
             if (string.IsNullOrWhiteSpace(configuracion.PrinterName))
             {
@@ -172,6 +181,12 @@ public class ConfiguracionService : IConfiguracionService
     public bool ValidarRutaArchivo(string ruta)
     {
         return _configurationManager.ValidatePath(ruta);
+    }
+
+    /// <inheritdoc/>
+    public bool ValidarRutaDirectorio(string ruta)
+    {
+        return !string.IsNullOrWhiteSpace(ruta) && Directory.Exists(ruta);
     }
 
     /// <inheritdoc/>
@@ -231,6 +246,7 @@ public class ConfiguracionService : IConfiguracionService
             Mgw10045Path = entity.Mgw10045Path,
             Mgw10002Path = entity.Mgw10002Path,
             Mgw10011Path = entity.Mgw10011Path,
+            FacturasPath = entity.FacturasPath,
             PrinterName = entity.PrinterName,
             PrinterIp = entity.PrinterIp,
             PrinterPort = entity.PrinterPort,
@@ -249,6 +265,7 @@ public class ConfiguracionService : IConfiguracionService
         entity.Mgw10045Path = dto.Mgw10045Path;
         entity.Mgw10002Path = dto.Mgw10002Path;
         entity.Mgw10011Path = dto.Mgw10011Path;
+        entity.FacturasPath = dto.FacturasPath;
         entity.PrinterName = dto.PrinterName;
         entity.PrinterIp = dto.PrinterIp;
         entity.PrinterPort = dto.PrinterPort;

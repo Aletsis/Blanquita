@@ -44,6 +44,11 @@ public class ConfiguracionDto
     public string Mgw10011Path { get; set; } = string.Empty;
 
     /// <summary>
+    /// Ruta de la carpeta para facturas
+    /// </summary>
+    public string FacturasPath { get; set; } = string.Empty;
+
+    /// <summary>
     /// Nombre de la impresora principal
     /// </summary>
     public string PrinterName { get; set; } = string.Empty;

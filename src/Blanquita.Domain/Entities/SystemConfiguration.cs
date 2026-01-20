@@ -25,6 +25,9 @@ public class SystemConfiguration : BaseEntity
     [MaxLength(500)]
     public string Mgw10011Path { get; set; } = string.Empty;
 
+    [MaxLength(500)]
+    public string FacturasPath { get; set; } = string.Empty;
+
     [MaxLength(200)]
     public string PrinterName { get; set; } = string.Empty;
 

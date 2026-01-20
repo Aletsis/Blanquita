@@ -56,6 +56,13 @@ public interface IFileSystemService
     string GetFileName(string filePath);
 
     /// <summary>
+    /// Verifica si un directorio existe
+    /// </summary>
+    /// <param name="path">Ruta del directorio</param>
+    /// <returns>True si el directorio existe</returns>
+    bool DirectoryExists(string path);
+
+    /// <summary>
     /// Verifica si el usuario tiene permisos para acceder a un directorio
     /// </summary>
     /// <param name="path">Ruta del directorio</param>
