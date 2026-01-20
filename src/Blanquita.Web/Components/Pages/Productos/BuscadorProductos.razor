@@ -8,7 +8,7 @@
 
 <PageTitle>Buscador de Productos</PageTitle>
 
-<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4 animated fadeIn">
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4 animate-fade-in">
     <MudText Typo="Typo.h4" Class="mb-6 font-weight-bold" Style="background: linear-gradient(45deg, #1e88e5, #5e35b1); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
         <MudIcon Icon="@Icons.Material.Filled.Search" Class="mr-2" Size="Size.Large" Color="Color.Primary" />
         Buscador de Productos
@@ -50,48 +50,103 @@
         </MudItem>
 
         <MudItem xs="12">
-            <MudTable Items="@productos" Hover="true" Breakpoint="Breakpoint.Sm" Loading="@buscando" LoadingProgressColor="Color.Info" Elevation="4" Class="rounded-lg">
-                <HeaderContent>
-                    <MudTh>Código</MudTh>
-                    <MudTh>Nombre</MudTh>
-                    <MudTh>Precio</MudTh>
-                    <MudTh>Impuesto</MudTh>
-                    <MudTh>Cód. Alterno</MudTh>
-                    <MudTh>Nom. Alterno</MudTh>
-                    <MudTh>Clave SAT</MudTh>
-                    <MudTh>PLU</MudTh>
-                </HeaderContent>
-                <RowTemplate>
-                    <MudTd DataLabel="Código">
-                        <MudChip T="string" Color="Color.Primary" Size="Size.Small" Variant="Variant.Text">@context.Code</MudChip>
-                    </MudTd>
-                    <MudTd DataLabel="Nombre">@context.Name</MudTd>
-                    <MudTd DataLabel="Precio">@context.Price.ToString("C2")</MudTd>
-                    <MudTd DataLabel="Impuesto">@context.Tax.ToString("0.##")%</MudTd>
-                    <MudTd DataLabel="Cód. Alterno">@context.AlternateCode</MudTd>
-                    <MudTd DataLabel="Nom. Alterno">@context.AlternateName</MudTd>
-                    <MudTd DataLabel="Clave SAT">@context.SatKey</MudTd>
-                    <MudTd DataLabel="PLU">
-                        @if (!string.IsNullOrEmpty(context.Plu))
-                        {
-                            <MudChip T="string" Color="Color.Secondary" Size="Size.Small">@context.Plu</MudChip>
-                        }
-                    </MudTd>
-                </RowTemplate>
-                <PagerContent>
-                    <MudTablePager />
-                </PagerContent>
-                <NoRecordsContent>
-                     <MudText Typo="Typo.body1" Class="pa-4 text-muted">No se encontraron productos.</MudText>
-                </NoRecordsContent>
-            </MudTable>
+            @if (productos.Any())
+            {
+                <MudTable Items="@productos" Hover="true" Breakpoint="Breakpoint.Sm" Loading="@buscando" LoadingProgressColor="Color.Info" Elevation="4" Class="rounded-lg animate-slide-up">
+                    <HeaderContent>
+                        <MudTh>Código</MudTh>
+                        <MudTh>Nombre</MudTh>
+                        <MudTh>Precio</MudTh>
+                        <MudTh>Impuesto</MudTh>
+                        <MudTh>Cód. Alterno</MudTh>
+                        <MudTh>Nom. Alterno</MudTh>
+                        <MudTh>Clave SAT</MudTh>
+                        <MudTh>PLU</MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd DataLabel="Código">
+                            <MudChip T="string" Color="Color.Primary" Size="Size.Small" Variant="Variant.Text">@context.Code</MudChip>
+                        </MudTd>
+                        <MudTd DataLabel="Nombre">@context.Name</MudTd>
+                        <MudTd DataLabel="Precio">@context.Price.ToString("C2")</MudTd>
+                        <MudTd DataLabel="Impuesto">@context.Tax.ToString("0.##")%</MudTd>
+                        <MudTd DataLabel="Cód. Alterno">@context.AlternateCode</MudTd>
+                        <MudTd DataLabel="Nom. Alterno">@context.AlternateName</MudTd>
+                        <MudTd DataLabel="Clave SAT">@context.SatKey</MudTd>
+                        <MudTd DataLabel="PLU">
+                            @if (!string.IsNullOrEmpty(context.Plu))
+                            {
+                                <MudChip T="string" Color="Color.Secondary" Size="Size.Small">@context.Plu</MudChip>
+                            }
+                        </MudTd>
+                    </RowTemplate>
+                    <PagerContent>
+                        <MudTablePager />
+                    </PagerContent>
+                </MudTable>
+            }
+            else if (hasSearched && !buscando)
+            {
+                <MudAlert Severity="Severity.Info" Class="mt-4 rounded-lg">No se encontraron productos que coincidan con la búsqueda.</MudAlert>
+            }
+            else if (!hasSearched)
+            {
+                 <MudCard Elevation="4" Class="rounded-lg pa-8 text-center animate-fade-in" Style="min-height: 400px; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+                    <MudCardContent>
+                        <MudIcon Icon="@Icons.Material.Filled.Inventory2" Size="Size.Large" Color="Color.Secondary" Style="font-size: 4rem; opacity: 0.3;" />
+                        <MudText Typo="Typo.h6" Color="Color.Secondary" Class="mt-4 font-weight-bold">
+                            Buscador de Inventario
+                        </MudText>
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">
+                            Ingrese el nombre, código o PLU para consultar productos
+                        </MudText>
+                    </MudCardContent>
+                </MudCard>
+            }
         </MudItem>
     </MudGrid>
 </MudContainer>
 
+<style>
+    .animate-fade-in {
+        animation: fadeIn 0.5s ease-out;
+    }
+
+    .animate-slide-up {
+        animation: slideUp 0.5s ease-out;
+    }
+
+    @@keyframes fadeIn {
+        from {
+            opacity: 0;
+        }
+
+        to {
+            opacity: 1;
+        }
+    }
+
+    @@keyframes slideUp {
+        from {
+            transform: translateY(20px);
+            opacity: 0;
+        }
+
+        to {
+            transform: translateY(0);
+            opacity: 1;
+        }
+    }
+
+    .rounded-lg {
+        border-radius: 12px !important;
+    }
+</style>
+
 @code {
     private string searchTerm = "";
     private bool buscando = false;
+    private bool hasSearched = false;
     private IEnumerable<ProductSearchDto> productos = new List<ProductSearchDto>();
 
     private async Task BuscarProductos()
@@ -99,10 +154,14 @@
         if (string.IsNullOrWhiteSpace(searchTerm)) return;
 
         buscando = true;
+        hasSearched = false; // Reset to avoid showing "No results" while searching? Or just keep it.
+                             // Actually, logic: searching... then showing results.
+        
         try
         {
             var query = new SearchProductsQuery(searchTerm);
             productos = await Mediator.Send(query);
+            hasSearched = true;
             
             if (!productos.Any())
             {
