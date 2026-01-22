@@ -27,5 +27,10 @@ public interface IFoxProDocumentRepository
         DateTime date, 
         string serie, 
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Obtiene las facturas de un cliente específico desde MGW10008
+    /// </summary>
+    Task<IEnumerable<InvoiceDto>> GetInvoicesByClientIdAsync(int clientId, CancellationToken cancellationToken = default);
 }
 

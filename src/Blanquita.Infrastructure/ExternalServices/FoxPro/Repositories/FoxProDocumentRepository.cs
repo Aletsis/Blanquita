@@ -254,6 +254,71 @@ public class FoxProDocumentRepository : IFoxProDocumentRepository
         }
     }
 
+    public async Task<IEnumerable<InvoiceDto>> GetInvoicesByClientIdAsync(int clientId, CancellationToken cancellationToken = default)
+    {
+        var config = await _configService.ObtenerConfiguracionAsync();
+        var documentsPath = config.Mgw10008Path;
+        var invoices = new List<InvoiceDto>();
+
+        if (string.IsNullOrEmpty(documentsPath) || !File.Exists(documentsPath))
+        {
+             _logger.LogWarning("Archivo MGW10008 no encontrado o no configurado: {FilePath}", documentsPath);
+             return invoices;
+        }
+
+        try
+        {
+            using var reader = _readerFactory.CreateReader(documentsPath);
+            
+             // Validar columnas requeridas
+             // Assuming CSERIEDO01 and CFOLIO exist based on AdminPAQ schema, and CIDCLIEN01 is the link
+            ValidateColumns(reader, "MGW10008", "CIDCLIEN01", "CSERIEDO01", "CFOLIO", "CFECHA");
+
+            while (reader.Read())
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                try
+                {
+                    var idCliente = reader.GetInt32Safe("CIDCLIEN01");
+
+                    if (idCliente == clientId)
+                    {
+                        var serie = reader.GetStringSafe("CSERIEDO01");
+                        var folioDecimal = reader.GetDecimalSafe("CFOLIO");
+                        var folio = (double)folioDecimal;
+                        var fecha = reader.GetDateTimeSafe("CFECHA");
+                        
+                        // Construct filename: F + Serie + Folio (10 digits left padded with 0)
+                        var folioStr = folioDecimal.ToString("0"); // Use decimal for string formatting to avoid scientific notation
+                        folioStr = folioStr.PadLeft(10, '0');
+                        
+                        var fileName = $"F{serie}{folioStr}";
+
+                        invoices.Add(new InvoiceDto
+                        {
+                            Serie = serie,
+                            Folio = folio,
+                            Fecha = fecha,
+                            FileName = fileName
+                        });
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogDebug(ex, "Error al leer registro de factura para cliente {ClientId}", clientId);
+                }
+            }
+
+            return invoices.OrderByDescending(x => x.Fecha).ToList();
+        }
+        catch (Exception ex)
+        {
+             _logger.LogError(ex, "Error al obtener facturas del cliente {ClientId}", clientId);
+             throw;
+        }
+    }
+
     private void ValidateColumns(IFoxProDataReader reader, string fileName, params string[] columns)
     {
         var missingColumns = new List<string>();

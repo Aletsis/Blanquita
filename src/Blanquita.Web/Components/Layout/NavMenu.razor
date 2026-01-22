@@ -2,12 +2,14 @@
     <MudNavLink Href="/" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Dashboard">
         Inicio
     </MudNavLink>
+    <MudNavGroup Title="Clientes" Expanded="false" Icon="@Icons.Material.Filled.People">
+        <MudNavLink Href="/clientes" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.PersonSearch">
+            Buscador de Clientes
+        </MudNavLink>
+    </MudNavGroup>
     <MudNavGroup Title="Abarrotes" Expanded="false" Icon="@Icons.Material.Filled.ShoppingCart">
         <MudNavLink Href="/productos/buscador" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Search">
             Buscador de Productos
-        </MudNavLink>
-        <MudNavLink Href="/clientes" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.People">
-            Buscador de Clientes
         </MudNavLink>
         <MudNavLink Href="/etiquetas" Match="NavLinkMatch.Prefix" Icon="@Icons.Custom.Uncategorized.ColorPalette">
             Imprimir etiquetas

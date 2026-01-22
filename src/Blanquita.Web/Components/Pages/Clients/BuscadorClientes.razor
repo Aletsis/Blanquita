@@ -2,9 +2,12 @@
 @using Blanquita.Application.DTOs
 @using Blanquita.Application.Interfaces.Repositories
 @using Blanquita.Web.Components.Shared
+@using Blanquita.Application.Interfaces
+@using System.IO
 @inject IClientCatalogRepository ClientRepository
 @inject ISnackbar Snackbar
 @inject IDialogService DialogService
+@inject IConfiguracionService ConfiguracionService
 
 <PageTitle>Buscador de Clientes</PageTitle>
 
@@ -84,6 +87,14 @@
                                        StartIcon="@Icons.Material.Filled.Visibility"
                                        OnClick="@(() => VerDetalles(context))">
                                 Ver Detalles
+                            </MudButton>
+                            <MudButton Variant="Variant.Filled"
+                                       Color="Color.Info"
+                                       Size="Size.Small"
+                                       StartIcon="@Icons.Material.Filled.Folder"
+                                       Class="ml-2"
+                                       OnClick="@(() => VerFacturas(context))">
+                                Ver Facturas
                             </MudButton>
                         </MudTd>
                     </RowTemplate>
@@ -185,5 +196,38 @@
         var parameters = new DialogParameters { ["Client"] = cliente };
         var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium, FullWidth = true };
         DialogService.Show<ClientDetailsDialog>($"Detalles del Cliente: {cliente.Name}", parameters, options);
+    }
+
+    private async Task VerFacturas(ClientSearchDto cliente)
+    {
+        try
+        {
+            var config = await ConfiguracionService.ObtenerConfiguracionAsync();
+            
+            if (string.IsNullOrWhiteSpace(config.FacturasPath))
+            {
+                Snackbar.Add("No se ha configurado la ruta de facturas en el sistema.", Severity.Warning);
+                return;
+            }
+
+            var clientPath = Path.Combine(config.FacturasPath, cliente.Code);
+            
+            // Allow opening dialog even if directory doesn't exist, so we can see historic invoices
+            // if (!Directory.Exists(clientPath)) ...
+            
+            var parameters = new DialogParameters 
+            { 
+                ["ClientId"] = cliente.Id,
+                ["ClientName"] = cliente.Name,
+                ["InvoicePath"] = clientPath
+            };
+            
+            var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Large, FullWidth = true };
+            DialogService.Show<ClientInvoicesDialog>($"Documentos del Cliente", parameters, options);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error al abrir facturas: {ex.Message}", Severity.Error);
+        }
     }
 }

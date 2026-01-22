@@ -1,0 +1,184 @@
+@using System.IO
+@using System.IO.Compression
+@using Blanquita.Application.DTOs
+@using Blanquita.Application.Interfaces.Repositories
+@inject ISnackbar Snackbar
+@inject IFoxProDocumentRepository DocumentRepository
+@inject IJSRuntime JS
+
+<MudDialog>
+    <DialogContent>
+        <MudText Typo="Typo.h6" Class="mb-2">Facturas de @ClientName</MudText>
+        <MudText Typo="Typo.caption" Class="mb-4 d-block">Ruta: @InvoicePath</MudText>
+        
+        @if (isLoading)
+        {
+            <div class="d-flex justify-center my-4">
+                <MudProgressCircular Indeterminate="true" Color="Color.Primary" />
+            </div>
+        }
+        else if (Invoices == null || !Invoices.Any())
+        {
+            <MudAlert Severity="Severity.Info">No se encontraron facturas para este cliente en MGW10008.</MudAlert>
+        }
+        else
+        {
+            <MudTable Items="@Invoices" Dense="true" Hover="true" Striped="true" FixedHeader="true" Height="400px">
+                <HeaderContent>
+                    <MudTh>Serie</MudTh>
+                    <MudTh>Folio</MudTh>
+                    <MudTh>Fecha</MudTh>
+                    <MudTh>Archivos</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="Serie">@context.Serie</MudTd>
+                    <MudTd DataLabel="Folio">@context.Folio</MudTd>
+                    <MudTd DataLabel="Fecha">@context.Fecha.ToShortDateString()</MudTd>
+                    <MudTd DataLabel="Archivos">
+                        <MudStack Row="true" Spacing="2">
+                            @{
+                                var xmlExists = File.Exists(Path.Combine(InvoicePath, context.FileName + ".xml"));
+                                var pdfExists = File.Exists(Path.Combine(InvoicePath, context.FileName + ".pdf"));
+                            }
+                            
+                            <MudTooltip Text="@(xmlExists ? "Descargar XML" : "XML no encontrado")">
+                                <MudIconButton Icon="@Icons.Material.Filled.Code" 
+                                             Color="@(xmlExists ? Color.Primary : Color.Default)" 
+                                             Size="Size.Small" 
+                                             Disabled="@(!xmlExists)"
+                                             OnClick="@(() => DownloadFile(context.FileName + ".xml"))" />
+                            </MudTooltip>
+                            
+                            <MudTooltip Text="@(pdfExists ? "Descargar PDF" : "PDF no encontrado")">
+                                <MudIconButton Icon="@Icons.Custom.FileFormats.FilePdf" 
+                                             Color="@(pdfExists ? Color.Error : Color.Default)" 
+                                             Size="Size.Small" 
+                                             Disabled="@(!pdfExists)"
+                                             OnClick="@(() => DownloadFile(context.FileName + ".pdf"))" />
+                            </MudTooltip>
+
+                            <MudTooltip Text="@(xmlExists || pdfExists ? "Descargar ZIP" : "Archivos no encontrados")">
+                                <MudIconButton Icon="@Icons.Material.Filled.FolderZip" 
+                                             Color="@(xmlExists || pdfExists ? Color.Warning : Color.Default)" 
+                                             Size="Size.Small" 
+                                             Disabled="@(!xmlExists && !pdfExists)"
+                                             OnClick="@(() => DownloadZip(context))" />
+                            </MudTooltip>
+                        </MudStack>
+                    </MudTd>
+                </RowTemplate>
+            </MudTable>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cerrar</MudButton>
+    </DialogActions>
+</MudDialog>
+
+<script>
+    window.downloadFile = (fileName, byteBase64) => {
+        var link = document.createElement('a');
+        link.download = fileName;
+        link.href = "data:application/octet-stream;base64," + byteBase64;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+</script>
+
+@code {
+    [CascadingParameter] IMudDialogInstance MudDialog { get; set; }
+
+    [Parameter] public int ClientId { get; set; }
+    [Parameter] public string ClientName { get; set; } = string.Empty;
+    [Parameter] public string InvoicePath { get; set; } = string.Empty;
+
+    private List<InvoiceDto> Invoices = new();
+    private bool isLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadInvoices();
+    }
+
+    private async Task LoadInvoices()
+    {
+        isLoading = true;
+        try
+        {
+            Invoices = (await DocumentRepository.GetInvoicesByClientIdAsync(ClientId)).ToList();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error al cargar facturas: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+
+
+
+    private async Task DownloadFile(string fileName)
+    {
+        try
+        {
+            var fullPath = Path.Combine(InvoicePath, fileName);
+            if (!File.Exists(fullPath))
+            {
+                Snackbar.Add("El archivo no existe.", Severity.Warning);
+                return;
+            }
+
+            var bytes = await File.ReadAllBytesAsync(fullPath);
+            await JS.InvokeVoidAsync("downloadFile", fileName, Convert.ToBase64String(bytes));
+            Snackbar.Add($"Descargando {fileName}...", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error al descargar archivo: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task DownloadZip(InvoiceDto invoice)
+    {
+        try
+        {
+            using var memoryStream = new MemoryStream();
+            using (var archive = new ZipArchive(memoryStream, ZipArchiveMode.Create, true))
+            {
+                var xmlName = invoice.FileName + ".xml";
+                var pdfName = invoice.FileName + ".pdf";
+
+                await AddFileToZip(archive, xmlName);
+                await AddFileToZip(archive, pdfName);
+            }
+
+            memoryStream.Position = 0;
+            var bytes = memoryStream.ToArray();
+            var zipName = $"{invoice.FileName}.zip";
+            
+            await JS.InvokeVoidAsync("downloadFile", zipName, Convert.ToBase64String(bytes));
+            Snackbar.Add($"Descargando {zipName}...", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error al crear ZIP: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task AddFileToZip(ZipArchive archive, string fileName)
+    {
+        var fullPath = Path.Combine(InvoicePath, fileName);
+        if (File.Exists(fullPath))
+        {
+            var entry = archive.CreateEntry(fileName);
+            using var entryStream = entry.Open();
+            using var fileStream = File.OpenRead(fullPath);
+            await fileStream.CopyToAsync(entryStream);
+        }
+    }
+}
