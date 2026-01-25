@@ -15,7 +15,7 @@ public class CashCutTests
         var branch = "Sucursal 1";
 
         // Act
-        var cashCut = CashCut.Create(1, 2, 3, 4, 5, 6, 100.50m, 200.00m, register, supervisor, cashier, branch);
+        var cashCut = CashCut.Create(1, 2, 3, 4, 5, 6, 100.50m, 150.00m, 50.00m, register, supervisor, cashier, branch);
 
         // Assert
         Assert.NotNull(cashCut);
@@ -28,16 +28,17 @@ public class CashCutTests
         // Assert totals
         Assert.Equal(1, cashCut.Totals.TotalThousands);
         Assert.Equal(100.50m, cashCut.Totals.TotalSlips);
-        Assert.Equal(200.00m, cashCut.Totals.TotalCards);
+        Assert.Equal(150.00m, cashCut.Totals.TotalBanbajio);
+        Assert.Equal(50.00m, cashCut.Totals.TotalBanregio);
     }
 
     [Fact]
     public void Create_InvalidArguments_ShouldThrowException()
     {
-        Assert.Throws<ArgumentException>(() => CashCut.Create(0,0,0,0,0,0,0,0, "", "Sup", "Cash", "Branch"));
-        Assert.Throws<ArgumentException>(() => CashCut.Create(0,0,0,0,0,0,0,0, "Reg", "", "Cash", "Branch"));
-        Assert.Throws<ArgumentException>(() => CashCut.Create(0,0,0,0,0,0,0,0, "Reg", "Sup", "", "Branch"));
-        Assert.Throws<ArgumentException>(() => CashCut.Create(0,0,0,0,0,0,0,0, "Reg", "Sup", "Cash", ""));
+        Assert.Throws<ArgumentException>(() => CashCut.Create(0,0,0,0,0,0,0,0,0, "", "Sup", "Cash", "Branch"));
+        Assert.Throws<ArgumentException>(() => CashCut.Create(0,0,0,0,0,0,0,0,0, "Reg", "", "Cash", "Branch"));
+        Assert.Throws<ArgumentException>(() => CashCut.Create(0,0,0,0,0,0,0,0,0, "Reg", "Sup", "", "Branch"));
+        Assert.Throws<ArgumentException>(() => CashCut.Create(0,0,0,0,0,0,0,0,0, "Reg", "Sup", "Cash", ""));
     }
 
     [Fact]
@@ -46,10 +47,10 @@ public class CashCutTests
         // Grand Total should be the sum of collections (denominations)
         // Collections: 1*1000 = 1000
         // Slips: 50
-        // Cards: 100
+        // Banbajio: 60, Banregio: 40
         // GetGrandTotal should return sum of collections (1000)
         
-        var cashCut = CashCut.Create(1, 0, 0, 0, 0, 0, 50m, 100m, "R", "S", "C", "B");
+        var cashCut = CashCut.Create(1, 0, 0, 0, 0, 0, 50m, 60m, 40m, "R", "S", "C", "B");
         
         var grandTotal = cashCut.GetGrandTotal();
         
@@ -60,14 +61,14 @@ public class CashCutTests
     public void IsValid_ShouldReturnTrue_WhenTotalGreaterThanZero()
     {
         // IsValid checks if GrandTotal (sum of collections) > 0
-        var cashCut = CashCut.Create(1, 0, 0, 0, 0, 0, 100m, 0, "R", "S", "C", "B");
+        var cashCut = CashCut.Create(1, 0, 0, 0, 0, 0, 100m, 0, 0, "R", "S", "C", "B");
         Assert.True(cashCut.IsValid());
     }
 
     [Fact]
     public void IsValid_ShouldReturnFalse_WhenTotalIsZero()
     {
-        var cashCut = CashCut.Create(0, 0, 0, 0, 0, 0, 0, 0, "R", "S", "C", "B");
+        var cashCut = CashCut.Create(0, 0, 0, 0, 0, 0, 0, 0, 0, "R", "S", "C", "B");
         Assert.False(cashCut.IsValid());
     }
 }

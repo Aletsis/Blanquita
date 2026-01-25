@@ -225,7 +225,8 @@ public class CashCutService : ICashCutService
             TotalFifties = totalFifties,
             TotalTwenties = totalTwenties,
             TotalSlips = request.TotalSlips,
-            TotalCards = request.TotalCards,
+            TotalBanbajio = request.TotalBanbajio,
+            TotalBanregio = request.TotalBanregio,
             CashRegisterName = register.Name,
             SupervisorName = supervisor.Name,
             CashierName = cashier.Name, 
@@ -238,10 +239,10 @@ public class CashCutService : ICashCutService
 
         _logger.LogInformation(
             "Processing Cash Cut - Register: {Register}, Collections: {Count}. " +
-            "Calc Cash: {CashTotal:C2}, Slips: {Slips:C2}, Cards: {Cards:C2}. " +
+            "Calc Cash: {CashTotal:C2}, Slips: {Slips:C2}, Banbajio: {Banbajio:C2}, Banregio: {Banregio:C2}. " +
             "Details -> 1000x{T}, 500x{FH}, 200x{TH}, 100x{H}, 50x{F}, 20x{Tw}",
             register.Name, registerCollections.Count,
-            calculatedCashTotal, request.TotalSlips, request.TotalCards,
+            calculatedCashTotal, request.TotalSlips, request.TotalBanbajio, request.TotalBanregio,
             totalThousands, totalFiveHundreds, totalTwoHundreds, totalHundreds, totalFifties, totalTwenties);
 
         return await CreateAsync(createDto, cancellationToken);

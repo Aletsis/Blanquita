@@ -31,7 +31,7 @@ public class CashCut : BaseEntity
     public static CashCut Create(
         int totalThousands, int totalFiveHundreds, int totalTwoHundreds,
         int totalHundreds, int totalFifties, int totalTwenties,
-        decimal totalSlips, decimal totalCards,
+        decimal totalSlips, decimal totalBanbajio, decimal totalBanregio,
         string cashRegisterName, string supervisorName, string cashierName, string branchName)
     {
         if (string.IsNullOrWhiteSpace(cashRegisterName))
@@ -47,7 +47,7 @@ public class CashCut : BaseEntity
             throw new ArgumentException("Branch name cannot be empty", nameof(branchName));
 
         var totals = CashCutTotals.Create(totalThousands, totalFiveHundreds, totalTwoHundreds,
-            totalHundreds, totalFifties, totalTwenties, totalSlips, totalCards);
+            totalHundreds, totalFifties, totalTwenties, totalSlips, totalBanbajio, totalBanregio);
 
         return new CashCut(totals, cashRegisterName, supervisorName, cashierName,
             branchName, DateTime.UtcNow);

@@ -51,7 +51,8 @@ public class CashCutServiceTests
             SupervisorId = 10,
             CashierId = 20,
             TotalSlips = 10000m,
-            TotalCards = 500m
+            TotalBanbajio = 300m,
+            TotalBanregio = 200m
         };
 
         // Mock Entities

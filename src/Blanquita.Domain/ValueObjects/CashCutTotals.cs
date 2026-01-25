@@ -9,14 +9,15 @@ public record CashCutTotals
     public int TotalFifties { get; }
     public int TotalTwenties { get; }
     public Money TotalSlips { get; }
-    public Money TotalCards { get; }
+    public Money TotalBanbajio { get; }
+    public Money TotalBanregio { get; }
 
     // Constructor requerido por EF Core
     private CashCutTotals() { }
 
     private CashCutTotals(int totalThousands, int totalFiveHundreds, int totalTwoHundreds,
         int totalHundreds, int totalFifties, int totalTwenties,
-        Money totalSlips, Money totalCards)
+        Money totalSlips, Money totalBanbajio, Money totalBanregio)
     {
         TotalThousands = totalThousands;
         TotalFiveHundreds = totalFiveHundreds;
@@ -25,12 +26,13 @@ public record CashCutTotals
         TotalFifties = totalFifties;
         TotalTwenties = totalTwenties;
         TotalSlips = totalSlips;
-        TotalCards = totalCards;
+        TotalBanbajio = totalBanbajio;
+        TotalBanregio = totalBanregio;
     }
 
     public static CashCutTotals Create(int totalThousands, int totalFiveHundreds, int totalTwoHundreds,
         int totalHundreds, int totalFifties, int totalTwenties,
-        decimal totalSlips, decimal totalCards)
+        decimal totalSlips, decimal totalBanbajio, decimal totalBanregio)
     {
         if (totalThousands < 0 || totalFiveHundreds < 0 || totalTwoHundreds < 0 ||
             totalHundreds < 0 || totalFifties < 0 || totalTwenties < 0)
@@ -39,7 +41,15 @@ public record CashCutTotals
         return new CashCutTotals(
             totalThousands, totalFiveHundreds, totalTwoHundreds,
             totalHundreds, totalFifties, totalTwenties,
-            Money.Create(totalSlips), Money.Create(totalCards));
+            Money.Create(totalSlips), Money.Create(totalBanbajio), Money.Create(totalBanregio));
+    }
+
+    /// <summary>
+    /// Calcula el total de tarjetas (Banbajio + Banregio)
+    /// </summary>
+    public Money CalculateTotalCards()
+    {
+        return Money.Create(TotalBanbajio.Amount + TotalBanregio.Amount);
     }
 
     /// <summary>
@@ -63,7 +73,8 @@ public record CashCutTotals
     public Money CalculateCashToDeliver()
     {
         var collectionsTotal = CalculateCollectionsTotal();
-        var cashToDeliver = TotalSlips.Amount - TotalCards.Amount - collectionsTotal.Amount;
+        var totalCards = CalculateTotalCards();
+        var cashToDeliver = TotalSlips.Amount - totalCards.Amount - collectionsTotal.Amount;
         return Money.Create(cashToDeliver);
     }
 

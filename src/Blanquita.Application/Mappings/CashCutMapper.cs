@@ -17,7 +17,8 @@ public static class CashCutMapper
             TotalFifties = cashCut.Totals.TotalFifties,
             TotalTwenties = cashCut.Totals.TotalTwenties,
             TotalSlips = cashCut.Totals.TotalSlips,
-            TotalCards = cashCut.Totals.TotalCards,
+            TotalBanbajio = cashCut.Totals.TotalBanbajio,
+            TotalBanregio = cashCut.Totals.TotalBanregio,
             CollectionsTotal = cashCut.Totals.CalculateCollectionsTotal(),
             CashToDeliver = cashCut.Totals.CalculateCashToDeliver(),
 #pragma warning disable CS0618 // Type or member is obsolete
@@ -36,7 +37,7 @@ public static class CashCutMapper
         return CashCut.Create(
             dto.TotalThousands, dto.TotalFiveHundreds, dto.TotalTwoHundreds,
             dto.TotalHundreds, dto.TotalFifties, dto.TotalTwenties,
-            dto.TotalSlips, dto.TotalCards,
+            dto.TotalSlips, dto.TotalBanbajio, dto.TotalBanregio,
             dto.CashRegisterName, dto.SupervisorName, dto.CashierName, dto.BranchName);
     }
 }

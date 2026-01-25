@@ -10,7 +10,13 @@ public record CashCutDto
     public int TotalFifties { get; init; }
     public int TotalTwenties { get; init; }
     public decimal TotalSlips { get; init; }
-    public decimal TotalCards { get; init; }
+    public decimal TotalBanbajio { get; init; }
+    public decimal TotalBanregio { get; init; }
+    
+    /// <summary>
+    /// Total de tarjetas (Banbajio + Banregio) - Calculado
+    /// </summary>
+    public decimal TotalCards => TotalBanbajio + TotalBanregio;
     
     /// <summary>
     /// Total de las recolecciones (suma de denominaciones)
@@ -50,7 +56,8 @@ public record CreateCashCutDto
     public int TotalFifties { get; init; }
     public int TotalTwenties { get; init; }
     public decimal TotalSlips { get; init; }
-    public decimal TotalCards { get; init; }
+    public decimal TotalBanbajio { get; init; }
+    public decimal TotalBanregio { get; init; }
     public string CashRegisterName { get; init; } = string.Empty;
     public string SupervisorName { get; init; } = string.Empty;
     public string CashierName { get; init; } = string.Empty;
@@ -63,5 +70,6 @@ public record ProcessCashCutRequest
     public int CashierId { get; init; }
     public int CashRegisterId { get; init; }
     public decimal TotalSlips { get; init; }
-    public decimal TotalCards { get; init; }
+    public decimal TotalBanbajio { get; init; }
+    public decimal TotalBanregio { get; init; }
 }

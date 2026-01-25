@@ -10,13 +10,15 @@ public class CashCutMapperTests
     [Fact]
     public void ToDto_ShouldMapCorrectly()
     {
-        var entity = CashCut.Create(1, 1, 1, 1, 1, 1, 5000m, 50m, "Reg", "Sup", "Cash", "Branch");
+        var entity = CashCut.Create(1, 1, 1, 1, 1, 1, 5000m, 30m, 20m, "Reg", "Sup", "Cash", "Branch");
         
         var dto = entity.ToDto();
         
         Assert.Equal(entity.Totals.TotalThousands, dto.TotalThousands);
         Assert.Equal(entity.Totals.TotalSlips.Amount, dto.TotalSlips);
-        Assert.Equal(entity.Totals.TotalCards.Amount, dto.TotalCards);
+        Assert.Equal(entity.Totals.TotalBanbajio.Amount, dto.TotalBanbajio);
+        Assert.Equal(entity.Totals.TotalBanregio.Amount, dto.TotalBanregio);
+        Assert.Equal(entity.Totals.TotalBanbajio.Amount + entity.Totals.TotalBanregio.Amount, dto.TotalCards);
         Assert.Equal(entity.CashRegisterName, dto.CashRegisterName);
         Assert.Equal(entity.SupervisorName, dto.SupervisorName);
         Assert.Equal(entity.CashierName, dto.CashierName);
@@ -39,7 +41,8 @@ public class CashCutMapperTests
             TotalFifties = 5,
             TotalTwenties = 6,
             TotalSlips = 1000m,
-            TotalCards = 500m,
+            TotalBanbajio = 300m,
+            TotalBanregio = 200m,
             CashRegisterName = "Reg",
             SupervisorName = "Sup",
             CashierName = "Cash",
@@ -50,6 +53,8 @@ public class CashCutMapperTests
         
         Assert.Equal(dto.TotalThousands, entity.Totals.TotalThousands);
         Assert.Equal(dto.TotalSlips, entity.Totals.TotalSlips.Amount);
+        Assert.Equal(dto.TotalBanbajio, entity.Totals.TotalBanbajio.Amount);
+        Assert.Equal(dto.TotalBanregio, entity.Totals.TotalBanregio.Amount);
         Assert.Equal(dto.CashRegisterName, entity.CashRegisterName);
         Assert.Equal(dto.SupervisorName, entity.SupervisorName);
         Assert.Equal(dto.BranchName, entity.BranchName);

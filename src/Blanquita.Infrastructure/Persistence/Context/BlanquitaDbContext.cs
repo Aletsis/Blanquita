@@ -164,9 +164,13 @@ public class BlanquitaDbContext : IdentityDbContext<ApplicationUser>
                 {
                     slips.Property(s => s.Amount).HasColumnName("TotalTira").HasColumnType("decimal(18,2)").IsRequired();
                 });
-                totals.OwnsOne(t => t.TotalCards, cards =>
+                totals.OwnsOne(t => t.TotalBanbajio, banbajio =>
                 {
-                    cards.Property(c => c.Amount).HasColumnName("TotalTarjetas").HasColumnType("decimal(18,2)").IsRequired();
+                    banbajio.Property(c => c.Amount).HasColumnName("TotalBanbajio").HasColumnType("decimal(18,2)").IsRequired();
+                });
+                totals.OwnsOne(t => t.TotalBanregio, banregio =>
+                {
+                    banregio.Property(c => c.Amount).HasColumnName("TotalBanregio").HasColumnType("decimal(18,2)").IsRequired();
                 });
             });
 

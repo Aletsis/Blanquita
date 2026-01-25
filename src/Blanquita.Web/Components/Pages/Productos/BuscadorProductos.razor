@@ -5,6 +5,8 @@
 @inject IMediator Mediator
 @inject ISnackbar Snackbar
 @inject ILogger<BuscadorProductos> Logger
+@inject IDialogService DialogService
+@using Blanquita.Web.Components.Dialogs
 
 <PageTitle>Buscador de Productos</PageTitle>
 
@@ -55,29 +57,30 @@
                 <MudTable Items="@productos" Hover="true" Breakpoint="Breakpoint.Sm" Loading="@buscando" LoadingProgressColor="Color.Info" Elevation="4" Class="rounded-lg animate-slide-up">
                     <HeaderContent>
                         <MudTh>Código</MudTh>
+                        <MudTh>PLU</MudTh>
                         <MudTh>Nombre</MudTh>
                         <MudTh>Precio</MudTh>
-                        <MudTh>Impuesto</MudTh>
-                        <MudTh>Cód. Alterno</MudTh>
-                        <MudTh>Nom. Alterno</MudTh>
-                        <MudTh>Clave SAT</MudTh>
-                        <MudTh>PLU</MudTh>
+                        <MudTh>Acciones</MudTh>
                     </HeaderContent>
                     <RowTemplate>
                         <MudTd DataLabel="Código">
                             <MudChip T="string" Color="Color.Primary" Size="Size.Small" Variant="Variant.Text">@context.Code</MudChip>
                         </MudTd>
-                        <MudTd DataLabel="Nombre">@context.Name</MudTd>
-                        <MudTd DataLabel="Precio">@context.Price.ToString("C2")</MudTd>
-                        <MudTd DataLabel="Impuesto">@context.Tax.ToString("0.##")%</MudTd>
-                        <MudTd DataLabel="Cód. Alterno">@context.AlternateCode</MudTd>
-                        <MudTd DataLabel="Nom. Alterno">@context.AlternateName</MudTd>
-                        <MudTd DataLabel="Clave SAT">@context.SatKey</MudTd>
                         <MudTd DataLabel="PLU">
                             @if (!string.IsNullOrEmpty(context.Plu))
                             {
                                 <MudChip T="string" Color="Color.Secondary" Size="Size.Small">@context.Plu</MudChip>
                             }
+                        </MudTd>
+                        <MudTd DataLabel="Nombre">@context.Name</MudTd>
+                        <MudTd DataLabel="Precio">@((context.Price * (1 + context.Tax / 100)).ToString("C2"))</MudTd>
+                        <MudTd DataLabel="Acciones">
+                            <MudButton Variant="Variant.Outlined" 
+                                       Color="Color.Primary" 
+                                       Size="Size.Small"
+                                       OnClick="@(() => VerDetalles(context))">
+                                Ver detalles
+                            </MudButton>
                         </MudTd>
                     </RowTemplate>
                     <PagerContent>
@@ -185,5 +188,20 @@
         {
             await BuscarProductos();
         }
+    }
+
+    private void VerDetalles(ProductSearchDto producto)
+    {
+        var parameters = new DialogParameters
+        {
+            { nameof(ProductDialog.ProductName), producto.Name },
+            { nameof(ProductDialog.ProductCode), producto.Code },
+            { nameof(ProductDialog.ProductPriceSinImpuesto), producto.Price },
+            { nameof(ProductDialog.TaxRate), (int)producto.Tax },
+            { nameof(ProductDialog.LlevaImpuesto), producto.Tax > 0 }
+        };
+
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Small, FullWidth = true };
+        DialogService.Show<ProductDialog>("Detalles", parameters, options);
     }
 }

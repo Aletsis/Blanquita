@@ -154,16 +154,28 @@
                                        Culture="@CultureInfo.InvariantCulture"
                                        HelperText="Total general mostrado en la tira de la caja registradora" />
 
-                        <MudNumericField @bind-Value="model.TotalCards" 
-                                       Label="Total Cobrado con Tarjeta" 
+                        <MudNumericField @bind-Value="model.TotalBanbajio" 
+                                       Label="Total Banbajío" 
                                        Variant="Variant.Outlined" 
                                        Min="0"
+                                       Class="mb-4"
                                        Adornment="Adornment.Start"
                                        AdornmentIcon="@Icons.Material.Filled.CreditCard"
                                        AdornmentColor="Color.Warning"
                                        Format="N2"
                                        Culture="@CultureInfo.InvariantCulture"
-                                       HelperText="Ingrese el total de pagos con tarjeta del día" />
+                                       HelperText="Total de pagos con tarjeta Banbajío" />
+
+                        <MudNumericField @bind-Value="model.TotalBanregio" 
+                                       Label="Total Banregio" 
+                                       Variant="Variant.Outlined" 
+                                       Min="0"
+                                       Adornment="Adornment.Start"
+                                       AdornmentIcon="@Icons.Material.Filled.CreditCard"
+                                       AdornmentColor="Color.Secondary"
+                                       Format="N2"
+                                       Culture="@CultureInfo.InvariantCulture"
+                                       HelperText="Total de pagos con tarjeta Banregio" />
 
                         <MudDivider Class="my-4" />
 
@@ -334,7 +346,8 @@
                 CashierId = _selectedCashierId,
                 CashRegisterId = _selectedCashRegisterId,
                 TotalSlips = model.TotalSlips,
-                TotalCards = model.TotalCards
+                TotalBanbajio = model.TotalBanbajio,
+                TotalBanregio = model.TotalBanregio
             };
 
             // 2. Delegate Business Logic to Service
@@ -380,12 +393,14 @@
     /// </summary>
     private decimal CalculateCashToDeliver()
     {
-        return model.TotalSlips - model.TotalCards - _totalCollections;
+        var totalCards = model.TotalBanbajio + model.TotalBanregio;
+        return model.TotalSlips - totalCards - _totalCollections;
     }
 
     public class CashCutViewModel
     {
         public decimal TotalSlips { get; set; }
-        public decimal TotalCards { get; set; }
+        public decimal TotalBanbajio { get; set; }
+        public decimal TotalBanregio { get; set; }
     }
 }
