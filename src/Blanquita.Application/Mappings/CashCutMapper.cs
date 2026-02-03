@@ -28,7 +28,7 @@ public static class CashCutMapper
             SupervisorName = cashCut.SupervisorName,
             CashierName = cashCut.CashierName,
             BranchName = cashCut.BranchName,
-            CutDateTime = cashCut.CutDateTime
+            CutDateTime = cashCut.CutDateTime.ToLocalTime()
         };
     }
 

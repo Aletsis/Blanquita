@@ -109,7 +109,7 @@
                                     </MudText>
                                 </MudTd>
                                 <MudTd DataLabel="Fecha Generación">
-                                    <MudText Typo="Typo.caption">@context.FechaGeneracion.ToString("dd/MM/yyyy HH:mm")</MudText>
+                                    <MudText Typo="Typo.caption">@context.FechaGeneracion.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</MudText>
                                 </MudTd>
                                 <MudTd DataLabel="Acciones" Style="text-align: center;">
                                     <MudTooltip Text="Ver Detalles">

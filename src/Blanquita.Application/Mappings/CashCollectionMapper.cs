@@ -20,7 +20,7 @@ public static class CashCollectionMapper
             CashRegisterName = cashCollection.CashRegisterName,
             CashierName = cashCollection.CashierName,
             SupervisorName = cashCollection.SupervisorName,
-            CollectionDateTime = cashCollection.CollectionDateTime,
+            CollectionDateTime = cashCollection.CollectionDateTime.ToLocalTime(),
             Folio = cashCollection.Folio,
             IsForCashCut = cashCollection.IsForCashCut
         };

@@ -35,7 +35,7 @@
                         </MudItem>
                         <MudItem xs="12" md="6">
                             <MudText Typo="Typo.caption" Color="Color.Secondary">Generado el</MudText>
-                            <MudText Typo="Typo.body1">@Reporte.FechaGeneracion.ToString("dd/MM/yyyy HH:mm:ss")</MudText>
+                            <MudText Typo="Typo.body1">@Reporte.FechaGeneracion.ToLocalTime().ToString("dd/MM/yyyy HH:mm:ss")</MudText>
                         </MudItem>
                         
                         @if (!string.IsNullOrWhiteSpace(Reporte.Notas))

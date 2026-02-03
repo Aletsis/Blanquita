@@ -408,7 +408,7 @@ public class ExportService : IExportService
 
                 worksheet.Cell(4, 1).Value = "Generado:";
                 worksheet.Cell(4, 1).Style = labelStyle;
-                worksheet.Cell(4, 2).Value = reporte.FechaGeneracion;
+                worksheet.Cell(4, 2).Value = reporte.FechaGeneracion.ToLocalTime();
                 worksheet.Cell(4, 2).Style.DateFormat.Format = "dd/MM/yyyy HH:mm";
 
                 // Financial Summary
@@ -576,7 +576,7 @@ public class ExportService : IExportService
                     text.Span($"{reporte.Fecha:dd/MM/yyyy}");
                     text.Span("  |  ");
                     text.Span("Generado: ").SemiBold();
-                    text.Span($"{reporte.FechaGeneracion:dd/MM/yyyy HH:mm}");
+                    text.Span($"{reporte.FechaGeneracion.ToLocalTime():dd/MM/yyyy HH:mm}");
                 });
             });
         });
