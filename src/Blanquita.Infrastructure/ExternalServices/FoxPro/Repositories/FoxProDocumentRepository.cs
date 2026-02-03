@@ -110,8 +110,10 @@ public class FoxProDocumentRepository : IFoxProDocumentRepository
                 try
                 {
                     var docDate = reader.GetDateTimeSafe("CFECHA");
+                    var cancelado = reader.GetInt32Safe("CCANCELADO");
 
-                    if (docDate.Date == date.Date)
+                    // Solo incluir facturas no canceladas (CCANCELADO = 0)
+                    if (docDate.Date == date.Date && cancelado == 0)
                     {
                         documents.Add(FoxProDocumentMapper.MapToDto(reader));
                     }
