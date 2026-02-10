@@ -44,6 +44,16 @@ public class ConfiguracionDto
     public string Mgw10011Path { get; set; } = string.Empty;
 
     /// <summary>
+    /// Ruta del archivo POS10008.DBF
+    /// </summary>
+    public string Pos10008Path { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Ruta del archivo POS10010.DBF
+    /// </summary>
+    public string Pos10010Path { get; set; } = string.Empty;
+
+    /// <summary>
     /// Ruta de la carpeta para facturas
     /// </summary>
     public string FacturasPath { get; set; } = string.Empty;

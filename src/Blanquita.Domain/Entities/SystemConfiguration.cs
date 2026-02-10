@@ -26,6 +26,12 @@ public class SystemConfiguration : BaseEntity
     public string Mgw10011Path { get; set; } = string.Empty;
 
     [MaxLength(500)]
+    public string Pos10008Path { get; set; } = string.Empty;
+
+    [MaxLength(500)]
+    public string Pos10010Path { get; set; } = string.Empty;
+
+    [MaxLength(500)]
     public string FacturasPath { get; set; } = string.Empty;
 
     [MaxLength(200)]

@@ -1,0 +1,267 @@
+@page "/reimpresion-devoluciones"
+@using Blanquita.Application.DTOs
+@using Blanquita.Application.Queries.FoxPro.GetReturnBySeriesAndFolio
+@using Blanquita.Application.Commands.Printing
+@using Blanquita.Application.Interfaces
+@using Blanquita.Domain.Entities
+@using Blanquita.Domain.Repositories
+@using MediatR
+@inject IMediator Mediator
+@inject ISnackbar Snackbar
+@inject ILogger<ReimpresionDevoluciones> Logger
+@inject ICashRegisterRepository CashRegisterRepository
+
+<PageTitle>Reimpresión de Devoluciones</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Medium" Class="mt-4 animated fadeIn">
+    <MudText Typo="Typo.h4" Class="mb-6 font-weight-bold" Style="background: linear-gradient(45deg, #1e88e5, #5e35b1); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+        <MudIcon Icon="@Icons.Material.Filled.ReceiptLong" Class="mr-2" Size="Size.Large" Color="Color.Primary" />
+        Reimpresión de Devoluciones
+    </MudText>
+
+    <MudCard Elevation="4" Class="pa-4 mb-4 rounded-lg">
+        <MudCardContent>
+            <MudGrid>
+                <MudItem xs="12" sm="6">
+                    <MudTextField @bind-Value="series" 
+                                  Label="Serie" 
+                                  Variant="Variant.Outlined" 
+                                  Adornment="Adornment.Start"
+                                  AdornmentIcon="@Icons.Material.Filled.Tag" />
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudTextField @bind-Value="folio" 
+                                  Label="Folio" 
+                                  Variant="Variant.Outlined"
+                                  Adornment="Adornment.Start"
+                                  AdornmentIcon="@Icons.Material.Filled.Numbers" />
+                </MudItem>
+                <MudItem xs="12">
+                    <MudButton Variant="Variant.Filled" 
+                               Color="Color.Primary" 
+                               OnClick="BuscarDevolucion" 
+                               Disabled="@loading"
+                               FullWidth="true"
+                               Class="py-2"
+                               StartIcon="@Icons.Material.Filled.Search">
+                        @if (loading) { 
+                            <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2"/> 
+                            <text>Buscando...</text>
+                        }
+                        else {
+                            <text>Buscar Devolución</text>
+                        }
+                    </MudButton>
+                </MudItem>
+            </MudGrid>
+        </MudCardContent>
+    </MudCard>
+
+    @if (returnDto != null)
+    {
+        <MudCard Elevation="4" Class="pa-4 rounded-lg animate-slide-up">
+            <MudCardHeader>
+                <CardHeaderContent>
+                    <MudText Typo="Typo.h6" Color="Color.Primary">
+                        <MudIcon Icon="@Icons.Material.Filled.Info" Class="mr-2"/>
+                        Detalle de Devolución
+                    </MudText>
+                </CardHeaderContent>
+            </MudCardHeader>
+            <MudCardContent>
+                <MudGrid>
+                    <MudItem xs="12" sm="6">
+                        <MudPaper Class="pa-3" Elevation="0" Style="background-color: #f5f5f5;">
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">Fecha</MudText>
+                            <MudText Typo="Typo.body1">@returnDto.Date.ToShortDateString()</MudText>
+                        </MudPaper>
+                    </MudItem>
+                    <MudItem xs="12" sm="6">
+                        <MudPaper Class="pa-3" Elevation="0" Style="background-color: #f5f5f5;">
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">Hora</MudText>
+                            <MudText Typo="Typo.body1">@returnDto.FormattedTime</MudText>
+                        </MudPaper>
+                    </MudItem>
+                    
+                    <MudItem xs="12">
+                        <MudDivider Class="my-2"/>
+                    </MudItem>
+
+                    <MudItem xs="4">
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">Neto</MudText>
+                        <MudText Typo="Typo.h6">@returnDto.Net.ToString("C2")</MudText>
+                    </MudItem>
+                    <MudItem xs="4">
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">IVA</MudText>
+                        <MudText Typo="Typo.h6">@returnDto.Tax.ToString("C2")</MudText>
+                    </MudItem>
+                    <MudItem xs="4">
+                        <MudPaper Class="pa-2 d-flex flex-column align-center" Elevation="0" Style="background-color: #e3f2fd; border-radius: 8px;">
+                            <MudText Typo="Typo.caption" Color="Color.Primary">Total</MudText>
+                            <MudText Typo="Typo.h5" Color="Color.Primary" Class="font-weight-bold">@returnDto.Total.ToString("C2")</MudText>
+                        </MudPaper>
+                    </MudItem>
+                </MudGrid>
+            </MudCardContent>
+        </MudCard>
+
+        <MudCard Elevation="4" Class="pa-4 mb-4 rounded-lg animate-slide-up mt-4">
+           <MudCardContent>
+                <MudGrid>
+                     <MudItem xs="12" sm="8" md="9">
+                         <MudSelect T="int" Label="Seleccionar Caja" @bind-Value="selectedCashRegisterId" Variant="Variant.Outlined" AnchorOrigin="Origin.BottomCenter">
+                             <MudSelectItem Value="0">Predeterminada sistema</MudSelectItem>
+                             @foreach (var register in cashRegisters)
+                             {
+                                 <MudSelectItem Value="@register.Id">@register.Name (@(register.PrinterConfig?.IpAddress ?? "Sin IP"))</MudSelectItem>
+                             }
+                         </MudSelect>
+                     </MudItem>
+                     <MudItem xs="12" sm="4" md="3">
+                        <MudButton Variant="Variant.Filled" 
+                                   Color="Color.Secondary" 
+                                   OnClick="ImprimirTicket" 
+                                   Disabled="@(printing || returnDto == null)"
+                                   FullWidth="true"
+                                   Class="py-3"
+                                   StartIcon="@Icons.Material.Filled.Print">
+                            @if (printing) { 
+                                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2"/> 
+                                <text>Imprimiendo...</text>
+                            }
+                            else {
+                                <text>Imprimir Ticket</text>
+                            }
+                        </MudButton>
+                     </MudItem>
+                </MudGrid>
+           </MudCardContent>
+        </MudCard>
+
+        @if (returnDto.Details != null && returnDto.Details.Any())
+        {
+            <MudCard Elevation="4" Class="pa-4 mt-4 rounded-lg animate-slide-up">
+                <MudCardHeader>
+                    <CardHeaderContent>
+                        <MudText Typo="Typo.h6" Color="Color.Primary">
+                            <MudIcon Icon="@Icons.Material.Filled.List" Class="mr-2"/>
+                            Movimientos
+                        </MudText>
+                    </CardHeaderContent>
+                </MudCardHeader>
+                <MudCardContent>
+                    <MudTable Items="@returnDto.Details" Hover="true" Breakpoint="Breakpoint.Sm" Loading="@loading" LoadingProgressColor="Color.Info" Class="shadow-none">
+                        <HeaderContent>
+                            <MudTh>Producto</MudTh>
+                            <MudTh>Unidades</MudTh>
+                            <MudTh>Neto</MudTh>
+                            <MudTh>IVA</MudTh>
+                            <MudTh>Total</MudTh>
+                        </HeaderContent>
+                        <RowTemplate>
+                            <MudTd DataLabel="Producto" Class="font-weight-bold">
+                                @(string.IsNullOrEmpty(context.ProductName) ? context.ProductId : context.ProductName)
+                            </MudTd>
+                            <MudTd DataLabel="Unidades">@context.Units</MudTd>
+                            <MudTd DataLabel="Neto">@context.Net.ToString("C2")</MudTd>
+                            <MudTd DataLabel="IVA">@context.Tax.ToString("C2")</MudTd>
+                            <MudTd DataLabel="Total" Class="text-primary font-weight-bold">@context.Total.ToString("C2")</MudTd>
+                        </RowTemplate>
+                        <PagerContent>
+                            <MudTablePager PageSizeOptions="new int[]{10, 20, 50}" />
+                        </PagerContent>
+                    </MudTable>
+                </MudCardContent>
+            </MudCard>
+        }
+        else
+        {
+            <MudAlert Severity="Severity.Info" Class="mt-4">
+                No se encontraron movimientos para esta devolución.
+            </MudAlert>
+        }
+    }
+</MudContainer>
+@code {
+    private string series = string.Empty;
+    private string folio = string.Empty;
+    private bool loading = false;
+    private bool printing = false;
+    private ReturnDto? returnDto;
+    private List<CashRegister> cashRegisters = new();
+    private int selectedCashRegisterId = 0;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            cashRegisters = (await CashRegisterRepository.GetAllAsync()).ToList();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error loading cash registers");
+        }
+    }
+
+    private async Task BuscarDevolucion()
+    {
+        if (string.IsNullOrWhiteSpace(series) || string.IsNullOrWhiteSpace(folio))
+        {
+            Snackbar.Add("Por favor ingrese tanto la serie como el folio", Severity.Warning);
+            return;
+        }
+
+        loading = true;
+        returnDto = null;
+        try
+        {
+            returnDto = await Mediator.Send(new GetReturnBySeriesAndFolioQuery(series, folio));
+            if (returnDto == null)
+            {
+                Snackbar.Add("No se encontró ninguna devolución con esos datos", Severity.Warning);
+            }
+            else
+            {
+                Snackbar.Add("Devolución encontrada", Severity.Success);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error buscando devolución {Serie}-{Folio}", series, folio);
+            Snackbar.Add("Ocurrió un error al buscar la devolución", Severity.Error);
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private async Task ImprimirTicket()
+    {
+        if (returnDto == null) return;
+
+        printing = true;
+        try
+        {
+            // Now sending CashRegisterId instead of PrinterId
+            var result = await Mediator.Send(new PrintReturnTicketCommand(returnDto, selectedCashRegisterId));
+            if (result)
+            {
+                Snackbar.Add("Ticket enviado a impresión exitosamente", Severity.Success);
+            }
+            else
+            {
+                Snackbar.Add("No se pudo imprimir el ticket. Verifique la configuración.", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error printing ticket");
+            Snackbar.Add("Error al imprimir el ticket", Severity.Error);
+        }
+        finally
+        {
+            printing = false;
+        }
+    }
+}

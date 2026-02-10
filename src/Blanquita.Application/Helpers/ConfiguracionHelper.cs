@@ -28,6 +28,8 @@ public static class ConfiguracionHelper
             TipoArchivoDbf.Mgw10045 => configuracion.Mgw10045Path,
             TipoArchivoDbf.Mgw10002 => configuracion.Mgw10002Path,
             TipoArchivoDbf.Mgw10011 => configuracion.Mgw10011Path,
+            TipoArchivoDbf.Pos10008 => configuracion.Pos10008Path,
+            TipoArchivoDbf.Pos10010 => configuracion.Pos10010Path,
             _ => string.Empty
         };
     }
@@ -69,6 +71,12 @@ public static class ConfiguracionHelper
             case TipoArchivoDbf.Mgw10011:
                 configuracion.Mgw10011Path = ruta;
                 break;
+            case TipoArchivoDbf.Pos10008:
+                configuracion.Pos10008Path = ruta;
+                break;
+            case TipoArchivoDbf.Pos10010:
+                configuracion.Pos10010Path = ruta;
+                break;
         }
     }
 
@@ -88,6 +96,8 @@ public static class ConfiguracionHelper
             TipoArchivoDbf.Mgw10045 => "MGW10045.DBF",
             TipoArchivoDbf.Mgw10002 => "MGW10002.DBF",
             TipoArchivoDbf.Mgw10011 => "MGW10011.DBF",
+            TipoArchivoDbf.Pos10008 => "POS10008.DBF",
+            TipoArchivoDbf.Pos10010 => "POS10010.DBF",
             _ => string.Empty
         };
     }
@@ -107,7 +117,9 @@ public static class ConfiguracionHelper
                !string.IsNullOrWhiteSpace(configuracion.Mgw10005Path) &&
                !string.IsNullOrWhiteSpace(configuracion.Mgw10045Path) &&
                !string.IsNullOrWhiteSpace(configuracion.Mgw10002Path) &&
-               !string.IsNullOrWhiteSpace(configuracion.Mgw10011Path);
+               !string.IsNullOrWhiteSpace(configuracion.Mgw10011Path) &&
+               !string.IsNullOrWhiteSpace(configuracion.Pos10008Path) &&
+               !string.IsNullOrWhiteSpace(configuracion.Pos10010Path);
     }
 
     /// <summary>
@@ -142,6 +154,12 @@ public static class ConfiguracionHelper
         if (string.IsNullOrWhiteSpace(configuracion.Mgw10011Path))
             faltantes.Add(TipoArchivoDbf.Mgw10011);
 
+        if (string.IsNullOrWhiteSpace(configuracion.Pos10008Path))
+            faltantes.Add(TipoArchivoDbf.Pos10008);
+
+        if (string.IsNullOrWhiteSpace(configuracion.Pos10010Path))
+            faltantes.Add(TipoArchivoDbf.Pos10010);
+
         return faltantes;
     }
 
@@ -157,10 +175,12 @@ public static class ConfiguracionHelper
             TipoArchivoDbf.Pos10041 => new List<string> { "CIDCAJA", "CSERIENOTA" },
             TipoArchivoDbf.Pos10042 => new List<string> { "CFECHACOR", "CIDCAJA", "CFACTURA", "CDEVOLUCIO" },
             TipoArchivoDbf.Mgw10008 => new List<string> { "CFECHA", "CIDDOCUM02", "CTOTAL", "CSERIEDO01", "CFOLIO", "CTEXTOEX03", "CNETO", "CIMPUESTO1", "CCANCELADO", "CIMPORTE03" },
-            TipoArchivoDbf.Mgw10005 => new List<string> { "CCODIGOP01", "CNOMBREP01", "CTIPOPRO01", "CMETODOC01", "CPRECIO1", "CIMPUESTO1", "CCODALTERN", "CNOMALTERN", "CDESCCORTA", "CCLAVESAT", "CTEXTOEX01" },
+            TipoArchivoDbf.Mgw10005 => new List<string> { "CCODIGOP01", "CNOMBREP01", "CTIPOPRO01", "CMETODOC01", "CPRECIO1", "CIMPUESTO1", "CCODALTERN", "CNOMALTERN", "CDESCCORTA", "CCLAVESAT", "CTEXTOEX01", "CIDPRODU01" },
             TipoArchivoDbf.Mgw10045 => new List<string> { "Cfechaemi", "Choraemi", "Cserie", "Cfolio", "Crfc", "Crazon", "Cestado", "Centregado", "Cautusba01", "Cuuid", "Ciddocto" },
             TipoArchivoDbf.Mgw10002 => new List<string> { "Cidclien01", "Ccodigoc01", "Crazonso01", "Cfechaalta", "Crfc", "Cemail1", "Cmetodopag", "Cusocfdi", "Cregimfisc" },
             TipoArchivoDbf.Mgw10011 => new List<string> { "Cidcatal01", "Cnombrec01", "Cnumeroe01", "Cnumeroi01", "Ccolonia", "Ccodigop01", "Ctelefono1", "Cemail", "Cpais", "Cestado", "Cciudad", "Cmunicipio" },
+            TipoArchivoDbf.Pos10008 => new List<string> { "CFECHA", "CFOLIO", "CSERIEDO01", "CNETO", "CIMPUESTO", "CTOTAL", "CIDDOCUM01" },
+            TipoArchivoDbf.Pos10010 => new List<string> { "CIDDOCUM01", "CIDPRODU01", "CUNIDADES", "CNETO", "CIMPUESTO1", "CTOTAL" },
             _ => new List<string>()
         };
     }

@@ -38,5 +38,15 @@ public enum TipoArchivoDbf
     /// <summary>
     /// Archivo MGW10011.DBF - Direcciones
     /// </summary>
-    Mgw10011 = 7
+    Mgw10011 = 7,
+
+    /// <summary>
+    /// Archivo POS10008.DBF - Devoluciones
+    /// </summary>
+    Pos10008 = 8,
+
+    /// <summary>
+    /// Archivo POS10010.DBF - Detalle de Devoluciones
+    /// </summary>
+    Pos10010 = 9
 }
