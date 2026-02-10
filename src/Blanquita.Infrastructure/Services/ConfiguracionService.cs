@@ -53,7 +53,10 @@ public class ConfiguracionService : IConfiguracionService
                          configEntity.Mgw10005Path = oldConfig.Mgw10005Path ?? string.Empty;
                          configEntity.Mgw10045Path = string.Empty; // Valor por defecto
                          configEntity.Mgw10002Path = string.Empty;
+                         configEntity.Mgw10002Path = string.Empty;
                          configEntity.Mgw10011Path = string.Empty;
+                         configEntity.Pos10008Path = string.Empty;
+                         configEntity.Pos10010Path = string.Empty;
                          configEntity.PrinterName = oldConfig.PrinterName ?? string.Empty;
                          configEntity.PrinterIp = oldConfig.PrinterIp ?? string.Empty;
                          
@@ -135,6 +138,9 @@ public class ConfiguracionService : IConfiguracionService
             ValidarRutaDbf(configuracion.Mgw10045Path, "MGW10045.DBF", resultado);
             ValidarRutaDbf(configuracion.Mgw10002Path, "MGW10002.DBF", resultado);
             ValidarRutaDbf(configuracion.Mgw10011Path, "MGW10011.DBF", resultado);
+            ValidarRutaDbf(configuracion.Mgw10011Path, "MGW10011.DBF", resultado);
+            ValidarRutaDbf(configuracion.Pos10008Path, "POS10008.DBF", resultado);
+            ValidarRutaDbf(configuracion.Pos10010Path, "POS10010.DBF", resultado);
 
             // Validar ruta de facturas
             if (!string.IsNullOrWhiteSpace(configuracion.FacturasPath))
@@ -201,6 +207,8 @@ public class ConfiguracionService : IConfiguracionService
             TipoArchivoDbf.Mgw10045 => "MGW10045.DBF",
             TipoArchivoDbf.Mgw10002 => "MGW10002.DBF",
             TipoArchivoDbf.Mgw10011 => "MGW10011.DBF",
+            TipoArchivoDbf.Pos10008 => "POS10008.DBF",
+            TipoArchivoDbf.Pos10010 => "POS10010.DBF",
             _ => "archivo.dbf"
         };
     }
@@ -246,6 +254,8 @@ public class ConfiguracionService : IConfiguracionService
             Mgw10045Path = entity.Mgw10045Path,
             Mgw10002Path = entity.Mgw10002Path,
             Mgw10011Path = entity.Mgw10011Path,
+            Pos10008Path = entity.Pos10008Path,
+            Pos10010Path = entity.Pos10010Path,
             FacturasPath = entity.FacturasPath,
             PrinterName = entity.PrinterName,
             PrinterIp = entity.PrinterIp,
@@ -265,6 +275,9 @@ public class ConfiguracionService : IConfiguracionService
         entity.Mgw10045Path = dto.Mgw10045Path;
         entity.Mgw10002Path = dto.Mgw10002Path;
         entity.Mgw10011Path = dto.Mgw10011Path;
+        entity.Mgw10011Path = dto.Mgw10011Path;
+        entity.Pos10008Path = dto.Pos10008Path;
+        entity.Pos10010Path = dto.Pos10010Path;
         entity.FacturasPath = dto.FacturasPath;
         entity.PrinterName = dto.PrinterName;
         entity.PrinterIp = dto.PrinterIp;

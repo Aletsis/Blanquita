@@ -157,4 +157,45 @@ public class PrinterCommandBuilder
 
         return cmds;
     }
+    public List<byte> BuildReturnTicket(ReturnDto returnDto)
+    {
+        var cmds = new List<byte>();
+
+        cmds.AddRange(InitializePrinter());
+        cmds.AddRange(AlignCenter());
+        cmds.AddRange(BoldOn());
+        cmds.AddRange(Text("CARNICERIAS LA BLANQUITA\n"));
+        cmds.AddRange(BoldOff());
+        cmds.AddRange(Text("TICKET DE DEVOLUCION\n\n"));
+        cmds.AddRange(AlignLeft());
+        
+        cmds.AddRange(Text($"Serie: {returnDto.Series}   Folio: {returnDto.Folio}\n"));
+        cmds.AddRange(Text($"Fecha: {returnDto.Date.ToShortDateString()}   Hora: {returnDto.FormattedTime}\n\n"));
+        
+        cmds.AddRange(Text("CANT  DESCRIPCION                IMPORTE\n"));
+        cmds.AddRange(Text("----------------------------------------\n"));
+
+        foreach (var detail in returnDto.Details)
+        {
+            string desc = string.IsNullOrEmpty(detail.ProductName) ? detail.ProductId : detail.ProductName;
+            if (desc.Length > 20) desc = desc.Substring(0, 20);
+            
+            // Format: Qty (5 chars) + Desc (22 chars) + Total (13 chars)
+            // Example: 1.00  COCA COLA 600ML        $25.00
+            
+            cmds.AddRange(Text($"{detail.Units,-5:0.##} {desc,-20} {FormatMoney(detail.Total),11}\n"));
+        }
+
+        cmds.AddRange(Text("----------------------------------------\n"));
+        cmds.AddRange(BoldOn());
+        cmds.AddRange(Text($"      SUBTOTAL:              {FormatMoney(returnDto.Net),11}\n"));
+        cmds.AddRange(Text($"      IVA:                   {FormatMoney(returnDto.Tax),11}\n"));
+        cmds.AddRange(Text($"      TOTAL:                 {FormatMoney(returnDto.Total),11}\n"));
+        cmds.AddRange(BoldOff());
+        
+        cmds.AddRange(Text("\n\n\n\n"));
+        cmds.AddRange(CutPaper());
+
+        return cmds;
+    }
 }

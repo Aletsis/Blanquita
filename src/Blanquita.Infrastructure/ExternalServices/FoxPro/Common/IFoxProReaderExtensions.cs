@@ -61,4 +61,20 @@ public static class FoxProReaderExtensions
             return DateTime.MinValue;
         }
     }
+
+    public static double GetDoubleSafe(this IFoxProDataReader reader, string columnName)
+    {
+        var ordinal = reader.GetOrdinal(columnName);
+        if (reader.IsDBNull(ordinal)) return 0d;
+
+        try 
+        {
+            var value = reader.GetValue(ordinal);
+            return Convert.ToDouble(value);
+        }
+        catch
+        {
+            return 0d;
+        }
+    }
 }

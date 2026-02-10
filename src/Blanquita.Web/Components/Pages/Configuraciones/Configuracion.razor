@@ -255,6 +255,58 @@
                                     }
                                 </MudCard>
                             </MudItem>
+                             <MudItem xs="12" md="6" lg="3">
+                                <MudCard Outlined="true" Class="pa-3">
+                                    <MudText Typo="Typo.subtitle1" Class="mb-2 font-weight-bold">
+                                        <MudIcon Icon="@Icons.Material.Filled.Description" Size="Size.Small" Class="mr-1" />
+                                        POS10008.DBF
+                                    </MudText>
+                                    <MudTextField @bind-Value="_configuracion.Pos10008Path" 
+                                                 Label="Ruta del archivo" 
+                                                 Variant="Variant.Outlined" 
+                                                 ReadOnly="true" 
+                                                 Adornment="Adornment.End" 
+                                                 AdornmentIcon="@Icons.Material.Filled.FolderOpen" 
+                                                 OnAdornmentClick="() => AbrirDialogoArchivo(TipoArchivoDbf.Pos10008)" 
+                                                 Class="mb-2"
+                                                 Margin="Margin.Dense" />
+                                    @if (!string.IsNullOrEmpty(_configuracion.Pos10008Path)) 
+                                    { 
+                                        <MudChip T="string" 
+                                                Size="Size.Small" 
+                                                Color="@(ValidarRuta(_configuracion.Pos10008Path) ? Color.Success : Color.Error)" 
+                                                Icon="@(ValidarRuta(_configuracion.Pos10008Path) ? Icons.Material.Filled.CheckCircle : Icons.Material.Filled.Error)">
+                                            @(ValidarRuta(_configuracion.Pos10008Path) ? "Archivo encontrado" : "Archivo no encontrado")
+                                        </MudChip> 
+                                    }
+                                </MudCard>
+                            </MudItem>
+                             <MudItem xs="12" md="6" lg="3">
+                                <MudCard Outlined="true" Class="pa-3">
+                                    <MudText Typo="Typo.subtitle1" Class="mb-2 font-weight-bold">
+                                        <MudIcon Icon="@Icons.Material.Filled.Description" Size="Size.Small" Class="mr-1" />
+                                        POS10010.DBF
+                                    </MudText>
+                                    <MudTextField @bind-Value="_configuracion.Pos10010Path" 
+                                                 Label="Ruta del archivo" 
+                                                 Variant="Variant.Outlined" 
+                                                 ReadOnly="true" 
+                                                 Adornment="Adornment.End" 
+                                                 AdornmentIcon="@Icons.Material.Filled.FolderOpen" 
+                                                 OnAdornmentClick="() => AbrirDialogoArchivo(TipoArchivoDbf.Pos10010)" 
+                                                 Class="mb-2"
+                                                 Margin="Margin.Dense" />
+                                    @if (!string.IsNullOrEmpty(_configuracion.Pos10010Path)) 
+                                    { 
+                                        <MudChip T="string" 
+                                                Size="Size.Small" 
+                                                Color="@(ValidarRuta(_configuracion.Pos10010Path) ? Color.Success : Color.Error)" 
+                                                Icon="@(ValidarRuta(_configuracion.Pos10010Path) ? Icons.Material.Filled.CheckCircle : Icons.Material.Filled.Error)">
+                                            @(ValidarRuta(_configuracion.Pos10010Path) ? "Archivo encontrado" : "Archivo no encontrado")
+                                        </MudChip> 
+                                    }
+                                </MudCard>
+                            </MudItem>
                         </MudGrid>
 
                     </MudCollapse>

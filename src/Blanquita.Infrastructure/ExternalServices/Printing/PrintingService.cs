@@ -146,6 +146,27 @@ public class PrintingService : IPrintingService
         }
     }
 
+    public async Task PrintReturnTicketAsync(ReturnDto returnDto, string printerIp, int printerPort, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            _logger.LogInformation("Printing return ticket: {Series}-{Folio} to {PrinterIp}:{Port}", returnDto.Series, returnDto.Folio, printerIp, printerPort);
+
+            // Build print commands
+            var commands = _commandBuilder.BuildReturnTicket(returnDto);
+
+            // Send to printer
+            await SendToPrinterAsync(printerIp, printerPort, commands.ToArray(), cancellationToken);
+
+            _logger.LogInformation("Return ticket printed successfully");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error printing return ticket {Series}-{Folio}", returnDto.Series, returnDto.Folio);
+            throw;
+        }
+    }
+
     private async Task SendToPrinterAsync(string ipAddress, int port, byte[] data, CancellationToken cancellationToken = default)
     {
         _logger.LogDebug("Sending {DataSize} bytes to printer {IpAddress}:{Port}", data.Length, ipAddress, port);
@@ -158,6 +179,7 @@ public class PrintingService : IPrintingService
             await printerService.SendRawDataAsync(data, cancellationToken);
             _logger.LogDebug("Data sent successfully to printer");
         }
+
         finally
         {
             printerService.Disconnect();
