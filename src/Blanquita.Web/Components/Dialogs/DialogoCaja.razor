@@ -15,6 +15,14 @@
                          Variant="Variant.Outlined" 
                          Class="mb-3" />
             
+            <MudNumericField @bind-Value="Model.IdCaja" 
+                             Label="Id Caja" 
+                             Required="true" 
+                             RequiredError="El Id de caja es obligatorio" 
+                             Variant="Variant.Outlined" 
+                             Class="mb-3"
+                             Min="1" />
+            
             <MudSelect T="int" 
                       @bind-Value="Model.BranchId" 
                       Label="Sucursal" 
@@ -103,6 +111,8 @@
     public class CashRegisterDialogModel
     {
         public int Id { get; set; }
+
+        public int IdCaja { get; set; }
         
         [Required(ErrorMessage = "El nombre es obligatorio")]
         public string Name { get; set; } = string.Empty;

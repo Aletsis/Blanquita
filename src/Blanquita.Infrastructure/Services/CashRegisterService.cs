@@ -164,6 +164,9 @@ public class CashRegisterService : ICashRegisterService
                 "printerip" => request.SortAscending
                     ? allRegisters.OrderBy(r => r.PrinterConfig.IpAddress)
                     : allRegisters.OrderByDescending(r => r.PrinterConfig.IpAddress),
+                "idcaja" => request.SortAscending
+                    ? allRegisters.OrderBy(r => r.IdCaja)
+                    : allRegisters.OrderByDescending(r => r.IdCaja),
                 _ => allRegisters.OrderBy(r => r.Name)
             };
         }

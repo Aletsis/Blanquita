@@ -582,6 +582,7 @@
                             </ToolBarContent>
                             <HeaderContent>
                                 <MudTh><MudTableSortLabel SortLabel="Id" T="CashRegisterDto">Id</MudTableSortLabel></MudTh>
+                                <MudTh><MudTableSortLabel SortLabel="IdCaja" T="CashRegisterDto">Id Caja</MudTableSortLabel></MudTh>
                                 <MudTh><MudTableSortLabel SortLabel="Name" T="CashRegisterDto">Nombre</MudTableSortLabel></MudTh>
                                 <MudTh><MudTableSortLabel SortLabel="PrinterIp" T="CashRegisterDto">IP de impresora</MudTableSortLabel></MudTh>
                                 <MudTh><MudTableSortLabel SortLabel="PrinterPort" T="CashRegisterDto">Puerto impresora</MudTableSortLabel></MudTh>
@@ -591,6 +592,7 @@
                             </HeaderContent>
                             <RowTemplate>
                                 <MudTd DataLabel="Id">@context.Id</MudTd>
+                                <MudTd DataLabel="IdCaja">@context.IdCaja</MudTd>
                                 <MudTd DataLabel="Name">
                                     <div class="d-flex align-center">
                                         <MudIcon Icon="@Icons.Material.Filled.PointOfSale" Size="Size.Small" Class="mr-2" />
@@ -985,6 +987,7 @@
             parameters.Add("Model", new DialogoCaja.CashRegisterDialogModel
             {
                 Id = caja.Id,
+                IdCaja = caja.IdCaja,
                 Name = caja.Name,
                 Serie = caja.Serie,
                 PrinterIp = caja.PrinterIp,
@@ -1008,6 +1011,7 @@
                     var createDto = new CreateCashRegisterDto
                     {
                         Name = cajaResult.Name,
+                        IdCaja = cajaResult.IdCaja,
                         Serie = cajaResult.Serie,
                         PrinterIp = cajaResult.PrinterIp,
                         PrinterPort = cajaResult.PrinterPort,
@@ -1022,6 +1026,7 @@
                     var updateDto = new UpdateCashRegisterDto
                     {
                         Id = cajaResult.Id,
+                        IdCaja = cajaResult.IdCaja,
                         Name = cajaResult.Name,
                         Serie = cajaResult.Serie,
                         PrinterIp = cajaResult.PrinterIp,

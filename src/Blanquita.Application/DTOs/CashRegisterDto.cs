@@ -8,6 +8,7 @@ public record CashRegisterDto
     public string PrinterIp { get; init; } = string.Empty;
     public int PrinterPort { get; init; }
     public int BranchId { get; init; }
+    public int IdCaja { get; init; }
     public bool IsLastRegister { get; init; }
 }
 
@@ -18,6 +19,7 @@ public record CreateCashRegisterDto
     public string PrinterIp { get; init; } = string.Empty;
     public int PrinterPort { get; init; } = 9100;
     public int BranchId { get; init; }
+    public int IdCaja { get; init; }
     public bool IsLastRegister { get; init; }
 }
 
@@ -29,5 +31,6 @@ public record UpdateCashRegisterDto
     public string PrinterIp { get; init; } = string.Empty;
     public int PrinterPort { get; init; }
     public int BranchId { get; init; }
+    public int IdCaja { get; init; }
     public bool IsLastRegister { get; init; }
 }

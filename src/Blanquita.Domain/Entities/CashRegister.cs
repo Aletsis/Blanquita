@@ -12,20 +12,22 @@ public class CashRegister : BaseEntity
     public PrinterConfiguration PrinterConfig { get; private set; }
     public BranchId BranchId { get; private set; }
     public bool IsLastRegister { get; private set; }
+    public int IdCaja { get; private set; }
 
     // EF Core constructor
     private CashRegister() { }
 
-    private CashRegister(string name, string serie, PrinterConfiguration printerConfig, BranchId branchId, bool isLastRegister = false)
+    private CashRegister(string name, string serie, PrinterConfiguration printerConfig, BranchId branchId, int idCaja, bool isLastRegister = false)
     {
         Name = name;
         Serie = serie;
         PrinterConfig = printerConfig;
         BranchId = branchId;
+        IdCaja = idCaja;
         IsLastRegister = isLastRegister;
     }
 
-    public static CashRegister Create(string name, string serie, string printerIp, int printerPort, int branchId, bool isLastRegister = false)
+    public static CashRegister Create(string name, string serie, string printerIp, int printerPort, int branchId, int idCaja, bool isLastRegister = false)
     {
         if (string.IsNullOrWhiteSpace(name))
             throw new ArgumentException("Name cannot be empty", nameof(name));
@@ -33,7 +35,7 @@ public class CashRegister : BaseEntity
         var printerConfig = PrinterConfiguration.Create(printerIp, printerPort);
         var branch = BranchId.Create(branchId);
 
-        return new CashRegister(name, serie ?? string.Empty, printerConfig, branch, isLastRegister);
+        return new CashRegister(name, serie ?? string.Empty, printerConfig, branch, idCaja, isLastRegister);
     }
 
     public void UpdateName(string name)
@@ -57,6 +59,11 @@ public class CashRegister : BaseEntity
     public void UpdateBranch(int branchId)
     {
         BranchId = BranchId.Create(branchId);
+    }
+
+    public void UpdateIdCaja(int idCaja)
+    {
+        IdCaja = idCaja;
     }
 
     public void SetAsLastRegister()
