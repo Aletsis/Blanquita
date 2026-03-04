@@ -2,6 +2,9 @@
 @using Blanquita.Application.DTOs
 @using Blanquita.Application.Interfaces
 @using System.Globalization
+@using Microsoft.AspNetCore.Components.Authorization
+@using System.Security.Claims
+@inject AuthenticationStateProvider AuthStateProvider
 @inject ICashRegisterService CashRegisterService
 @inject IPrintingService PrintingService
 @inject ISnackbar Snackbar
@@ -42,31 +45,17 @@
                         </CardHeaderContent>
                     </MudCardHeader>
                     <MudCardContent>
-                        <MudSelect T="int" 
-                                   Label="Seleccione encargada" 
-                                   Value="_selectedSupervisorId" 
-                                   ValueChanged="@(async (int value) => await OnSupervisorChanged(value))"
-                                   Variant="Variant.Outlined"
-                                   AnchorOrigin="Origin.BottomCenter"
-                                   Class="mb-4"
-                                   Adornment="Adornment.Start"
-                                   AdornmentIcon="@Icons.Material.Filled.SupervisorAccount">
-                            @if (supervisors == null)
-                            {
-                                <MudSelectItem T="int" Value="0">
-                                    <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
-                                    Cargando...
-                                </MudSelectItem>
-                            }
-                            else
-                            {
-                                <MudSelectItem T="int" Value="0">-- Seleccione una encargada --</MudSelectItem>
-                                @foreach (var supervisor in supervisors)
-                                {
-                                    <MudSelectItem T="int" Value="@supervisor.Id">@supervisor.Name</MudSelectItem>
-                                }
-                            }
-                        </MudSelect>
+                        @if (_selectedSupervisor != null)
+                        {
+                            <MudTextField Value="@_selectedSupervisor.Name" 
+                                          Label="Encargada" 
+                                          ReadOnly="true"
+                                          Variant="Variant.Outlined" 
+                                          Margin="Margin.Dense"
+                                          Adornment="Adornment.Start"
+                                          AdornmentIcon="@Icons.Material.Filled.SupervisorAccount"
+                                          Class="mb-4"></MudTextField>
+                        }
 
                         <MudSelect T="int" 
                                    Label="Seleccione cajera" 
@@ -248,33 +237,28 @@
 
     protected override async Task OnInitializedAsync()
     {
-        supervisors = (await SupervisorService.GetAllAsync()).ToList();
-        cashiers = new List<CashierDto>();
-        cashRegisters = new List<CashRegisterDto>();
-    }
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
 
-    private async Task OnSupervisorChanged(int supervisorId)
-    {
-        _selectedSupervisorId = supervisorId;
-        _selectedCashierId = 0; 
-        _selectedCashRegisterId = 0;
-        _totalCollections = 0;
-
-        if (supervisorId > 0)
+        if (user.Identity?.IsAuthenticated == true)
         {
-            _selectedSupervisor = await SupervisorService.GetByIdAsync(supervisorId);
-            
-            // Usar GetByBranchAsync que aún existe en los servicios
-            cashRegisters = (await CashRegisterService.GetByBranchAsync(_selectedSupervisor.BranchId)).ToList();
-            cashiers = (await CashierService.GetByBranchAsync(_selectedSupervisor.BranchId)).ToList(); 
+            var userIdStr = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (int.TryParse(userIdStr, out int userId))
+            {
+                _selectedSupervisor = await SupervisorService.GetByIdAsync(userId);
+                if (_selectedSupervisor != null)
+                {
+                    _selectedSupervisorId = _selectedSupervisor.Id;
+                    cashRegisters = (await CashRegisterService.GetByBranchAsync(_selectedSupervisor.BranchId)).ToList();
+                    cashiers = (await CashierService.GetByBranchAsync(_selectedSupervisor.BranchId)).ToList();
+                }
+            }
         }
         else
         {
-            cashRegisters = new List<CashRegisterDto>();
             cashiers = new List<CashierDto>();
+            cashRegisters = new List<CashRegisterDto>();
         }
-
-        StateHasChanged();
     }
 
     private async Task OnCashRegisterChanged(int cashRegisterId)

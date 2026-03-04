@@ -19,7 +19,7 @@ public class AuthenticationServiceTests
         // Mock UserManager
         var userStoreMock = new Mock<IUserStore<ApplicationUser>>();
         _userManagerMock = new Mock<UserManager<ApplicationUser>>(
-            userStoreMock.Object, null, null, null, null, null, null, null, null);
+            userStoreMock.Object, null!, null!, null!, null!, null!, null!, null!, null!);
 
         // Mock SignInManager
         var contextAccessorMock = new Mock<Microsoft.AspNetCore.Http.IHttpContextAccessor>();
@@ -28,7 +28,7 @@ public class AuthenticationServiceTests
             _userManagerMock.Object,
             contextAccessorMock.Object,
             claimsFactoryMock.Object,
-            null, null, null, null);
+            null!, null!, null!, null!);
 
         _loggerMock = new Mock<ILogger<AuthenticationService>>();
         _service = new AuthenticationService(_signInManagerMock.Object, _userManagerMock.Object, _loggerMock.Object);
@@ -62,6 +62,8 @@ public class AuthenticationServiceTests
         var user = new ApplicationUser { UserName = "admin" };
         _userManagerMock.Setup(x => x.FindByNameAsync("admin"))
             .ReturnsAsync(user);
+        _userManagerMock.Setup(x => x.IsInRoleAsync(user, "Administrador"))
+            .ReturnsAsync(true);
 
         var result = await _service.IsAdministratorAsync("admin");
 

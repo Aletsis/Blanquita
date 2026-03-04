@@ -45,7 +45,7 @@ public static class DependencyInjection
             options.Password.RequireNonAlphanumeric = false;
             options.Password.RequiredLength = 4;
         })
-        .AddRoles<IdentityRole>()
+        .AddRoles<ApplicationRole>()
         .AddEntityFrameworkStores<BlanquitaDbContext>()
         .AddSignInManager<SignInManager<ApplicationUser>>()
         .AddDefaultTokenProviders();
@@ -63,7 +63,6 @@ public static class DependencyInjection
         // Repositories
         services.AddScoped<ICashierRepository, CashierRepository>();
         services.AddScoped<ICashRegisterRepository, CashRegisterRepository>();
-        services.AddScoped<ISupervisorRepository, SupervisorRepository>();
         services.AddScoped<ICashCutRepository, CashCutRepository>();
         services.AddScoped<ICashCollectionRepository, CashCollectionRepository>();
 

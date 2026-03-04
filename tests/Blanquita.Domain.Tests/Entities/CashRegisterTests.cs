@@ -8,7 +8,7 @@ public class CashRegisterTests
     [Fact]
     public void Create_ValidData_ShouldCreateRegister()
     {
-        var reg = CashRegister.Create("Caja 1", "192.168.1.100", 9100, 1, true);
+        var reg = CashRegister.Create("Caja 1", "S1", "192.168.1.100", 9100, 1, 1, true);
         
         Assert.NotNull(reg);
         Assert.Equal("Caja 1", reg.Name);
@@ -21,13 +21,13 @@ public class CashRegisterTests
     [Fact]
     public void Create_InvalidName_ShouldThrowException()
     {
-        Assert.Throws<ArgumentException>(() => CashRegister.Create("", "127.0.0.1", 9100, 1));
+        Assert.Throws<ArgumentException>(() => CashRegister.Create("", "S1", "127.0.0.1", 9100, 1, 1));
     }
 
     [Fact]
     public void UpdateName_ShouldUpdate()
     {
-        var reg = CashRegister.Create("Caja 1", "127.0.0.1", 9100, 1);
+        var reg = CashRegister.Create("Caja 1", "S1", "127.0.0.1", 9100, 1, 1);
         reg.UpdateName("Caja 2");
         Assert.Equal("Caja 2", reg.Name);
     }
@@ -35,7 +35,7 @@ public class CashRegisterTests
     [Fact]
     public void UpdatePrinterConfiguration_ShouldUpdate()
     {
-        var reg = CashRegister.Create("Caja 1", "127.0.0.1", 9100, 1);
+        var reg = CashRegister.Create("Caja 1", "S1", "127.0.0.1", 9100, 1, 1);
         reg.UpdatePrinterConfiguration("10.0.0.1", 8080);
         
         Assert.Equal("10.0.0.1", reg.PrinterConfig.IpAddress);
@@ -45,7 +45,7 @@ public class CashRegisterTests
     [Fact]
     public void UpdateBranch_ShouldUpdate()
     {
-        var reg = CashRegister.Create("Caja 1", "127.0.0.1", 9100, 1);
+        var reg = CashRegister.Create("Caja 1", "S1", "127.0.0.1", 9100, 1, 1);
         reg.UpdateBranch(2);
         Assert.Equal(2, reg.BranchId.Value);
     }
@@ -53,7 +53,7 @@ public class CashRegisterTests
     [Fact]
     public void SetUnsetLastRegister_ShouldUpdateStatus()
     {
-        var reg = CashRegister.Create("Caja 1", "127.0.0.1", 9100, 1, false);
+        var reg = CashRegister.Create("Caja 1", "S1", "127.0.0.1", 9100, 1, 1, false);
         
         reg.SetAsLastRegister();
         Assert.True(reg.IsLastRegister);

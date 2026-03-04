@@ -38,6 +38,23 @@
                                      Adornment="Adornment.Start"
                                      AdornmentIcon="@Icons.Material.Filled.Badge"
                                      Class="mb-3"></MudTextField>
+                                     
+                        <MudTextField @bind-Value="model.Username" 
+                                     Label="Nombre de usuario" 
+                                     Variant="Variant.Outlined" 
+                                     Margin="Margin.Dense"
+                                     Adornment="Adornment.Start"
+                                     AdornmentIcon="@Icons.Material.Filled.AccountCircle"
+                                     Class="mb-3"></MudTextField>
+
+                        <MudTextField @bind-Value="model.Password" 
+                                     Label="Contraseña" 
+                                     InputType="InputType.Password"
+                                     Variant="Variant.Outlined" 
+                                     Margin="Margin.Dense"
+                                     Adornment="Adornment.Start"
+                                     AdornmentIcon="@Icons.Material.Filled.Lock"
+                                     Class="mb-3"></MudTextField>
                         
                         <MudSelect T="int" Label="Sucursal" @bind-Value="model.BranchId"
                                   Variant="Variant.Outlined"
@@ -211,6 +228,8 @@
         model = new SupervisorViewModel
         {
             Name = selected.Name,
+            Username = selected.Username ?? string.Empty,
+            Password = string.Empty,
             BranchId = selected.BranchId,
             IsActive = selected.IsActive
         };
@@ -280,6 +299,8 @@
                 {
                     Id = editingId,
                     Name = model.Name,
+                    Username = string.IsNullOrWhiteSpace(model.Username) ? null : model.Username,
+                    Password = string.IsNullOrWhiteSpace(model.Password) ? null : model.Password,
                     BranchId = model.BranchId,
                     IsActive = model.IsActive
                 };
@@ -288,9 +309,23 @@
             }
             else
             {
+                if (string.IsNullOrWhiteSpace(model.Password))
+                {
+                    Snackbar.Add("La contraseña es requerida para un nuevo registro.", Severity.Warning);
+                    return;
+                }
+
+                if (string.IsNullOrWhiteSpace(model.Username))
+                {
+                    Snackbar.Add("El nombre de usuario es requerido para un nuevo registro.", Severity.Warning);
+                    return;
+                }
+
                 var createDto = new CreateSupervisorDto
                 {
                     Name = model.Name,
+                    Username = model.Username,
+                    Password = model.Password,
                     BranchId = model.BranchId,
                     IsActive = model.IsActive
                 };
@@ -312,6 +347,8 @@
     {
         [Required]
         public string Name { get; set; } = string.Empty;
+        public string Username { get; set; } = string.Empty;
+        public string Password { get; set; } = string.Empty;
         public int BranchId { get; set; }
         public bool IsActive { get; set; } = true;
     }

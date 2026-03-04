@@ -10,7 +10,7 @@ public class CashRegisterMapperTests
     [Fact]
     public void ToDto_ShouldMapCorrectly()
     {
-        var entity = CashRegister.Create("Caja 1", "127.0.0.1", 9100, 1, true);
+        var entity = CashRegister.Create("Caja 1", "S1", "127.0.0.1", 9100, 1, 1, true);
         var dto = entity.ToDto();
 
         Assert.Equal(entity.Name, dto.Name);
@@ -41,7 +41,7 @@ public class CashRegisterMapperTests
     [Fact]
     public void UpdateEntity_ShouldUpdateCorrectly()
     {
-        var entity = CashRegister.Create("Old", "127.0.0.1", 9100, 1, false);
+        var entity = CashRegister.Create("Old", "S1", "127.0.0.1", 9100, 1, 1, false);
         var dto = new UpdateCashRegisterDto
         {
             Name = "New",

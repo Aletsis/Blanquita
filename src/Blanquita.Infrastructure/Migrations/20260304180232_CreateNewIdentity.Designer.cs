@@ -3,6 +3,7 @@ using System;
 using Blanquita.Infrastructure.Persistence.Context;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Blanquita.Infrastructure.Migrations
 {
     [DbContext(typeof(BlanquitaDbContext))]
-    partial class BlanquitaDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260304180232_CreateNewIdentity")]
+    partial class CreateNewIdentity
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -496,6 +499,33 @@ namespace Blanquita.Infrastructure.Migrations
                         .HasDatabaseName("IX_ReportesHistoricos_FechaGeneracion");
 
                     b.ToTable("ReportesHistoricos", (string)null);
+                });
+
+            modelBuilder.Entity("Blanquita.Domain.Entities.Supervisor", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("BranchId")
+                        .HasColumnType("integer")
+                        .HasColumnName("Sucursal");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean")
+                        .HasColumnName("Edo");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("Nombre");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Encargadas", (string)null);
                 });
 
             modelBuilder.Entity("Blanquita.Domain.Entities.SystemConfiguration", b =>

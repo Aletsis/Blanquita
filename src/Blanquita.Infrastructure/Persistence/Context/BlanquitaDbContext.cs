@@ -7,7 +7,7 @@ using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 
 namespace Blanquita.Infrastructure.Persistence.Context;
 
-public class BlanquitaDbContext : IdentityDbContext<ApplicationUser>
+public class BlanquitaDbContext : IdentityDbContext<ApplicationUser, ApplicationRole, int>
 {
     public BlanquitaDbContext(DbContextOptions<BlanquitaDbContext> options) : base(options)
     {
@@ -15,7 +15,6 @@ public class BlanquitaDbContext : IdentityDbContext<ApplicationUser>
 
     public DbSet<Cashier> Cashiers { get; set; } = null!;
     public DbSet<CashRegister> CashRegisters { get; set; } = null!;
-    public DbSet<Supervisor> Supervisors { get; set; } = null!;
     public DbSet<CashCollection> CashCollections { get; set; } = null!;
     public DbSet<CashCut> CashCuts { get; set; } = null!;
     public DbSet<Printer> Printers { get; set; } = null!;
@@ -84,16 +83,6 @@ public class BlanquitaDbContext : IdentityDbContext<ApplicationUser>
 
 
             entity.HasIndex(e => e.Name).IsUnique();
-        });
-
-        // Configure Supervisor
-        modelBuilder.Entity<Supervisor>(entity =>
-        {
-            entity.ToTable("Encargadas");
-            entity.HasKey(e => e.Id);
-            entity.Property(e => e.Name).HasColumnName("Nombre").IsRequired().HasMaxLength(200);
-            entity.Property(e => e.BranchId).HasColumnName("Sucursal").HasConversion(branchIdConverter).IsRequired();
-            entity.Property(e => e.IsActive).HasColumnName("Edo").IsRequired();
         });
 
         // Configure CashCollection

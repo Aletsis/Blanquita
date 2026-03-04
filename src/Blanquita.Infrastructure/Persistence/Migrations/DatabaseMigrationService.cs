@@ -11,13 +11,13 @@ public class DatabaseMigrationService
     private readonly BlanquitaDbContext _context;
     private readonly ILogger<DatabaseMigrationService> _logger;
     private readonly UserManager<ApplicationUser> _userManager;
-    private readonly RoleManager<IdentityRole> _roleManager;
+    private readonly RoleManager<ApplicationRole> _roleManager;
 
     public DatabaseMigrationService(
         BlanquitaDbContext context, 
         ILogger<DatabaseMigrationService> logger,
         UserManager<ApplicationUser> userManager,
-        RoleManager<IdentityRole> roleManager)
+        RoleManager<ApplicationRole> roleManager)
     {
         _context = context;
         _logger = logger;
@@ -49,16 +49,16 @@ public class DatabaseMigrationService
             _logger.LogInformation("Verificando datos semilla...");
 
             // Seed Roles
-            if (!await _roleManager.RoleExistsAsync("Admin"))
+            if (!await _roleManager.RoleExistsAsync("Administrador"))
             {
-                await _roleManager.CreateAsync(new IdentityRole("Admin"));
-                _logger.LogInformation("Rol 'Admin' creado.");
+                await _roleManager.CreateAsync(new ApplicationRole("Administrador"));
+                _logger.LogInformation("Rol 'Administrador' creado.");
             }
 
-            if (!await _roleManager.RoleExistsAsync("User"))
+            if (!await _roleManager.RoleExistsAsync("Supervisor"))
             {
-                await _roleManager.CreateAsync(new IdentityRole("User"));
-                _logger.LogInformation("Rol 'User' creado.");
+                await _roleManager.CreateAsync(new ApplicationRole("Supervisor"));
+                _logger.LogInformation("Rol 'Supervisor' creado.");
             }
 
             // Seed Admin User
@@ -79,7 +79,7 @@ public class DatabaseMigrationService
 
                 if (result.Succeeded)
                 {
-                    await _userManager.AddToRoleAsync(adminUser, "Admin");
+                    await _userManager.AddToRoleAsync(adminUser, "Administrador");
                     _logger.LogInformation("Usuario Administrador creado exitosamente.");
                 }
                 else
@@ -87,6 +87,38 @@ public class DatabaseMigrationService
                     var errors = string.Join(", ", result.Errors.Select(e => e.Description));
                     _logger.LogError($"Error al crear usuario administrador: {errors}");
                 }
+            }
+
+            // Setup password and roles for migrated Supervisors (BranchId != null AND PasswordHash == null)
+            var migratedSupervisors = await _userManager.Users
+                .Where(u => u.BranchId != null && u.PasswordHash == null)
+                .ToListAsync();
+
+            if (migratedSupervisors.Any())
+            {
+                _logger.LogInformation($"Configurando contraseñas y roles para {migratedSupervisors.Count} encargadas migradas...");
+                var roleName = "Supervisor";
+                
+                foreach (var user in migratedSupervisors)
+                {
+                    var token = await _userManager.GeneratePasswordResetTokenAsync(user);
+                    var result = await _userManager.ResetPasswordAsync(user, token, "Blanquita.123");
+                    
+                    if (result.Succeeded)
+                    {
+                        if (!await _userManager.IsInRoleAsync(user, roleName))
+                        {
+                            await _userManager.AddToRoleAsync(user, roleName);
+                        }
+                    }
+                    else
+                    {
+                        var errors = string.Join(", ", result.Errors.Select(e => e.Description));
+                        _logger.LogError($"Error al configurar contraseña para {user.UserName}: {errors}");
+                    }
+                }
+                
+                _logger.LogInformation("Encargadas migradas configuradas exitosamente.");
             }
         }
         catch (Exception ex)

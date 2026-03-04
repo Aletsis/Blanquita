@@ -1,148 +1,195 @@
 using Blanquita.Application.DTOs;
 using Blanquita.Application.Interfaces;
-using Blanquita.Application.Mappings;
 using Blanquita.Domain.Exceptions;
-using Blanquita.Domain.Repositories;
+using Blanquita.Infrastructure.Persistence.Identity;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 
 namespace Blanquita.Infrastructure.Services;
 
 public class SupervisorService : ISupervisorService
 {
-    private readonly ISupervisorRepository _repository;
+    private readonly UserManager<ApplicationUser> _userManager;
 
-    public SupervisorService(ISupervisorRepository repository)
+    public SupervisorService(UserManager<ApplicationUser> userManager)
     {
-        _repository = repository;
+        _userManager = userManager;
+    }
+
+    private SupervisorDto MapToDto(ApplicationUser user)
+    {
+        return new SupervisorDto
+        {
+            Id = user.Id,
+            Name = user.FullName ?? user.UserName ?? string.Empty,
+            Username = user.UserName ?? string.Empty,
+            BranchId = user.BranchId ?? 0,
+            IsActive = user.IsActive
+        };
     }
 
     public async Task<SupervisorDto?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
     {
-        var supervisor = await _repository.GetByIdAsync(id, cancellationToken);
-        return supervisor?.ToDto();
+        var user = await _userManager.FindByIdAsync(id.ToString());
+        if (user == null || !await _userManager.IsInRoleAsync(user, "Supervisor"))
+            return null;
+
+        return MapToDto(user);
     }
 
     public async Task<SupervisorDto?> GetByNameAsync(string name, CancellationToken cancellationToken = default)
     {
-        var supervisor = await _repository.GetByNameAsync(name, cancellationToken);
-        return supervisor?.ToDto();
+        var supervisors = await _userManager.GetUsersInRoleAsync("Supervisor");
+        var user = supervisors.FirstOrDefault(u => u.FullName == name);
+        if (user == null)
+            return null;
+
+        return MapToDto(user);
     }
 
     public async Task<IEnumerable<SupervisorDto>> GetAllAsync(CancellationToken cancellationToken = default)
     {
-        var supervisors = await _repository.GetAllAsync(cancellationToken);
-        return supervisors.Select(s => s.ToDto());
+        var supervisors = await _userManager.GetUsersInRoleAsync("Supervisor");
+        return supervisors.Select(MapToDto);
     }
 
     public async Task<IEnumerable<SupervisorDto>> GetByBranchAsync(int branchId, CancellationToken cancellationToken = default)
     {
-        var supervisors = await _repository.GetByBranchAsync(branchId, cancellationToken);
-        return supervisors.Select(s => s.ToDto());
+        var supervisors = await _userManager.GetUsersInRoleAsync("Supervisor");
+        return supervisors.Where(u => u.BranchId == branchId).Select(MapToDto);
     }
 
     public async Task<IEnumerable<SupervisorDto>> GetActiveAsync(CancellationToken cancellationToken = default)
     {
-        var supervisors = await _repository.GetActiveAsync(cancellationToken);
-        return supervisors.Select(s => s.ToDto());
+        var supervisors = await _userManager.GetUsersInRoleAsync("Supervisor");
+        return supervisors.Where(u => u.IsActive).Select(MapToDto);
     }
 
     public async Task<SupervisorDto> CreateAsync(CreateSupervisorDto dto, CancellationToken cancellationToken = default)
     {
-        // Check if supervisor name already exists
-        if (await _repository.ExistsAsync(dto.Name, cancellationToken))
+        var existingUser = await _userManager.FindByNameAsync(dto.Username);
+        if (existingUser != null)
         {
-            throw new DuplicateEntityException("Supervisor", dto.Name);
+            throw new Exception($"El usuario {dto.Username} ya está en uso.");
         }
 
-        var supervisor = dto.ToEntity();
-        await _repository.AddAsync(supervisor, cancellationToken);
-        return supervisor.ToDto();
+        var newUser = new ApplicationUser
+        {
+            UserName = dto.Username,
+            FullName = dto.Name,
+            BranchId = dto.BranchId,
+            IsActive = dto.IsActive,
+            EmailConfirmed = true
+        };
+
+        var result = await _userManager.CreateAsync(newUser, dto.Password);
+        
+        if (!result.Succeeded)
+        {
+            var errors = string.Join(", ", result.Errors.Select(e => e.Description));
+            throw new Exception($"Error al crear usuario: {errors}");
+        }
+
+        await _userManager.AddToRoleAsync(newUser, "Supervisor");
+
+        return MapToDto(newUser);
     }
 
     public async Task<SupervisorDto> UpdateAsync(UpdateSupervisorDto dto, CancellationToken cancellationToken = default)
     {
-        var supervisor = await _repository.GetByIdAsync(dto.Id, cancellationToken);
-        if (supervisor == null)
+        var user = await _userManager.FindByIdAsync(dto.Id.ToString());
+        if (user == null)
         {
             throw new EntityNotFoundException("Supervisor", dto.Id);
         }
 
-        // Check if name is being changed and if it already exists
-        if (supervisor.Name != dto.Name)
+        user.FullName = dto.Name;
+        user.BranchId = dto.BranchId;
+        user.IsActive = dto.IsActive;
+
+        if (!string.IsNullOrWhiteSpace(dto.Username) && dto.Username != user.UserName)
         {
-            if (await _repository.ExistsAsync(dto.Name, cancellationToken))
+            user.UserName = dto.Username;
+        }
+
+        var result = await _userManager.UpdateAsync(user);
+        if (!result.Succeeded)
+        {
+             var errors = string.Join(", ", result.Errors.Select(e => e.Description));
+             throw new Exception($"Error al actualizar usuario: {errors}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(dto.Password))
+        {
+            var token = await _userManager.GeneratePasswordResetTokenAsync(user);
+            var passResult = await _userManager.ResetPasswordAsync(user, token, dto.Password);
+            if (!passResult.Succeeded)
             {
-                throw new DuplicateEntityException("Supervisor", dto.Name);
+                 var errors = string.Join(", ", passResult.Errors.Select(e => e.Description));
+                 throw new Exception($"Error al actualizar contraseña: {errors}");
             }
         }
 
-        dto.UpdateEntity(supervisor);
-        await _repository.UpdateAsync(supervisor, cancellationToken);
-        return supervisor.ToDto();
+        return MapToDto(user);
     }
 
     public async Task DeleteAsync(int id, CancellationToken cancellationToken = default)
     {
-        var supervisor = await _repository.GetByIdAsync(id, cancellationToken);
-        if (supervisor == null)
+        var user = await _userManager.FindByIdAsync(id.ToString());
+        if (user == null)
         {
             throw new EntityNotFoundException("Supervisor", id);
         }
 
-        await _repository.DeleteAsync(id, cancellationToken);
+        await _userManager.DeleteAsync(user);
     }
 
     public async Task<PagedResult<SupervisorDto>> GetPagedAsync(SearchSupervisorRequest request, CancellationToken cancellationToken = default)
     {
-        // Validar request
         request.Validate();
 
-        // Obtener todos los supervisores y aplicar filtros
-        var allSupervisors = await _repository.GetAllAsync(cancellationToken);
+        var supervisors = await _userManager.GetUsersInRoleAsync("Supervisor");
+        IEnumerable<ApplicationUser> query = supervisors;
 
-        // Aplicar filtro de búsqueda
         if (request.HasSearchTerm())
         {
             var searchLower = request.SearchTerm!.ToLower();
-            allSupervisors = allSupervisors.Where(s =>
-                s.Name.ToLower().Contains(searchLower));
+            query = query.Where(s =>
+                s.FullName != null && s.FullName.ToLower().Contains(searchLower));
         }
 
-        // Aplicar filtro de sucursal
         if (request.HasBranchFilter())
         {
-            allSupervisors = allSupervisors.Where(s => s.BranchId == request.BranchId!.Value);
+            query = query.Where(s => s.BranchId == request.BranchId!.Value);
         }
 
-        // Aplicar filtro de estado activo
         if (request.HasActiveFilter())
         {
-            allSupervisors = allSupervisors.Where(s => s.IsActive == request.IsActive!.Value);
+            query = query.Where(s => s.IsActive == request.IsActive!.Value);
         }
 
-        var totalCount = allSupervisors.Count();
+        var totalCount = query.Count();
 
-        // Aplicar ordenamiento
         if (request.HasSorting())
         {
-            allSupervisors = request.SortColumn?.ToLower() switch
+            query = request.SortColumn?.ToLower() switch
             {
                 "name" => request.SortAscending
-                    ? allSupervisors.OrderBy(s => s.Name)
-                    : allSupervisors.OrderByDescending(s => s.Name),
+                    ? query.OrderBy(s => s.FullName)
+                    : query.OrderByDescending(s => s.FullName),
                 "branchid" => request.SortAscending
-                    ? allSupervisors.OrderBy(s => s.BranchId)
-                    : allSupervisors.OrderByDescending(s => s.BranchId),
-                _ => allSupervisors.OrderBy(s => s.Name)
+                    ? query.OrderBy(s => s.BranchId)
+                    : query.OrderByDescending(s => s.BranchId),
+                _ => query.OrderBy(s => s.FullName)
             };
         }
 
-        // Aplicar paginación
-        var items = allSupervisors
+        var items = query
             .Skip(request.GetSkip())
             .Take(request.PageSize);
 
         return PagedResult<SupervisorDto>.Create(
-            items.Select(s => s.ToDto()),
+            items.Select(MapToDto),
             totalCount,
             request.Page,
             request.PageSize);
