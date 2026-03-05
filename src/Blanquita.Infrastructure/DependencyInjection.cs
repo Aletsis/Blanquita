@@ -57,6 +57,13 @@ public static class DependencyInjection
         })
         .AddIdentityCookies();
 
+        services.ConfigureApplicationCookie(options =>
+        {
+            options.ExpireTimeSpan = TimeSpan.FromMinutes(5); // Tiempo de inactividad
+            options.SlidingExpiration = true;
+            options.Cookie.MaxAge = options.ExpireTimeSpan;
+        });
+
         // Database Migration Service
         services.AddScoped<DatabaseMigrationService>();
 
