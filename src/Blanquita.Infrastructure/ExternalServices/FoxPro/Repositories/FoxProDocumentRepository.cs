@@ -359,6 +359,7 @@ public class FoxProDocumentRepository : IFoxProDocumentRepository
                         {
                             Serie = docSerie,
                             Folio = folio.ToString("0"),
+                            Fecha = docDate,
                             Neto = neto,
                             Impuesto = impuesto,
                             Total = total
