@@ -1,4 +1,6 @@
 @page "/productos/buscador"
+@using Microsoft.AspNetCore.Authorization
+@attribute [AllowAnonymous]
 @using Blanquita.Application.DTOs
 @using Blanquita.Application.Queries.Products.SearchProducts
 @using MediatR

@@ -1,6 +1,6 @@
 @page "/reportes/facturacion-cliente"
 @using Microsoft.AspNetCore.Authorization
-@attribute [Authorize]
+@attribute [Authorize(Roles = "Administrador")]
 @using Blanquita.Application.DTOs
 @using Blanquita.Application.Queries.FoxPro.GetBillingReport
 @using MediatR

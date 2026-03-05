@@ -1,6 +1,6 @@
 @page "/configuracion/etiquetas"
 @using Microsoft.AspNetCore.Authorization
-@attribute [Authorize]
+@attribute [Authorize(Roles = "Administrador")]
 @using Blanquita.Application.DTOs
 @using Blanquita.Application.Interfaces
 @using Blanquita.Web.Components.Layout

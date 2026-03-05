@@ -15,7 +15,7 @@
             Imprimir etiquetas
         </MudNavLink>
     </MudNavGroup>
-    <AuthorizeView>
+    <AuthorizeView Roles="Administrador">
         <Authorized>
             <MudNavGroup Title="Reportes" Expanded="false" Icon="@Icons.Material.Filled.FilePresent">
                 <MudNavLink Href="/reportes" Icon="@Icons.Material.Filled.Receipt">
@@ -37,15 +37,19 @@
             </MudNavGroup>
         </Authorized>
     </AuthorizeView>
-    <MudNavGroup Title="Cajas" Expanded="false" Icon="@Icons.Material.Filled.Money">
-        <MudNavLink Href="/recoleccion" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.AttachMoney">
-            Recoleccion de efectivo
-        </MudNavLink>
-        <MudNavLink Href="/corte-caja" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.MoneyOff">
-            Corte de caja
-        </MudNavLink>
-    </MudNavGroup>
-    <AuthorizeView>
+    <AuthorizeView Roles="Supervisor, Administrador">
+        <Authorized>
+            <MudNavGroup Title="Cajas" Expanded="false" Icon="@Icons.Material.Filled.Money">
+                <MudNavLink Href="/recoleccion" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.AttachMoney">
+                    Recoleccion de efectivo
+                </MudNavLink>
+                <MudNavLink Href="/corte-caja" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.MoneyOff">
+                    Corte de caja
+                </MudNavLink>
+            </MudNavGroup>
+        </Authorized>
+    </AuthorizeView>
+    <AuthorizeView Roles="Administrador">
         <Authorized>
             <MudDivider Class="my-2" />
             <MudNavGroup Title="Configuraciones" Expanded="false" Icon="@Icons.Material.Filled.Settings">
@@ -60,6 +64,9 @@
                 </MudNavLink>
                 <MudNavLink Href="/añadir-encargada" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Person">
                     Añadir encargada
+                </MudNavLink>
+                <MudNavLink Href="/diagnostico" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.BugReport">
+                    Diagnóstico
                 </MudNavLink>
             </MudNavGroup>
         </Authorized>

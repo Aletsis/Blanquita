@@ -1,4 +1,6 @@
 @page "/reimpresion-devoluciones"
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Roles = "Administrador")]
 @using Blanquita.Application.DTOs
 @using Blanquita.Application.Queries.FoxPro.GetReturnBySeriesAndFolio
 @using Blanquita.Application.Commands.Printing

@@ -1,4 +1,6 @@
 ﻿@page "/corte-caja"
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Roles = "Supervisor, Administrador")]
 @using Blanquita.Application.DTOs
 @using Blanquita.Application.Interfaces
 @using System.Globalization
