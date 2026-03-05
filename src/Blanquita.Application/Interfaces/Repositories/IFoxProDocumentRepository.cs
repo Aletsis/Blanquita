@@ -32,5 +32,13 @@ public interface IFoxProDocumentRepository
     /// Obtiene las facturas de un cliente específico desde MGW10008
     /// </summary>
     Task<IEnumerable<InvoiceDto>> GetInvoicesByClientIdAsync(int clientId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Obtiene las devoluciones de una sucursal específica desde MGW10008
+    /// </summary>
+    Task<IEnumerable<ReturnReportItemDto>> GetReturnsReportAsync(
+        DateTime date, 
+        string serie, 
+        CancellationToken cancellationToken = default);
 }
 
