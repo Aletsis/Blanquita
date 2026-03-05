@@ -321,6 +321,65 @@ public class FoxProDocumentRepository : IFoxProDocumentRepository
         }
     }
 
+    public async Task<IEnumerable<ReturnReportItemDto>> GetReturnsReportAsync(DateTime date, string serie, CancellationToken cancellationToken = default)
+    {
+        var config = await _configService.ObtenerConfiguracionAsync();
+        var documentsPath = config.Mgw10008Path;
+        var returns = new List<ReturnReportItemDto>();
+
+        if (string.IsNullOrEmpty(documentsPath) || !File.Exists(documentsPath))
+        {
+             _logger.LogWarning("Archivo MGW10008 no encontrado o no configurado: {FilePath}", documentsPath);
+             return returns;
+        }
+
+        try
+        {
+            using var reader = _readerFactory.CreateReader(documentsPath);
+            
+            ValidateColumns(reader, "MGW10008", "CSERIEDO01", "CFOLIO", "CFECHA", "CNETO", "CIMPUESTO1", "CTOTAL");
+
+            while (reader.Read())
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                try
+                {
+                    var docDate = reader.GetDateTimeSafe("CFECHA");
+                    var docSerie = reader.GetStringSafe("CSERIEDO01");
+
+                    if (docDate.Date == date.Date && docSerie.Equals(serie, StringComparison.OrdinalIgnoreCase))
+                    {
+                        var folio = reader.GetDecimalSafe("CFOLIO");
+                        var neto = reader.GetDecimalSafe("CNETO");
+                        var impuesto = reader.GetDecimalSafe("CIMPUESTO1");
+                        var total = reader.GetDecimalSafe("CTOTAL");
+
+                        returns.Add(new ReturnReportItemDto
+                        {
+                            Serie = docSerie,
+                            Folio = folio.ToString("0"),
+                            Neto = neto,
+                            Impuesto = impuesto,
+                            Total = total
+                        });
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogDebug(ex, "Error al leer registro de devolución");
+                }
+            }
+
+            return returns.OrderBy(x => decimal.Parse(x.Folio)).ToList();
+        }
+        catch (Exception ex)
+        {
+             _logger.LogError(ex, "Error al obtener devoluciones");
+             throw;
+        }
+    }
+
     private void ValidateColumns(IFoxProDataReader reader, string fileName, params string[] columns)
     {
         var missingColumns = new List<string>();
