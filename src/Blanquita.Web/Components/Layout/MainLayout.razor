@@ -12,6 +12,7 @@
         <MudSpacer />
         <AuthorizeView>
             <Authorized>
+                <SessionTimeout />
                 <MudText Class="mr-4">Hola, @context.User.Identity?.Name</MudText>
                 <MudButton Variant="Variant.Filled" Color="Color.Secondary" OnClick="Logout" StartIcon="@Icons.Material.Filled.Logout">Cerrar Sesión</MudButton>
             </Authorized>

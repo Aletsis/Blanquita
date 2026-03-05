@@ -1,0 +1,38 @@
+@using Microsoft.JSInterop
+@inject IJSRuntime JSRuntime
+@inject NavigationManager NavigationManager
+@implements IAsyncDisposable
+
+@code {
+    private DotNetObjectReference<SessionTimeout> _objRef;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _objRef = DotNetObjectReference.Create(this);
+            // Iniciar timeout de 5 minutos
+            await JSRuntime.InvokeVoidAsync("sessionTimeout.initialize", _objRef, 5);
+        }
+    }
+
+    [JSInvokable]
+    public void OnSessionTimeout()
+    {
+        // Redirigir a la acción de logout
+        NavigationManager.NavigateTo("/Account/logout", forceLoad: true);
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        _objRef?.Dispose();
+        try 
+        {
+            await JSRuntime.InvokeVoidAsync("sessionTimeout.cleanup");
+        }
+        catch 
+        {
+            // Ignore during rendering teardown
+        }
+    }
+}

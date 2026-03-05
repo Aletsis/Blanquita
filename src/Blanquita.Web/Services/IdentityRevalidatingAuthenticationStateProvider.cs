@@ -18,7 +18,7 @@ public class IdentityRevalidatingAuthenticationStateProvider(
         IOptions<IdentityOptions> options)
     : RevalidatingServerAuthenticationStateProvider(loggerFactory)
 {
-    protected override TimeSpan RevalidationInterval => TimeSpan.FromMinutes(30);
+    protected override TimeSpan RevalidationInterval => TimeSpan.FromMinutes(5); // Validar con más frecuencia para el timeout de sesión
 
     protected override async Task<bool> ValidateAuthenticationStateAsync(
         AuthenticationState authenticationState, CancellationToken cancellationToken)
