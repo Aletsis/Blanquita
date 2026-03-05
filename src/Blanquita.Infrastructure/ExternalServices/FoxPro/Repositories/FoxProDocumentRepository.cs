@@ -321,7 +321,7 @@ public class FoxProDocumentRepository : IFoxProDocumentRepository
         }
     }
 
-    public async Task<IEnumerable<ReturnReportItemDto>> GetReturnsReportAsync(DateTime date, string serie, CancellationToken cancellationToken = default)
+    public async Task<IEnumerable<ReturnReportItemDto>> GetReturnsReportAsync(int year, int month, string serie, CancellationToken cancellationToken = default)
     {
         var config = await _configService.ObtenerConfiguracionAsync();
         var documentsPath = config.Mgw10008Path;
@@ -348,7 +348,7 @@ public class FoxProDocumentRepository : IFoxProDocumentRepository
                     var docDate = reader.GetDateTimeSafe("CFECHA");
                     var docSerie = reader.GetStringSafe("CSERIEDO01");
 
-                    if (docDate.Date == date.Date && docSerie.Equals(serie, StringComparison.OrdinalIgnoreCase))
+                    if (docDate.Year == year && docDate.Month == month && docSerie.Equals(serie, StringComparison.OrdinalIgnoreCase))
                     {
                         var folio = reader.GetDecimalSafe("CFOLIO");
                         var neto = reader.GetDecimalSafe("CNETO");

@@ -47,7 +47,10 @@
                     </MudSelect>
 
                     <MudDatePicker @bind-Date="fechaSeleccionada"
-                                   Label="Fecha"
+                                   Label="Mes"
+                                   OpenTo="OpenTo.Month"
+                                   FixDay="1"
+                                   DateFormat="MMMM yyyy"
                                    Variant="Variant.Outlined"
                                    Required="true"
                                    MaxDate="DateTime.Today"
@@ -182,6 +185,7 @@
         }
         catch (Exception ex)
         {
+            Logger.LogError(ex, "Error al cargar sucursales");
             Snackbar.Add("Error al cargar sucursales", Severity.Error);
         }
     }
@@ -203,7 +207,7 @@
 
         try
         {
-            var query = new GetReturnReportQuery(fechaSeleccionada.Value, sucursalSeleccionada.SeriesDevolucion);
+            var query = new GetReturnReportQuery(fechaSeleccionada.Value.Year, fechaSeleccionada.Value.Month, sucursalSeleccionada.SeriesDevolucion);
             var result = await Mediator.Send(query);
             datosReporte = result.ToList();
             reporteGenerado = true;
@@ -231,7 +235,7 @@
         try
         {
             var contenido = await ExportService.ExportToExcelAsync(datosReporte, "Devoluciones");
-            var nombreArchivo = $"Devoluciones_{sucursalSeleccionada?.Name}_{fechaSeleccionada:yyyyMMdd}.xlsx";
+            var nombreArchivo = $"Devoluciones_{sucursalSeleccionada?.Name}_{fechaSeleccionada:yyyy-MM}.xlsx";
             await DescargarArchivo(contenido, nombreArchivo, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
             Snackbar.Add("Reporte exportado exitosamente a Excel", Severity.Success);
         }
@@ -247,8 +251,8 @@
 
         try
         {
-            var contenido = await ExportService.ExportToPdfAsync(datosReporte, $"Reporte de Devoluciones - {sucursalSeleccionada?.Name}");
-            var nombreArchivo = $"Devoluciones_{sucursalSeleccionada?.Name}_{fechaSeleccionada:yyyyMMdd}.pdf";
+            var contenido = await ExportService.ExportToPdfAsync(datosReporte, $"Reporte de Devoluciones - {sucursalSeleccionada?.Name} ({fechaSeleccionada:MMMM yyyy})");
+            var nombreArchivo = $"Devoluciones_{sucursalSeleccionada?.Name}_{fechaSeleccionada:yyyy-MM}.pdf";
             await DescargarArchivo(contenido, nombreArchivo, "application/pdf");
             Snackbar.Add("Reporte exportado exitosamente a PDF", Severity.Success);
         }

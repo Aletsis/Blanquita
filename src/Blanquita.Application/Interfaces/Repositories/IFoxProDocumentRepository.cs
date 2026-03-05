@@ -37,7 +37,8 @@ public interface IFoxProDocumentRepository
     /// Obtiene las devoluciones de una sucursal específica desde MGW10008
     /// </summary>
     Task<IEnumerable<ReturnReportItemDto>> GetReturnsReportAsync(
-        DateTime date, 
+        int year,
+        int month,
         string serie, 
         CancellationToken cancellationToken = default);
 }
