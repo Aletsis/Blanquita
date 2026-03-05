@@ -130,6 +130,7 @@
                         {
                             <MudTable Items="@datosReporte" Dense="true" Hover="true" Striped="true" Elevation="0" Bordered="true" Breakpoint="Breakpoint.None">
                                 <HeaderContent>
+                                    <MudTh>Fecha</MudTh>
                                     <MudTh>Serie</MudTh>
                                     <MudTh>Folio</MudTh>
                                     <MudTh Style="text-align: right;">Neto</MudTh>
@@ -137,6 +138,7 @@
                                     <MudTh Style="text-align: right;">Total</MudTh>
                                 </HeaderContent>
                                 <RowTemplate>
+                                    <MudTd DataLabel="Fecha">@context.Fecha.ToString("dd/MM/yyyy")</MudTd>
                                     <MudTd DataLabel="Serie">@context.Serie</MudTd>
                                     <MudTd DataLabel="Folio">@context.Folio</MudTd>
                                     <MudTd DataLabel="Neto" Style="text-align: right;">@context.Neto.ToString("C2")</MudTd>
@@ -144,7 +146,7 @@
                                     <MudTd DataLabel="Total" Style="text-align: right; font-weight:bold;">@context.Total.ToString("C2")</MudTd>
                                 </RowTemplate>
                                 <FooterContent>
-                                    <MudTh Style="font-weight: bold; text-align: right;" colspan="2">TOTALES:</MudTh>
+                                    <MudTh Style="font-weight: bold; text-align: right;" colspan="3">TOTALES:</MudTh>
                                     <MudTh Style="font-weight: bold; text-align: right;">@datosReporte.Sum(x => x.Neto).ToString("C2")</MudTh>
                                     <MudTh Style="font-weight: bold; text-align: right;">@datosReporte.Sum(x => x.Impuesto).ToString("C2")</MudTh>
                                     <MudTh Style="font-weight: bold; text-align: right;">@datosReporte.Sum(x => x.Total).ToString("C2")</MudTh>
