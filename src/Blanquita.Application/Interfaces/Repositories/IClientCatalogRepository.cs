@@ -6,4 +6,5 @@ public interface IClientCatalogRepository
 {
     Task<IEnumerable<ClientSearchDto>> SearchAsync(string searchTerm, CancellationToken cancellationToken = default);
     Task<ClientSearchDto?> GetByCodeAsync(string code, CancellationToken cancellationToken = default);
+    Task<IEnumerable<ClientSearchDto>> GetAllAsync(CancellationToken cancellationToken = default);
 }

@@ -3,6 +3,7 @@ using System;
 using Blanquita.Infrastructure.Persistence.Context;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Blanquita.Infrastructure.Migrations
 {
     [DbContext(typeof(BlanquitaDbContext))]
-    partial class BlanquitaDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260429010601_AddSmtpConfiguration")]
+    partial class AddSmtpConfiguration
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -495,30 +498,6 @@ namespace Blanquita.Infrastructure.Migrations
                     b.ToTable("ReportesHistoricos", (string)null);
                 });
 
-            modelBuilder.Entity("Blanquita.Domain.Entities.SentInvoiceLog", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("ClientCode")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("FileName")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<DateTime>("SentAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("SentInvoiceLogs");
-                });
-
             modelBuilder.Entity("Blanquita.Domain.Entities.Supervisor", b =>
                 {
                     b.Property<int>("Id")
@@ -554,18 +533,10 @@ namespace Blanquita.Infrastructure.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
-                    b.Property<string>("AlertEmails")
-                        .IsRequired()
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)");
-
                     b.Property<string>("FacturasPath")
                         .IsRequired()
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
-
-                    b.Property<TimeSpan?>("InvoiceJobExecutionTime")
-                        .HasColumnType("interval");
 
                     b.Property<string>("Mgw10002Path")
                         .IsRequired()

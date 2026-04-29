@@ -8,6 +8,7 @@ using MudBlazor.Services;
 using Serilog;
 using Serilog.Events;
 using CurrieTechnologies.Razor.SweetAlert2;
+using Hangfire;
 
 // Cargar variables de entorno desde .env
 Env.Load();
@@ -80,6 +81,10 @@ Env.Load();
     // Ejecutar migraciones de base de datos
     Log.Information("Verificando y migrando base de datos...");
     await app.MigrateDatabaseAsync();
+
+    // Configurar Hangfire
+    app.UseHangfireDashboard("/hangfire"); // Accesible en /hangfire
+    await app.ConfigureRecurringJobsAsync();
 
     // Configure the HTTP request pipeline
     if (!app.Environment.IsDevelopment())

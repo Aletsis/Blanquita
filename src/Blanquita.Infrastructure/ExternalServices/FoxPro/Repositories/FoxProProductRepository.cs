@@ -53,8 +53,10 @@ public class FoxProProductRepository : IProductCatalogRepository
                 cancellationToken.ThrowIfCancellationRequested();
 
                 var productCode = reader.GetStringSafe("CCODIGOP01");
+                var altCode = reader.GetStringSafe("CCODALTERN");
                 
-                if (string.Equals(productCode, code, StringComparison.OrdinalIgnoreCase))
+                if (string.Equals(productCode, code, StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(altCode, code, StringComparison.OrdinalIgnoreCase))
                 {
                     _logger.LogInformation("Producto encontrado: {Code}", code);
                     return FoxProProductMapper.MapToDto(reader);

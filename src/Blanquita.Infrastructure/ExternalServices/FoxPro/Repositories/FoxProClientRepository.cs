@@ -33,7 +33,12 @@ public class FoxProClientRepository : IClientCatalogRepository
         return await SearchInternalAsync(searchTerm, isExactMatch: false, cancellationToken);
     }
 
-    private async Task<IEnumerable<ClientSearchDto>> SearchInternalAsync(string searchTerm, bool isExactMatch, CancellationToken cancellationToken)
+    public async Task<IEnumerable<ClientSearchDto>> GetAllAsync(CancellationToken cancellationToken = default)
+    {
+        return await SearchInternalAsync(string.Empty, isExactMatch: false, cancellationToken, isGetAll: true);
+    }
+
+    private async Task<IEnumerable<ClientSearchDto>> SearchInternalAsync(string searchTerm, bool isExactMatch, CancellationToken cancellationToken, bool isGetAll = false)
     {
         var config = await _configService.ObtenerConfiguracionAsync();
         var clientPath = config.Mgw10002Path;
@@ -47,9 +52,9 @@ public class FoxProClientRepository : IClientCatalogRepository
 
         var clients = new List<ClientSearchDto>();
         var term = searchTerm?.Trim();
-        if (string.IsNullOrEmpty(term)) return clients;
+        if (string.IsNullOrEmpty(term) && !isGetAll) return clients;
 
-        bool isNumeric = term.All(char.IsDigit);
+        bool isNumeric = term?.All(char.IsDigit) ?? false;
 
             // 1. Buscar clientes
             using (var reader = _readerFactory.CreateReader(clientPath))
@@ -63,16 +68,19 @@ public class FoxProClientRepository : IClientCatalogRepository
                     var name = reader.GetStringSafe("CRAZONSO01");
                     var rfc = reader.GetStringSafe("CRFC");
 
-                    bool match = false;
-                    if (isExactMatch)
+                    bool match = isGetAll;
+                    if (!isGetAll)
                     {
-                        match = string.Equals(code, term, StringComparison.OrdinalIgnoreCase);
-                    }
-                    else
-                    {
-                        match = IsMatch(term, code, false) ||
-                                IsMatch(term, name, false) ||
-                                IsMatch(term, rfc, false);
+                        if (isExactMatch)
+                        {
+                            match = string.Equals(code, term, StringComparison.OrdinalIgnoreCase);
+                        }
+                        else
+                        {
+                            match = IsMatch(term!, code, false) ||
+                                    IsMatch(term!, name, false) ||
+                                    IsMatch(term!, rfc, false);
+                        }
                     }
 
                     if (match)
@@ -91,7 +99,7 @@ public class FoxProClientRepository : IClientCatalogRepository
                         };
                         clients.Add(client);
 
-                        if (!isExactMatch && clients.Count >= 50) break; // Limit results
+                        if (!isExactMatch && !isGetAll && clients.Count >= 50) break; // Limit results only for UI searches
                     }
                 }
             }

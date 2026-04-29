@@ -252,7 +252,16 @@ public class ConfiguracionService : IConfiguracionService
             PrinterPort = entity.PrinterPort,
             Printer2Name = entity.Printer2Name,
             Printer2Ip = entity.Printer2Ip,
-            Printer2Port = entity.Printer2Port
+            Printer2Port = entity.Printer2Port,
+            SmtpServer = entity.SmtpServer,
+            SmtpPort = entity.SmtpPort,
+            SmtpUser = entity.SmtpUser,
+            SmtpPassword = entity.SmtpPassword,
+            SmtpEnableSsl = entity.SmtpEnableSsl,
+            SmtpFromEmail = entity.SmtpFromEmail,
+            SmtpFromName = entity.SmtpFromName,
+            InvoiceJobExecutionTime = entity.InvoiceJobExecutionTime,
+            AlertEmails = entity.AlertEmails
         };
     }
 
@@ -272,6 +281,15 @@ public class ConfiguracionService : IConfiguracionService
         entity.Printer2Name = dto.Printer2Name;
         entity.Printer2Ip = dto.Printer2Ip;
         entity.Printer2Port = dto.Printer2Port;
+        entity.SmtpServer = dto.SmtpServer;
+        entity.SmtpPort = dto.SmtpPort;
+        entity.SmtpUser = dto.SmtpUser;
+        entity.SmtpPassword = dto.SmtpPassword;
+        entity.SmtpEnableSsl = dto.SmtpEnableSsl;
+        entity.SmtpFromEmail = dto.SmtpFromEmail;
+        entity.SmtpFromName = dto.SmtpFromName;
+        entity.InvoiceJobExecutionTime = dto.InvoiceJobExecutionTime;
+        entity.AlertEmails = dto.AlertEmails;
     }
 
     #endregion

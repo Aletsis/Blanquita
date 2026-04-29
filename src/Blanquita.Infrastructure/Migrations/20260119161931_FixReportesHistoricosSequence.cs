@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore.Migrations;
+using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
@@ -10,7 +10,7 @@ namespace Blanquita.Infrastructure.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.Sql("SELECT setval(pg_get_serial_sequence('\"ReportesHistoricos\"', 'Id'), COALESCE((SELECT MAX(\"Id\") FROM \"ReportesHistoricos\"), 0));");
+            migrationBuilder.Sql("SELECT setval(pg_get_serial_sequence('\"ReportesHistoricos\"', 'Id'), GREATEST(COALESCE((SELECT MAX(\"Id\") FROM \"ReportesHistoricos\"), 1), 1), (SELECT MAX(\"Id\") FROM \"ReportesHistoricos\") IS NOT NULL);");
         }
 
         /// <inheritdoc />

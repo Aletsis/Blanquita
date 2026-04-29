@@ -77,4 +77,49 @@ public class ConfiguracionDto
     /// Puerto de la impresora secundaria
     /// </summary>
     public int Printer2Port { get; set; }
+
+    /// <summary>
+    /// Servidor SMTP
+    /// </summary>
+    public string SmtpServer { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Puerto SMTP
+    /// </summary>
+    public int SmtpPort { get; set; }
+
+    /// <summary>
+    /// Usuario SMTP
+    /// </summary>
+    public string SmtpUser { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Contraseña SMTP
+    /// </summary>
+    public string SmtpPassword { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Habilitar SSL para SMTP
+    /// </summary>
+    public bool SmtpEnableSsl { get; set; }
+
+    /// <summary>
+    /// Correo del remitente
+    /// </summary>
+    public string SmtpFromEmail { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Nombre del remitente
+    /// </summary>
+    public string SmtpFromName { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Hora del día en la que se ejecutará el envío automático de facturas
+    /// </summary>
+    public TimeSpan? InvoiceJobExecutionTime { get; set; } = new TimeSpan(18, 0, 0);
+
+    /// <summary>
+    /// Correos para alertas y resúmenes (separados por coma)
+    /// </summary>
+    public string AlertEmails { get; set; } = string.Empty;
 }

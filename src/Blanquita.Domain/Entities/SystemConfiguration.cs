@@ -43,4 +43,23 @@ public class SystemConfiguration : BaseEntity
     public string Printer2Ip { get; set; } = string.Empty;
 
     public int Printer2Port { get; set; }
+    
+    // SMTP Configuration
+    [MaxLength(200)]
+    public string SmtpServer { get; set; } = string.Empty;
+    public int SmtpPort { get; set; }
+    [MaxLength(200)]
+    public string SmtpUser { get; set; } = string.Empty;
+    [MaxLength(200)]
+    public string SmtpPassword { get; set; } = string.Empty;
+    public bool SmtpEnableSsl { get; set; }
+    [MaxLength(200)]
+    public string SmtpFromEmail { get; set; } = string.Empty;
+    [MaxLength(200)]
+    public string SmtpFromName { get; set; } = string.Empty;
+
+    public TimeSpan? InvoiceJobExecutionTime { get; set; } = new TimeSpan(18, 0, 0); // Default 6 PM
+
+    [MaxLength(500)]
+    public string AlertEmails { get; set; } = string.Empty;
 }

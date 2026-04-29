@@ -24,11 +24,23 @@ public class BlanquitaDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<LabelElement> LabelElements { get; set; } = null!;
     public DbSet<ReporteHistorico> ReportesHistoricos { get; set; } = null!;
     public DbSet<Branch> Branches { get; set; } = null!;
+    public DbSet<SentInvoiceLog> SentInvoiceLogs { get; set; } = null!;
     public DbSet<DetalleReporte> DetallesReporte { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+
+        // Forzar tipos de datos para Identity para evitar problemas con PostgreSQL
+        modelBuilder.Entity<ApplicationUser>(entity =>
+        {
+            entity.Property(u => u.Id).HasColumnType("text");
+        });
+
+        modelBuilder.Entity<Microsoft.AspNetCore.Identity.IdentityRole>(entity =>
+        {
+            entity.Property(r => r.Id).HasColumnType("text");
+        });
 
         // Apply all configurations from the assembly
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(BlanquitaDbContext).Assembly);
@@ -215,6 +227,11 @@ public class BlanquitaDbContext : IdentityDbContext<ApplicationUser>
             entity.Property(e => e.Pos10042Path).HasMaxLength(500);
             entity.Property(e => e.Mgw10008Path).HasMaxLength(500);
             entity.Property(e => e.Mgw10005Path).HasMaxLength(500);
+            entity.Property(e => e.SmtpServer).HasMaxLength(200);
+            entity.Property(e => e.SmtpUser).HasMaxLength(200);
+            entity.Property(e => e.SmtpPassword).HasMaxLength(200);
+            entity.Property(e => e.SmtpFromEmail).HasMaxLength(200);
+            entity.Property(e => e.SmtpFromName).HasMaxLength(200);
         });
 
         // Configure LabelDesign

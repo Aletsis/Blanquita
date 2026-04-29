@@ -14,6 +14,8 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Blanquita.Infrastructure.Persistence.Identity;
 using Microsoft.AspNetCore.Identity;
+using Hangfire;
+using Hangfire.PostgreSql;
 
 namespace Blanquita.Infrastructure;
 
@@ -79,6 +81,8 @@ public static class DependencyInjection
         services.AddScoped<IPrinterService, PrinterService>();
         services.AddScoped<IFileSystemService, FileSystemService>();
         services.AddScoped<ILabelDesignService, LabelDesignService>();
+        services.AddScoped<IEmailService, EmailService>();
+        services.AddScoped<IInvoiceJobService, InvoiceJobService>();
 
         // Configuration Services
         services.AddSingleton<IAppConfigurationManager, AppConfigurationManager>();
@@ -116,6 +120,16 @@ public static class DependencyInjection
 
         // Configure FoxPro settings
         services.Configure<FoxProConfiguration>(configuration.GetSection("FoxPro"));
+
+        // Hangfire
+        services.AddHangfire(config => config
+            .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
+            .UseSimpleAssemblyNameTypeSerializer()
+            .UseRecommendedSerializerSettings()
+            .UsePostgreSqlStorage(options => 
+                options.UseNpgsqlConnection(configuration.GetConnectionString("DefaultConnection"))));
+
+        services.AddHangfireServer();
 
         return services;
     }
