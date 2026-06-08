@@ -4,10 +4,9 @@ using Blanquita.Application.Mappings;
 using Blanquita.Domain.Entities;
 using Blanquita.Domain.Exceptions;
 using Blanquita.Domain.Repositories;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
-namespace Blanquita.Infrastructure.Services;
+namespace Blanquita.Application.Services;
 
 public class CashCutService : ICashCutService
 {
@@ -62,91 +61,76 @@ public class CashCutService : ICashCutService
             request.CashRegisterName ?? "All",
             request.CashierName ?? "All");
 
-        // Construir query con filtros a nivel de BD
-        var query = _repository.GetQueryable();
+        // Construir query con filtros
+        var results = await _repository.GetAllAsync(cancellationToken);
 
         // Aplicar filtro de fecha
         if (request.HasDateFilter())
         {
             var (inicio, fin) = request.GetNormalizedDateRange();
-            query = query.Where(c => c.CutDateTime >= inicio && c.CutDateTime <= fin);
+            results = results.Where(c => c.CutDateTime >= inicio && c.CutDateTime <= fin);
         }
 
         // Aplicar filtro de sucursal
         if (request.HasSucursalFilter())
         {
             var sucursalNombre = request.Sucursal!.Nombre;
-            query = query.Where(c => c.BranchName == sucursalNombre);
+            results = results.Where(c => c.BranchName == sucursalNombre);
         }
 
         // Aplicar filtro de caja registradora
         if (request.HasCashRegisterFilter())
         {
-            query = query.Where(c => c.CashRegisterName == request.CashRegisterName);
+            results = results.Where(c => c.CashRegisterName == request.CashRegisterName);
         }
 
         // Aplicar filtro de cajera
         if (request.HasCashierFilter())
         {
-            query = query.Where(c => c.CashierName.Contains(request.CashierName!));
+            results = results.Where(c => c.CashierName.Contains(request.CashierName!, StringComparison.OrdinalIgnoreCase));
         }
 
         // Aplicar filtro de supervisor
         if (request.HasSupervisorFilter())
         {
-            query = query.Where(c => c.SupervisorName.Contains(request.SupervisorName!));
+            results = results.Where(c => c.SupervisorName.Contains(request.SupervisorName!, StringComparison.OrdinalIgnoreCase));
         }
 
-        // Nota: El filtro de monto requiere cálculo, se aplicará después de traer los datos
-        // ya que GetGrandTotal() no se puede traducir a SQL
-        var needsAmountFilter = request.HasAmountFilter();
-        var amountRange = needsAmountFilter ? request.GetAmountRange() : (0m, 0m);
-
-        // Aplicar ordenamiento a nivel de BD
-        query = ApplySorting(query, request);
-
-        // Obtener el total antes de paginar (para filtros aplicados en BD)
-        var totalCountBeforeAmountFilter = await query.CountAsync(cancellationToken);
-
-        // Ejecutar query en BD
-        var results = await query.ToListAsync(cancellationToken);
-
-        // Aplicar filtro de monto en memoria (si es necesario)
-        if (needsAmountFilter)
+        // Aplicar filtro de monto
+        if (request.HasAmountFilter())
         {
-            var (min, max) = amountRange;
+            var (min, max) = request.GetAmountRange();
             results = results.Where(c =>
             {
                 var total = c.GetGrandTotal();
                 return total >= min && total <= max;
-            }).ToList();
+            });
         }
 
-        var totalCount = results.Count;
+        // Ordenamiento
+        results = ApplySorting(results, request);
 
-        // Aplicar paginación en memoria (ya que los datos están filtrados)
+        var finalResults = results.ToList();
+        var totalCount = finalResults.Count;
+
+        // Aplicar paginación
         if (request.RequiresPagination())
         {
-            results = results
+            finalResults = finalResults
                 .Skip(request.GetSkip())
                 .Take(request.PageSize!.Value)
                 .ToList();
         }
 
-        _logger.LogInformation(
-            "Found {Count} cash cuts matching criteria (Total before amount filter: {TotalBefore}, Final: {Total})",
-            results.Count,
-            totalCountBeforeAmountFilter,
-            totalCount);
+        _logger.LogInformation("Found {Count} cash cuts matching criteria", totalCount);
 
-        return results.Select(c => c.ToDto());
+        return finalResults.Select(c => c.ToDto());
     }
 
-    private IQueryable<CashCut> ApplySorting(IQueryable<CashCut> query, SearchCashCutRequest request)
+    private IEnumerable<CashCut> ApplySorting(IEnumerable<CashCut> query, SearchCashCutRequest request)
     {
         if (!request.HasSorting())
         {
-            // Ordenamiento por defecto: más reciente primero
             return query.OrderByDescending(c => c.CutDateTime);
         }
 
@@ -167,8 +151,9 @@ public class CashCutService : ICashCutService
             "branchname" or "branch" => request.SortAscending
                 ? query.OrderBy(c => c.BranchName)
                 : query.OrderByDescending(c => c.BranchName),
-            // Nota: grandtotal no se puede ordenar en BD porque es calculado
-            // Se ordenará en memoria si es necesario
+            "grandtotal" or "total" => request.SortAscending
+                ? query.OrderBy(c => (decimal)c.GetGrandTotal())
+                : query.OrderByDescending(c => (decimal)c.GetGrandTotal()),
             _ => query.OrderByDescending(c => c.CutDateTime)
         };
     }
@@ -233,22 +218,8 @@ public class CashCutService : ICashCutService
             BranchName = branchName
         };
 
-
-        var calculatedCashTotal = (totalThousands * 1000m) + (totalFiveHundreds * 500m) + (totalTwoHundreds * 200m) +
-                                  (totalHundreds * 100m) + (totalFifties * 50m) + (totalTwenties * 20m);
-
-        _logger.LogInformation(
-            "Processing Cash Cut - Register: {Register}, Collections: {Count}. " +
-            "Calc Cash: {CashTotal:C2}, Slips: {Slips:C2}, Banbajio: {Banbajio:C2}, Banregio: {Banregio:C2}. " +
-            "Details -> 1000x{T}, 500x{FH}, 200x{TH}, 100x{H}, 50x{F}, 20x{Tw}",
-            register.Name, registerCollections.Count,
-            calculatedCashTotal, request.TotalSlips, request.TotalBanbajio, request.TotalBanregio,
-            totalThousands, totalFiveHundreds, totalTwoHundreds, totalHundreds, totalFifties, totalTwenties);
-
         return await CreateAsync(createDto, cancellationToken);
     }
-
-
 
     public async Task<CashCutDto> CreateAsync(CreateCashCutDto dto, CancellationToken cancellationToken = default)
     {
@@ -256,7 +227,6 @@ public class CashCutService : ICashCutService
         {
             var cashCut = dto.ToEntity();
 
-            // Validate that the cash cut is valid (has a grand total > 0)
             if (!cashCut.IsValid())
             {
                 _logger.LogWarning("Attempted to create invalid cash cut with zero grand total");

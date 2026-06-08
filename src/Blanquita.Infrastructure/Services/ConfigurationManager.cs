@@ -1,29 +1,9 @@
-using Blanquita.Infrastructure.Models;
+using Blanquita.Application.DTOs;
+using Blanquita.Application.Interfaces;
 using Microsoft.Extensions.Logging;
 using System.Text.Json;
 
 namespace Blanquita.Infrastructure.Services;
-
-/// <summary>
-/// Interfaz para gestionar la configuración de la aplicación
-/// </summary>
-public interface IAppConfigurationManager
-{
-    /// <summary>
-    /// Carga la configuración desde el archivo
-    /// </summary>
-    AppConfiguration CargarConfiguracion();
-
-    /// <summary>
-    /// Guarda la configuración en el archivo
-    /// </summary>
-    void GuardarConfiguracion(AppConfiguration config);
-
-    /// <summary>
-    /// Valida que una ruta de archivo existe
-    /// </summary>
-    bool ValidatePath(string path);
-}
 
 /// <summary>
 /// Implementación del gestor de configuración
@@ -45,7 +25,7 @@ public class AppConfigurationManager : IAppConfigurationManager
     }
 
     /// <inheritdoc/>
-    public AppConfiguration CargarConfiguracion()
+    public LegacyAppConfiguration CargarConfiguracion()
     {
         if (File.Exists(_filePath))
         {
@@ -53,23 +33,23 @@ public class AppConfigurationManager : IAppConfigurationManager
             {
                 _logger.LogInformation("Cargando configuración desde {FilePath}", _filePath);
                 var json = File.ReadAllText(_filePath);
-                var config = JsonSerializer.Deserialize<AppConfiguration>(json) ?? new AppConfiguration();
+                var config = JsonSerializer.Deserialize<LegacyAppConfiguration>(json) ?? new LegacyAppConfiguration();
                 _logger.LogInformation("Configuración cargada exitosamente");
                 return config;
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error al cargar la configuración desde {FilePath}", _filePath);
-                return new AppConfiguration();
+                return new LegacyAppConfiguration();
             }
         }
 
         _logger.LogWarning("Archivo de configuración no encontrado en {FilePath}. Usando configuración predeterminada", _filePath);
-        return new AppConfiguration();
+        return new LegacyAppConfiguration();
     }
 
     /// <inheritdoc/>
-    public void GuardarConfiguracion(AppConfiguration config)
+    public void GuardarConfiguracion(LegacyAppConfiguration config)
     {
         try
         {

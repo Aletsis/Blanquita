@@ -2,40 +2,68 @@ using Blanquita.Application.DTOs;
 using Blanquita.Application.Interfaces;
 using Blanquita.Domain.Entities;
 using Blanquita.Domain.Enums;
-using Blanquita.Infrastructure.Models;
-using Blanquita.Infrastructure.Persistence.Context;
-using Microsoft.EntityFrameworkCore;
+using Blanquita.Domain.Repositories;
 using Microsoft.Extensions.Logging;
 
-namespace Blanquita.Infrastructure.Services;
+namespace Blanquita.Application.Services;
 
 /// <summary>
-/// Implementación del servicio de configuración del sistema
+/// Implementación del servicio de configuración del sistema (Capa de Aplicación)
 /// </summary>
 public class ConfiguracionService : IConfiguracionService
 {
-    private readonly BlanquitaDbContext _dbContext;
-    private readonly IAppConfigurationManager _configurationManager;
+    private readonly ISystemConfigurationRepository _repository;
+    private readonly IFileSystemService _fileSystemService;
+    private readonly IAppConfigurationManager _legacyConfigManager; // For migration
     private readonly ILogger<ConfiguracionService> _logger;
 
+    private static DTOs.ConfiguracionDto? _staticCachedConfig;
+    private static readonly System.Threading.SemaphoreSlim _semaphore = new System.Threading.SemaphoreSlim(1, 1);
+
+    public static void ClearCache()
+    {
+        _semaphore.Wait();
+        try
+        {
+            _staticCachedConfig = null;
+        }
+        finally
+        {
+            _semaphore.Release();
+        }
+    }
+
     public ConfiguracionService(
-        BlanquitaDbContext dbContext,
-        IAppConfigurationManager configurationManager,
+        ISystemConfigurationRepository repository,
+        IFileSystemService fileSystemService,
+        IAppConfigurationManager legacyConfigManager,
         ILogger<ConfiguracionService> logger)
     {
-        _dbContext = dbContext;
-        _configurationManager = configurationManager;
+        _repository = repository;
+        _fileSystemService = fileSystemService;
+        _legacyConfigManager = legacyConfigManager;
         _logger = logger;
     }
 
     /// <inheritdoc/>
     public async Task<ConfiguracionDto> ObtenerConfiguracionAsync()
     {
+        if (_staticCachedConfig != null)
+        {
+            return _staticCachedConfig;
+        }
+
+        await _semaphore.WaitAsync();
         try
         {
-            _logger.LogInformation("Obteniendo configuración del sistema");
+            if (_staticCachedConfig != null)
+            {
+                return _staticCachedConfig;
+            }
+
+            _logger.LogInformation("Obteniendo configuración del sistema desde la base de datos");
             
-            var configEntity = await _dbContext.SystemConfigurations.FirstOrDefaultAsync();
+            var configEntity = await _repository.GetAsync();
             
             if (configEntity == null)
             {
@@ -44,19 +72,13 @@ public class ConfiguracionService : IConfiguracionService
                 // Intentar migrar configuración existente desde JSON
                 try 
                 {
-                    var oldConfig = _configurationManager.CargarConfiguracion();
+                    var oldConfig = _legacyConfigManager.CargarConfiguracion();
                     if (oldConfig != null)
                     {
                          configEntity.Pos10041Path = oldConfig.Pos10041Path ?? string.Empty;
                          configEntity.Pos10042Path = oldConfig.Pos10042Path ?? string.Empty;
                          configEntity.Mgw10008Path = oldConfig.Mgw10008Path ?? string.Empty;
                          configEntity.Mgw10005Path = oldConfig.Mgw10005Path ?? string.Empty;
-                         configEntity.Mgw10045Path = string.Empty; // Valor por defecto
-                         configEntity.Mgw10002Path = string.Empty;
-                         configEntity.Mgw10002Path = string.Empty;
-                         configEntity.Mgw10011Path = string.Empty;
-                         configEntity.Pos10008Path = string.Empty;
-                         configEntity.Pos10010Path = string.Empty;
                          configEntity.PrinterName = oldConfig.PrinterName ?? string.Empty;
                          configEntity.PrinterIp = oldConfig.PrinterIp ?? string.Empty;
                          
@@ -67,25 +89,28 @@ public class ConfiguracionService : IConfiguracionService
                          
                          if (int.TryParse(oldConfig.Printer2Port, out var p2)) configEntity.Printer2Port = p2;
                          
-                         _logger.LogInformation("Configuración antigua migrada exitosamente a la base de datos");
+                         _logger.LogInformation("Configuración antigua migrada exitosamente");
                     }
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogWarning(ex, "No se pudo migrar la configuración antigua desde JSON. Se usará una nueva.");
+                    _logger.LogWarning(ex, "No se pudo migrar la configuración antigua. Se usará una nueva.");
                 }
 
-                _dbContext.SystemConfigurations.Add(configEntity);
-                await _dbContext.SaveChangesAsync();
+                await _repository.AddAsync(configEntity);
             }
 
-            var dto = MapearADto(configEntity);
-            return dto;
+            _staticCachedConfig = MapearADto(configEntity);
+            return _staticCachedConfig;
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error al obtener la configuración del sistema");
             throw;
+        }
+        finally
+        {
+            _semaphore.Release();
         }
     }
 
@@ -104,15 +129,29 @@ public class ConfiguracionService : IConfiguracionService
                 throw new InvalidOperationException($"La configuración no es válida: {erroresTexto}");
             }
 
-            var configEntity = await _dbContext.SystemConfigurations.FirstOrDefaultAsync();
-            if (configEntity == null)
+            await _semaphore.WaitAsync();
+            try
             {
-                configEntity = new SystemConfiguration();
-                _dbContext.SystemConfigurations.Add(configEntity);
-            }
+                var configEntity = await _repository.GetAsync();
+                if (configEntity == null)
+                {
+                    configEntity = new SystemConfiguration();
+                    ActualizarEntidad(configEntity, configuracion);
+                    await _repository.AddAsync(configEntity);
+                }
+                else
+                {
+                    ActualizarEntidad(configEntity, configuracion);
+                    await _repository.UpdateAsync(configEntity);
+                }
 
-            ActualizarEntidad(configEntity, configuracion);
-            await _dbContext.SaveChangesAsync();
+                // Invalidad caché
+                _staticCachedConfig = null;
+            }
+            finally
+            {
+                _semaphore.Release();
+            }
 
             _logger.LogInformation("Configuración guardada exitosamente");
         }
@@ -138,14 +177,13 @@ public class ConfiguracionService : IConfiguracionService
             ValidarRutaDbf(configuracion.Mgw10045Path, "MGW10045.DBF", resultado);
             ValidarRutaDbf(configuracion.Mgw10002Path, "MGW10002.DBF", resultado);
             ValidarRutaDbf(configuracion.Mgw10011Path, "MGW10011.DBF", resultado);
-            ValidarRutaDbf(configuracion.Mgw10011Path, "MGW10011.DBF", resultado);
             ValidarRutaDbf(configuracion.Pos10008Path, "POS10008.DBF", resultado);
             ValidarRutaDbf(configuracion.Pos10010Path, "POS10010.DBF", resultado);
 
             // Validar ruta de facturas
             if (!string.IsNullOrWhiteSpace(configuracion.FacturasPath))
             {
-                if (!Directory.Exists(configuracion.FacturasPath))
+                if (!_fileSystemService.DirectoryExists(configuracion.FacturasPath))
                 {
                     resultado.AgregarError("La ruta de facturas no existe");
                 }
@@ -167,7 +205,6 @@ public class ConfiguracionService : IConfiguracionService
                 resultado.AgregarAdvertencia("El puerto de la impresora principal no es válido");
             }
 
-            // Si no hay errores, marcar como válido
             if (resultado.Errores.Count == 0)
             {
                 resultado.EsValido = true;
@@ -186,13 +223,13 @@ public class ConfiguracionService : IConfiguracionService
     /// <inheritdoc/>
     public bool ValidarRutaArchivo(string ruta)
     {
-        return _configurationManager.ValidatePath(ruta);
+        return _fileSystemService.FileExists(ruta);
     }
 
     /// <inheritdoc/>
     public bool ValidarRutaDirectorio(string ruta)
     {
-        return !string.IsNullOrWhiteSpace(ruta) && Directory.Exists(ruta);
+        return _fileSystemService.DirectoryExists(ruta);
     }
 
     /// <inheritdoc/>
@@ -219,8 +256,28 @@ public class ConfiguracionService : IConfiguracionService
         try
         {
             _logger.LogInformation("Restableciendo configuración a valores predeterminados");
-            var configuracionPredeterminada = new ConfiguracionDto();
-            await GuardarConfiguracionAsync(configuracionPredeterminada);
+            
+            await _semaphore.WaitAsync();
+            try
+            {
+                var configEntity = await _repository.GetAsync();
+                if (configEntity == null)
+                {
+                    configEntity = new SystemConfiguration();
+                    await _repository.AddAsync(configEntity);
+                }
+                else
+                {
+                    ActualizarEntidad(configEntity, new ConfiguracionDto());
+                    await _repository.UpdateAsync(configEntity);
+                }
+
+                _staticCachedConfig = null;
+            }
+            finally
+            {
+                _semaphore.Release();
+            }
         }
         catch (Exception ex)
         {
@@ -229,15 +286,13 @@ public class ConfiguracionService : IConfiguracionService
         }
     }
 
-    #region Métodos privados de validación y mapeo
-
     private void ValidarRutaDbf(string ruta, string nombreArchivo, ResultadoValidacionConfiguracion resultado)
     {
         if (string.IsNullOrWhiteSpace(ruta))
         {
             resultado.AgregarError($"La ruta de {nombreArchivo} es obligatoria");
         }
-        else if (!ValidarRutaArchivo(ruta))
+        else if (!_fileSystemService.FileExists(ruta))
         {
             resultado.AgregarError($"El archivo {nombreArchivo} no existe en la ruta especificada");
         }
@@ -271,10 +326,13 @@ public class ConfiguracionService : IConfiguracionService
             SmtpFromEmail = entity.SmtpFromEmail,
             SmtpFromName = entity.SmtpFromName,
             InvoiceJobExecutionTime = entity.InvoiceJobExecutionTime,
-            AlertEmails = entity.AlertEmails
+            AlertEmails = entity.AlertEmails,
+            CommercialApiUrl = entity.CommercialApiUrl,
+            CommercialApiKey = entity.CommercialApiKey,
+            WhatsAppServiceUrl = entity.WhatsAppServiceUrl
         };
     }
-
+ 
     private void ActualizarEntidad(SystemConfiguration entity, ConfiguracionDto dto)
     {
         entity.Pos10041Path = dto.Pos10041Path;
@@ -283,7 +341,6 @@ public class ConfiguracionService : IConfiguracionService
         entity.Mgw10005Path = dto.Mgw10005Path;
         entity.Mgw10045Path = dto.Mgw10045Path;
         entity.Mgw10002Path = dto.Mgw10002Path;
-        entity.Mgw10011Path = dto.Mgw10011Path;
         entity.Mgw10011Path = dto.Mgw10011Path;
         entity.Pos10008Path = dto.Pos10008Path;
         entity.Pos10010Path = dto.Pos10010Path;
@@ -303,7 +360,8 @@ public class ConfiguracionService : IConfiguracionService
         entity.SmtpFromName = dto.SmtpFromName;
         entity.InvoiceJobExecutionTime = dto.InvoiceJobExecutionTime;
         entity.AlertEmails = dto.AlertEmails;
+        entity.CommercialApiUrl = dto.CommercialApiUrl;
+        entity.CommercialApiKey = dto.CommercialApiKey;
+        entity.WhatsAppServiceUrl = dto.WhatsAppServiceUrl;
     }
-
-    #endregion
 }

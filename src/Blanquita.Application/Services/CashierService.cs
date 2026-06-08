@@ -4,7 +4,7 @@ using Blanquita.Application.Mappings;
 using Blanquita.Domain.Exceptions;
 using Blanquita.Domain.Repositories;
 
-namespace Blanquita.Infrastructure.Services;
+namespace Blanquita.Application.Services;
 
 public class CashierService : ICashierService
 {

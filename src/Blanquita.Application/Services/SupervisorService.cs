@@ -4,7 +4,7 @@ using Blanquita.Application.Mappings;
 using Blanquita.Domain.Exceptions;
 using Blanquita.Domain.Repositories;
 
-namespace Blanquita.Infrastructure.Services;
+namespace Blanquita.Application.Services;
 
 public class SupervisorService : ISupervisorService
 {
@@ -146,5 +146,11 @@ public class SupervisorService : ISupervisorService
             totalCount,
             request.Page,
             request.PageSize);
+    }
+
+    public async Task<SupervisorDto?> GetByEmployeeNumberAsync(int employeeNumber, CancellationToken cancellationToken = default)
+    {
+        var supervisor = await _repository.GetByEmployeeNumberAsync(employeeNumber, cancellationToken);
+        return supervisor?.ToDto();
     }
 }

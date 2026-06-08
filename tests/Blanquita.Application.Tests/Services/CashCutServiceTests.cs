@@ -2,12 +2,12 @@ using Blanquita.Application.DTOs;
 using Blanquita.Application.Interfaces;
 using Blanquita.Domain.Entities;
 using Blanquita.Domain.Repositories;
-using Blanquita.Infrastructure.Services;
+using Blanquita.Application.Services;
 using Microsoft.Extensions.Logging;
 using Moq;
 using Xunit;
 
-namespace Blanquita.Infrastructure.Tests.Services;
+namespace Blanquita.Application.Tests.Services;
 
 public class CashCutServiceTests
 {
@@ -107,7 +107,7 @@ public class CashCutServiceTests
     }
 
     [Fact]
-    public async Task CreateAsync_ShouldThrow_IfGrandTotalZero()
+    public async Task CreateAsync_ShouldThrow_IfTotalSlipsZero()
     {
         var dto = new CreateCashCutDto 
         { 
@@ -120,6 +120,34 @@ public class CashCutServiceTests
             BranchName = "Branch"
         };
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() => _service.CreateAsync(dto));
+        await Assert.ThrowsAsync<Blanquita.Domain.Exceptions.BusinessRuleViolationException>(() => _service.CreateAsync(dto));
+    }
+
+    [Fact]
+    public async Task CreateAsync_ShouldSucceed_IfTotalSlipsPositiveButCollectionsZero()
+    {
+        var dto = new CreateCashCutDto 
+        { 
+            // Zero collections but positive TotalSlips
+            TotalThousands = 0,
+            TotalFiveHundreds = 0,
+            TotalTwoHundreds = 0,
+            TotalHundreds = 0,
+            TotalFifties = 0,
+            TotalTwenties = 0,
+            TotalSlips = 1500m,
+            CashRegisterName = "Reg",
+            SupervisorName = "Sup",
+            CashierName = "Cash",
+            BranchName = "Branch"
+        };
+
+        var result = await _service.CreateAsync(dto);
+
+        Assert.NotNull(result);
+        Assert.Equal(1500m, result.TotalSlips);
+        Assert.Equal(0m, result.CollectionsTotal);
+        _repositoryMock.Verify(x => x.AddAsync(It.IsAny<CashCut>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 }
+

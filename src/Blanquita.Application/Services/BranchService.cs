@@ -1,20 +1,19 @@
 using Blanquita.Application.DTOs;
 using Blanquita.Application.Interfaces;
 using Blanquita.Domain.Entities;
-using Blanquita.Infrastructure.Persistence.Context;
-using Microsoft.EntityFrameworkCore;
+using Blanquita.Domain.Repositories;
 using Microsoft.Extensions.Logging;
 
-namespace Blanquita.Infrastructure.Services;
+namespace Blanquita.Application.Services;
 
 public class BranchService : IBranchService
 {
-    private readonly BlanquitaDbContext _context;
+    private readonly IBranchRepository _repository;
     private readonly ILogger<BranchService> _logger;
 
-    public BranchService(BlanquitaDbContext context, ILogger<BranchService> logger)
+    public BranchService(IBranchRepository repository, ILogger<BranchService> logger)
     {
-        _context = context;
+        _repository = repository;
         _logger = logger;
     }
 
@@ -22,17 +21,18 @@ public class BranchService : IBranchService
     {
         try
         {
-            return await _context.Branches
-                .Select(b => new BranchDto
-                {
-                    Id = b.Id,
-                    Name = b.Name,
-                    Code = b.Code,
-                    SeriesCliente = b.SeriesCliente,
-                    SeriesGlobal = b.SeriesGlobal,
-                    SeriesDevolucion = b.SeriesDevolucion
-                })
-                .ToListAsync(cancellationToken);
+            var branches = await _repository.GetAllAsync(cancellationToken);
+            return branches.Select(b => new BranchDto
+            {
+                Id = b.Id,
+                Name = b.Name,
+                Code = b.Code,
+                SeriesCliente = b.SeriesCliente,
+                SeriesGlobal = b.SeriesGlobal,
+                SeriesDevolucion = b.SeriesDevolucion,
+                Direccion = b.Direccion,
+                ConceptosSalida = b.ConceptosSalida
+            });
         }
         catch (Exception ex)
         {
@@ -45,7 +45,7 @@ public class BranchService : IBranchService
     {
         try
         {
-            var branch = await _context.Branches.FindAsync(new object?[] { id }, cancellationToken);
+            var branch = await _repository.GetByIdAsync(id, cancellationToken);
             if (branch == null) return null;
 
             return new BranchDto
@@ -55,7 +55,9 @@ public class BranchService : IBranchService
                 Code = branch.Code,
                 SeriesCliente = branch.SeriesCliente,
                 SeriesGlobal = branch.SeriesGlobal,
-                SeriesDevolucion = branch.SeriesDevolucion
+                SeriesDevolucion = branch.SeriesDevolucion,
+                Direccion = branch.Direccion,
+                ConceptosSalida = branch.ConceptosSalida
             };
         }
         catch (Exception ex)
@@ -74,12 +76,13 @@ public class BranchService : IBranchService
                 branchDto.Code,
                 branchDto.SeriesCliente, 
                 branchDto.SeriesGlobal, 
-                branchDto.SeriesDevolucion
+                branchDto.SeriesDevolucion,
+                branchDto.Direccion,
+                branchDto.ConceptosSalida
             );
 
-            _context.Branches.Add(branch);
-            await _context.SaveChangesAsync(cancellationToken);
-
+            await _repository.AddAsync(branch, cancellationToken);
+            
             branchDto.Id = branch.Id;
             return branchDto;
         }
@@ -94,7 +97,7 @@ public class BranchService : IBranchService
     {
         try
         {
-            var branch = await _context.Branches.FindAsync(new object?[] { branchDto.Id }, cancellationToken);
+            var branch = await _repository.GetByIdAsync(branchDto.Id, cancellationToken);
             if (branch == null) throw new KeyNotFoundException($"Branch with id {branchDto.Id} not found");
 
             branch.Update(
@@ -102,10 +105,12 @@ public class BranchService : IBranchService
                 branchDto.Code,
                 branchDto.SeriesCliente, 
                 branchDto.SeriesGlobal, 
-                branchDto.SeriesDevolucion
+                branchDto.SeriesDevolucion,
+                branchDto.Direccion,
+                branchDto.ConceptosSalida
             );
 
-            await _context.SaveChangesAsync(cancellationToken);
+            await _repository.UpdateAsync(branch, cancellationToken);
         }
         catch (Exception ex)
         {

@@ -1,4 +1,4 @@
-using Blanquita.Infrastructure.Models;
+using Blanquita.Application.DTOs;
 using Blanquita.Infrastructure.Services;
 using Microsoft.Extensions.Logging;
 using Moq;
@@ -45,7 +45,7 @@ public class ConfigurationManagerTests
     [Fact]
     public void GuardarConfiguracion_ShouldNotThrow_WithValidConfig()
     {
-        var config = new AppConfiguration
+        var config = new LegacyAppConfiguration
         {
             Pos10041Path = "test",
             Pos10042Path = "test"

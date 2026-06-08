@@ -2,11 +2,11 @@ using Blanquita.Application.DTOs;
 using Blanquita.Domain.Entities;
 using Blanquita.Domain.Exceptions;
 using Blanquita.Domain.Repositories;
-using Blanquita.Infrastructure.Services;
+using Blanquita.Application.Services;
 using Moq;
 using Xunit;
 
-namespace Blanquita.Infrastructure.Tests.Services;
+namespace Blanquita.Application.Tests.Services;
 
 public class CashierServiceTests
 {
@@ -94,3 +94,4 @@ public class CashierServiceTests
         Assert.Equal(2, result.Count());
     }
 }
+

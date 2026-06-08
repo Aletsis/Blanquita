@@ -4,7 +4,7 @@ using Blanquita.Domain.Entities;
 using Blanquita.Domain.Repositories;
 using Microsoft.Extensions.Logging;
 
-namespace Blanquita.Infrastructure.Services;
+namespace Blanquita.Application.Services;
 
 public class ReporteHistoricoService : IReporteHistoricoService
 {

@@ -1,12 +1,11 @@
 using Blanquita.Application.Interfaces;
 using Blanquita.Application.Interfaces.Repositories;
-using Blanquita.Infrastructure.Persistence.Context;
 using Blanquita.Domain.Entities;
+using Blanquita.Domain.Repositories;
 using Microsoft.Extensions.Logging;
-using Microsoft.EntityFrameworkCore;
 using Blanquita.Application.DTOs;
 
-namespace Blanquita.Infrastructure.Services;
+namespace Blanquita.Application.Services;
 
 public class InvoiceJobService : IInvoiceJobService
 {
@@ -14,7 +13,8 @@ public class InvoiceJobService : IInvoiceJobService
     private readonly IFoxProDocumentRepository _documentRepository;
     private readonly IConfiguracionService _configService;
     private readonly IEmailService _emailService;
-    private readonly BlanquitaDbContext _dbContext;
+    private readonly ISentInvoiceLogRepository _logRepository;
+    private readonly IFileSystemService _fileSystemService;
     private readonly ILogger<InvoiceJobService> _logger;
 
     public InvoiceJobService(
@@ -22,14 +22,16 @@ public class InvoiceJobService : IInvoiceJobService
         IFoxProDocumentRepository documentRepository,
         IConfiguracionService configService,
         IEmailService emailService,
-        BlanquitaDbContext dbContext,
+        ISentInvoiceLogRepository logRepository,
+        IFileSystemService fileSystemService,
         ILogger<InvoiceJobService> logger)
     {
         _clientRepository = clientRepository;
         _documentRepository = documentRepository;
         _configService = configService;
         _emailService = emailService;
-        _dbContext = dbContext;
+        _logRepository = logRepository;
+        _fileSystemService = fileSystemService;
         _logger = logger;
     }
 
@@ -80,13 +82,12 @@ public class InvoiceJobService : IInvoiceJobService
                     foreach (var invoice in recentInvoices)
                     {
                         // 3. Verificar si ya fue enviada
-                        var alreadySent = await _dbContext.SentInvoiceLogs
-                            .AnyAsync(l => l.ClientCode == client.Code && l.FileName == invoice.FileName);
+                        var alreadySent = await _logRepository.ExistsAsync(client.Code, invoice.FileName);
 
                         if (alreadySent) continue;
 
                         // 4. Verificar existencia de archivos físicos
-                        if (!Directory.Exists(clientFolder))
+                        if (!_fileSystemService.DirectoryExists(clientFolder))
                         {
                             invoicesMissingFiles.Add((client.Code, $"Carpeta no encontrada: {client.Code} (Factura {invoice.Serie}{invoice.Folio})"));
                             continue;
@@ -96,8 +97,8 @@ public class InvoiceJobService : IInvoiceJobService
                         var pdfPath = Path.Combine(clientFolder, invoice.FileName + ".pdf");
                         var attachments = new List<string>();
 
-                        if (File.Exists(xmlPath)) attachments.Add(xmlPath);
-                        if (File.Exists(pdfPath)) attachments.Add(pdfPath);
+                        if (_fileSystemService.FileExists(xmlPath)) attachments.Add(xmlPath);
+                        if (_fileSystemService.FileExists(pdfPath)) attachments.Add(pdfPath);
 
                         // Caso B: Factura sin archivos físicos
                         if (!attachments.Any())
@@ -125,14 +126,13 @@ public class InvoiceJobService : IInvoiceJobService
                         await _emailService.SendEmailAsync(client.Email, subject, body, attachments);
 
                         // 6. Registrar envío en la BD
-                        _dbContext.SentInvoiceLogs.Add(new SentInvoiceLog
+                        await _logRepository.AddAsync(new SentInvoiceLog
                         {
                             ClientCode = client.Code,
                             FileName = invoice.FileName,
                             SentAt = DateTime.UtcNow
                         });
 
-                        await _dbContext.SaveChangesAsync();
                         totalSent++;
                         
                         _logger.LogInformation("Factura {FileName} enviada exitosamente al cliente {Code}", invoice.FileName, client.Code);

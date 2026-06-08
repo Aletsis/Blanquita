@@ -1,23 +1,22 @@
 using Blanquita.Application.DTOs;
 using Blanquita.Application.Interfaces;
 using Blanquita.Domain.Entities;
-using Blanquita.Infrastructure.Persistence.Context;
-using Microsoft.EntityFrameworkCore;
+using Blanquita.Domain.Repositories;
 using Microsoft.Extensions.Logging;
 
-namespace Blanquita.Infrastructure.Services;
+namespace Blanquita.Application.Services;
 
 /// <summary>
-/// Implementación del servicio para gestionar configuraciones de diseño de etiquetas.
+/// Implementación del servicio para gestionar configuraciones de diseño de etiquetas (Capa de Aplicación).
 /// </summary>
 public class LabelDesignService : ILabelDesignService
 {
-    private readonly BlanquitaDbContext _context;
+    private readonly ILabelDesignRepository _repository;
     private readonly ILogger<LabelDesignService> _logger;
 
-    public LabelDesignService(BlanquitaDbContext context, ILogger<LabelDesignService> logger)
+    public LabelDesignService(ILabelDesignRepository repository, ILogger<LabelDesignService> logger)
     {
-        _context = context;
+        _repository = repository;
         _logger = logger;
     }
 
@@ -26,14 +25,7 @@ public class LabelDesignService : ILabelDesignService
         try
         {
             _logger.LogInformation("Obteniendo todas las configuraciones de diseño de etiquetas");
-            
-            var designs = await _context.LabelDesigns
-                .Include(d => d.Elements)
-                .Where(d => d.IsActive)
-                .OrderByDescending(d => d.IsDefault)
-                .ThenBy(d => d.Name)
-                .ToListAsync(cancellationToken);
-
+            var designs = await _repository.GetAllAsync(cancellationToken);
             return designs.Select(MapToDto).ToList();
         }
         catch (Exception ex)
@@ -48,11 +40,7 @@ public class LabelDesignService : ILabelDesignService
         try
         {
             _logger.LogInformation("Obteniendo configuración de diseño con ID: {Id}", id);
-            
-            var design = await _context.LabelDesigns
-                .Include(d => d.Elements)
-                .FirstOrDefaultAsync(d => d.Id == id, cancellationToken);
-
+            var design = await _repository.GetByIdAsync(id, cancellationToken);
             return design == null ? null : MapToDto(design);
         }
         catch (Exception ex)
@@ -67,11 +55,7 @@ public class LabelDesignService : ILabelDesignService
         try
         {
             _logger.LogInformation("Obteniendo configuración de diseño predeterminada");
-            
-            var design = await _context.LabelDesigns
-                .Include(d => d.Elements)
-                .FirstOrDefaultAsync(d => d.IsDefault && d.IsActive, cancellationToken);
-
+            var design = await _repository.GetDefaultAsync(cancellationToken);
             return design == null ? null : MapToDto(design);
         }
         catch (Exception ex)
@@ -87,7 +71,7 @@ public class LabelDesignService : ILabelDesignService
         {
             _logger.LogInformation("Creando nueva configuración de diseño: {Name}", dto.Name);
 
-            if (await _context.LabelDesigns.AnyAsync(d => d.Name == dto.Name, cancellationToken))
+            if (await _repository.ExistsAsync(dto.Name, cancellationToken))
             {
                 throw new InvalidOperationException($"Ya existe una configuración de diseño con el nombre '{dto.Name}'.");
             }
@@ -104,7 +88,6 @@ public class LabelDesignService : ILabelDesignService
                 dto.PriceFontSize,
                 dto.BarcodeHeightInMm,
                 dto.BarcodeWidth,
-
                 dto.IsDefault
             );
 
@@ -124,17 +107,14 @@ public class LabelDesignService : ILabelDesignService
                 }
             }
 
-            // Si se marca como predeterminada, desmarcar las demás
             if (dto.IsDefault)
             {
-                await RemoveAllDefaultsAsync(cancellationToken);
+                await _repository.RemoveAllDefaultsAsync(cancellationToken);
             }
 
-            _context.LabelDesigns.Add(design);
-            await _context.SaveChangesAsync(cancellationToken);
+            await _repository.AddAsync(design, cancellationToken);
 
             _logger.LogInformation("Configuración de diseño creada exitosamente con ID: {Id}", design.Id);
-            
             return MapToDto(design);
         }
         catch (Exception ex)
@@ -150,18 +130,15 @@ public class LabelDesignService : ILabelDesignService
         {
             _logger.LogInformation("Actualizando configuración de diseño con ID: {Id}", dto.Id);
 
-            if (await _context.LabelDesigns.AnyAsync(d => d.Name == dto.Name && d.Id != dto.Id, cancellationToken))
-            {
-                throw new InvalidOperationException($"Ya existe una configuración de diseño con el nombre '{dto.Name}'.");
-            }
-
-            var design = await _context.LabelDesigns
-                .Include(d => d.Elements)
-                .FirstOrDefaultAsync(d => d.Id == dto.Id, cancellationToken);
-
+            var design = await _repository.GetByIdAsync(dto.Id, cancellationToken);
             if (design == null)
             {
                 throw new InvalidOperationException($"No se encontró la configuración de diseño con ID: {dto.Id}");
+            }
+
+            if (design.Name != dto.Name && await _repository.ExistsAsync(dto.Name, cancellationToken))
+            {
+                throw new InvalidOperationException($"Ya existe una configuración de diseño con el nombre '{dto.Name}'.");
             }
 
             design.Update(
@@ -178,7 +155,6 @@ public class LabelDesignService : ILabelDesignService
                 dto.BarcodeWidth
             );
 
-            // Update Elements
             design.ClearElements();
             if (dto.Elements != null)
             {
@@ -196,10 +172,9 @@ public class LabelDesignService : ILabelDesignService
                 }
             }
 
-            // Si se marca como predeterminada, desmarcar las demás
             if (dto.IsDefault && !design.IsDefault)
             {
-                await RemoveAllDefaultsAsync(cancellationToken);
+                await _repository.RemoveAllDefaultsAsync(cancellationToken);
                 design.SetAsDefault();
             }
             else if (!dto.IsDefault && design.IsDefault)
@@ -207,7 +182,6 @@ public class LabelDesignService : ILabelDesignService
                 design.RemoveDefault();
             }
 
-            // Actualizar estado activo
             if (dto.IsActive && !design.IsActive)
             {
                 design.Activate();
@@ -217,10 +191,9 @@ public class LabelDesignService : ILabelDesignService
                 design.Deactivate();
             }
 
-            await _context.SaveChangesAsync(cancellationToken);
+            await _repository.UpdateAsync(design, cancellationToken);
 
             _logger.LogInformation("Configuración de diseño actualizada exitosamente: {Id}", dto.Id);
-            
             return MapToDto(design);
         }
         catch (Exception ex)
@@ -236,9 +209,7 @@ public class LabelDesignService : ILabelDesignService
         {
             _logger.LogInformation("Eliminando configuración de diseño con ID: {Id}", id);
 
-            var design = await _context.LabelDesigns
-                .FirstOrDefaultAsync(d => d.Id == id, cancellationToken);
-
+            var design = await _repository.GetByIdAsync(id, cancellationToken);
             if (design == null)
             {
                 throw new InvalidOperationException($"No se encontró la configuración de diseño con ID: {id}");
@@ -249,9 +220,7 @@ public class LabelDesignService : ILabelDesignService
                 throw new InvalidOperationException("No se puede eliminar la configuración predeterminada. Primero establezca otra como predeterminada.");
             }
 
-            _context.LabelDesigns.Remove(design);
-            await _context.SaveChangesAsync(cancellationToken);
-
+            await _repository.DeleteAsync(id, cancellationToken);
             _logger.LogInformation("Configuración de diseño eliminada exitosamente: {Id}", id);
         }
         catch (Exception ex)
@@ -267,20 +236,15 @@ public class LabelDesignService : ILabelDesignService
         {
             _logger.LogInformation("Estableciendo configuración de diseño como predeterminada: {Id}", id);
 
-            var design = await _context.LabelDesigns
-                .FirstOrDefaultAsync(d => d.Id == id, cancellationToken);
-
+            var design = await _repository.GetByIdAsync(id, cancellationToken);
             if (design == null)
             {
                 throw new InvalidOperationException($"No se encontró la configuración de diseño con ID: {id}");
             }
 
-            // Remover predeterminado de todas las demás
-            await RemoveAllDefaultsAsync(cancellationToken);
-
-            // Establecer como predeterminada
+            await _repository.RemoveAllDefaultsAsync(cancellationToken);
             design.SetAsDefault();
-            await _context.SaveChangesAsync(cancellationToken);
+            await _repository.UpdateAsync(design, cancellationToken);
 
             _logger.LogInformation("Configuración de diseño establecida como predeterminada: {Id}", id);
         }
@@ -288,18 +252,6 @@ public class LabelDesignService : ILabelDesignService
         {
             _logger.LogError(ex, "Error al establecer la configuración de diseño como predeterminada: {Id}", id);
             throw;
-        }
-    }
-
-    private async Task RemoveAllDefaultsAsync(CancellationToken cancellationToken = default)
-    {
-        var defaultDesigns = await _context.LabelDesigns
-            .Where(d => d.IsDefault)
-            .ToListAsync(cancellationToken);
-
-        foreach (var design in defaultDesigns)
-        {
-            design.RemoveDefault();
         }
     }
 

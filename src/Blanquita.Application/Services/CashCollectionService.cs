@@ -6,7 +6,7 @@ using Blanquita.Domain.Exceptions;
 using Blanquita.Domain.Repositories;
 using Microsoft.Extensions.Logging;
 
-namespace Blanquita.Infrastructure.Services;
+namespace Blanquita.Application.Services;
 
 public class CashCollectionService : ICashCollectionService
 {

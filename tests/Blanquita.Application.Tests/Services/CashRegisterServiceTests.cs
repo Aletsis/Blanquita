@@ -2,11 +2,11 @@ using Blanquita.Application.DTOs;
 using Blanquita.Domain.Entities;
 using Blanquita.Domain.Exceptions;
 using Blanquita.Domain.Repositories;
-using Blanquita.Infrastructure.Services;
+using Blanquita.Application.Services;
 using Moq;
 using Xunit;
 
-namespace Blanquita.Infrastructure.Tests.Services;
+namespace Blanquita.Application.Tests.Services;
 
 public class CashRegisterServiceTests
 {
@@ -22,7 +22,7 @@ public class CashRegisterServiceTests
     [Fact]
     public async Task GetByIdAsync_ShouldReturnDto_WhenExists()
     {
-        var entity = CashRegister.Create("Caja 1", "192.168.1.1", 9100, 1);
+        var entity = CashRegister.Create("Caja 1", "S1", 101, "192.168.1.1", 9100, 1);
         typeof(BaseEntity).GetProperty("Id")?.SetValue(entity, 5);
 
         _repositoryMock.Setup(x => x.GetByIdAsync(5, It.IsAny<CancellationToken>()))
@@ -58,7 +58,7 @@ public class CashRegisterServiceTests
             IsLastRegister = true 
         };
 
-        var existingLast = CashRegister.Create("Old Last", "2.2.2.2", 9100, 1, true);
+        var existingLast = CashRegister.Create("Old Last", "S2", 102, "2.2.2.2", 9100, 1, true);
 
         _repositoryMock.Setup(x => x.ExistsAsync("New", It.IsAny<CancellationToken>()))
             .ReturnsAsync(false);
@@ -86,8 +86,8 @@ public class CashRegisterServiceTests
     [Fact]
     public async Task GetByBranchAsync_ShouldFilterByBranch()
     {
-        var r1 = CashRegister.Create("R1", "1.1.1.1", 9100, 1);
-        var r2 = CashRegister.Create("R2", "2.2.2.2", 9100, 1);
+        var r1 = CashRegister.Create("R1", "S1", 101, "1.1.1.1", 9100, 1);
+        var r2 = CashRegister.Create("R2", "S2", 102, "2.2.2.2", 9100, 1);
         var registers = new List<CashRegister> { r1, r2 };
 
         _repositoryMock.Setup(x => x.GetByBranchAsync(1, It.IsAny<CancellationToken>()))
@@ -101,10 +101,10 @@ public class CashRegisterServiceTests
     [Fact]
     public async Task GetBackupRegisterAsync_ShouldReturnNextOrPrevious()
     {
-        var current = CashRegister.Create("Current", "1.1.1.1", 9100, 1, false);
+        var current = CashRegister.Create("Current", "SC", 101, "1.1.1.1", 9100, 1, false);
         typeof(BaseEntity).GetProperty("Id")?.SetValue(current, 5);
 
-        var backup = CashRegister.Create("Backup", "2.2.2.2", 9100, 1);
+        var backup = CashRegister.Create("Backup", "SB", 102, "2.2.2.2", 9100, 1);
         typeof(BaseEntity).GetProperty("Id")?.SetValue(backup, 6);
 
         _repositoryMock.Setup(x => x.GetByIdAsync(5, It.IsAny<CancellationToken>()))
@@ -118,3 +118,4 @@ public class CashRegisterServiceTests
         Assert.Equal(6, result.Id);
     }
 }
+

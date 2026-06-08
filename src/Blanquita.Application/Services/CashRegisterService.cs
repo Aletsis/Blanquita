@@ -4,7 +4,7 @@ using Blanquita.Application.Mappings;
 using Blanquita.Domain.Exceptions;
 using Blanquita.Domain.Repositories;
 
-namespace Blanquita.Infrastructure.Services;
+namespace Blanquita.Application.Services;
 
 public class CashRegisterService : ICashRegisterService
 {
@@ -136,8 +136,6 @@ public class CashRegisterService : ICashRegisterService
         // Aplicar filtro de sucursal
         if (request.HasSucursalFilter())
         {
-            // Aquí necesitarías mapear el Value Object Sucursal a BranchId
-            // Por ahora, asumiendo que Sucursal tiene una forma de obtener el ID
             var branchName = request.Sucursal!.Nombre;
             allRegisters = allRegisters.Where(r => r.BranchId.ToString() == branchName);
         }

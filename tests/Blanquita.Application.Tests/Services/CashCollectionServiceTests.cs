@@ -1,12 +1,12 @@
 using Blanquita.Application.DTOs;
 using Blanquita.Domain.Entities;
 using Blanquita.Domain.Repositories;
-using Blanquita.Infrastructure.Services;
+using Blanquita.Application.Services;
 using Microsoft.Extensions.Logging;
 using Moq;
 using Xunit;
 
-namespace Blanquita.Infrastructure.Tests.Services;
+namespace Blanquita.Application.Tests.Services;
 
 public class CashCollectionServiceTests
 {
@@ -104,3 +104,4 @@ public class CashCollectionServiceTests
         Assert.Equal("Reg1", results.First().CashRegisterName);
     }
 }
+

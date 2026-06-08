@@ -50,6 +50,7 @@ public static class DependencyInjection
         .AddRoles<IdentityRole>()
         .AddEntityFrameworkStores<BlanquitaDbContext>()
         .AddSignInManager<SignInManager<ApplicationUser>>()
+        .AddClaimsPrincipalFactory<CustomUserClaimsPrincipalFactory>()
         .AddDefaultTokenProviders();
 
         services.AddAuthentication(options =>
@@ -71,31 +72,29 @@ public static class DependencyInjection
 
         // Repositories
         services.AddScoped<ICashierRepository, CashierRepository>();
+        services.AddScoped<IDelivererRepository, DelivererRepository>();
         services.AddScoped<ICashRegisterRepository, CashRegisterRepository>();
         services.AddScoped<ISupervisorRepository, SupervisorRepository>();
         services.AddScoped<ICashCutRepository, CashCutRepository>();
         services.AddScoped<ICashCollectionRepository, CashCollectionRepository>();
+        services.AddScoped<IBranchRepository, BranchRepository>();
+        services.AddScoped<ISystemConfigurationRepository, SystemConfigurationRepository>();
+        services.AddScoped<ILabelDesignRepository, LabelDesignRepository>();
+        services.AddScoped<ISentInvoiceLogRepository, SentInvoiceLogRepository>();
+        services.AddScoped<IReporteHistoricoRepository, EfReporteHistoricoRepository>();
+        services.AddScoped<IConciliacionCorteRepository, ConciliacionCorteRepository>();
 
-        // Application Services
-        services.AddScoped<ICashierService, CashierService>();
-        services.AddScoped<ICashRegisterService, CashRegisterService>();
-        services.AddScoped<ISupervisorService, SupervisorService>();
-        services.AddScoped<ICashCutService, CashCutService>();
-        services.AddScoped<ICashCollectionService, CashCollectionService>();
-        services.AddScoped<IBranchService, BranchService>();
+        // Technical Services (Stay in Infrastructure)
+        services.AddHttpClient();
         services.AddScoped<IAuthenticationService, AuthenticationService>();
-        services.AddScoped<IConfiguracionService, ConfiguracionService>();
+        services.AddScoped<IUserService, UserService>();
         services.AddScoped<IPrinterService, PrinterService>();
         services.AddScoped<IFileSystemService, FileSystemService>();
-        services.AddScoped<ILabelDesignService, LabelDesignService>();
         services.AddScoped<IEmailService, EmailService>();
-        services.AddScoped<IInvoiceJobService, InvoiceJobService>();
-
-        // Configuration Services
-        services.AddSingleton<IAppConfigurationManager, AppConfigurationManager>();
+        services.AddScoped<IAppConfigurationManager, AppConfigurationManager>();
+        services.AddScoped<ICommercialApiService, CommercialApiService>();
 
         // External Services
-
         services.AddScoped<IPrintingService, PrintingService>();
         services.AddScoped<IExportService, ExportService>();
 
@@ -114,18 +113,15 @@ public static class DependencyInjection
             ExternalServices.FoxPro.Repositories.FoxProClientRepository>();
         services.AddScoped<Application.Interfaces.Repositories.IReturnRepository,
             ExternalServices.FoxPro.Repositories.FoxProReturnRepository>();
+        services.AddScoped<Application.Interfaces.Repositories.IFoxProShiftRepository,
+            ExternalServices.FoxPro.Repositories.FoxProShiftRepository>();
+        services.AddScoped<Application.Interfaces.Repositories.IFoxProPedidoRepository,
+            ExternalServices.FoxPro.Repositories.FoxProPedidoRepository>();
 
-        // Report Services
-        // Report Services
-        // Report Services
-        // services.AddSingleton<IReporteService, ReporteService>(); // Legacy JSON service
+        // Report Technical Services
         services.AddScoped<IReportGeneratorService, ReportGeneratorService>();
         services.AddScoped<IDbfStringParser, DbfStringParser>();
         services.AddScoped<IFoxProReaderFactory, FoxProReaderFactory>();
-        // services.AddScoped<IReporteHistoricoService, ReporteHistoricoServiceAdapter>(); // Legacy Adapter
-        
-        services.AddScoped<IReporteHistoricoRepository, EfReporteHistoricoRepository>();
-        services.AddScoped<IReporteHistoricoService, ReporteHistoricoService>();
 
         // Configure FoxPro settings
         services.Configure<FoxProConfiguration>(configuration.GetSection("FoxPro"));

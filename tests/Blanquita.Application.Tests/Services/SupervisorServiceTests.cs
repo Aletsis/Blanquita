@@ -2,11 +2,11 @@ using Blanquita.Application.DTOs;
 using Blanquita.Domain.Entities;
 using Blanquita.Domain.Exceptions;
 using Blanquita.Domain.Repositories;
-using Blanquita.Infrastructure.Services;
+using Blanquita.Application.Services;
 using Moq;
 using Xunit;
 
-namespace Blanquita.Infrastructure.Tests.Services;
+namespace Blanquita.Application.Tests.Services;
 
 public class SupervisorServiceTests
 {
@@ -22,7 +22,7 @@ public class SupervisorServiceTests
     [Fact]
     public async Task GetByIdAsync_ShouldReturnDto_WhenExists()
     {
-        var entity = Supervisor.Create("Juan", 1);
+        var entity = Supervisor.Create(123, "Juan", 1);
         typeof(BaseEntity).GetProperty("Id")?.SetValue(entity, 10);
 
         _repositoryMock.Setup(x => x.GetByIdAsync(10, It.IsAny<CancellationToken>()))
@@ -38,7 +38,7 @@ public class SupervisorServiceTests
     [Fact]
     public async Task CreateAsync_ShouldThrow_IfNameExists()
     {
-        var dto = new CreateSupervisorDto { Name = "Duplicate", BranchId = 1 };
+        var dto = new CreateSupervisorDto { EmployeeNumber = 123, Name = "Duplicate", BranchId = 1 };
 
         _repositoryMock.Setup(x => x.ExistsAsync("Duplicate", It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
@@ -49,7 +49,7 @@ public class SupervisorServiceTests
     [Fact]
     public async Task CreateAsync_ShouldCallRepo_WhenValid()
     {
-        var dto = new CreateSupervisorDto { Name = "Pedro", BranchId = 2, IsActive = true };
+        var dto = new CreateSupervisorDto { EmployeeNumber = 123, Name = "Pedro", BranchId = 2, IsActive = true };
 
         _repositoryMock.Setup(x => x.ExistsAsync("Pedro", It.IsAny<CancellationToken>()))
             .ReturnsAsync(false);
@@ -69,7 +69,7 @@ public class SupervisorServiceTests
     [Fact]
     public async Task UpdateAsync_ShouldThrow_IfNotFound()
     {
-        var dto = new UpdateSupervisorDto { Id = 999, Name = "Test", BranchId = 1, IsActive = true };
+        var dto = new UpdateSupervisorDto { Id = 999, EmployeeNumber = 123, Name = "Test", BranchId = 1, IsActive = true };
 
         _repositoryMock.Setup(x => x.GetByIdAsync(999, It.IsAny<CancellationToken>()))
             .ReturnsAsync((Supervisor?)null);
@@ -80,8 +80,8 @@ public class SupervisorServiceTests
     [Fact]
     public async Task GetByBranchAsync_ShouldFilterByBranch()
     {
-        var s1 = Supervisor.Create("S1", 1);
-        var s2 = Supervisor.Create("S2", 1);
+        var s1 = Supervisor.Create(123, "S1", 1);
+        var s2 = Supervisor.Create(456, "S2", 1);
         var supervisors = new List<Supervisor> { s1, s2 };
 
         _repositoryMock.Setup(x => x.GetByBranchAsync(1, It.IsAny<CancellationToken>()))
@@ -95,14 +95,15 @@ public class SupervisorServiceTests
     [Fact]
     public async Task GetActiveAsync_ShouldReturnOnlyActive()
     {
-        var s1 = Supervisor.Create("S1", 1, true);
+        var s1 = Supervisor.Create(123, "S1", 1, null, true);
         var supervisors = new List<Supervisor> { s1 };
-
+ 
         _repositoryMock.Setup(x => x.GetActiveAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(supervisors);
-
+ 
         var result = await _service.GetActiveAsync();
-
+ 
         Assert.Single(result);
     }
 }
+
