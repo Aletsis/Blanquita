@@ -1,0 +1,314 @@
+@page "/añadir-repartidor"
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Roles = "Admin")]
+@using System.ComponentModel.DataAnnotations
+@using Blanquita.Application.DTOs
+@using Blanquita.Application.Interfaces
+@inject IDelivererService DelivererService
+@inject IBranchService BranchService
+@inject ILogger<AñadirRepartidor> Logger
+@inject ISnackbar Snackbar
+
+<PageTitle>Gestión de Repartidores - Configuración</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4 animate-fade-in">
+    <MudText Typo="Typo.h4" Class="mb-6 font-weight-bold" Style="background: linear-gradient(45deg, #FF9800, #F44336); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+        <MudIcon Icon="@Icons.Material.Filled.DeliveryDining" Class="mr-2" Size="Size.Large" Color="Color.Warning" />
+        Gestión de Repartidores
+    </MudText>
+
+    <MudGrid>
+        <MudItem xs="12" md="4">
+            <MudCard Elevation="4" Class="rounded-lg animate-slide-up mb-4">
+                <MudCardHeader>
+                    <CardHeaderContent>
+                        <MudText Typo="Typo.h6">@(isEditing ? "Editar Repartidor" : "Nuevo Repartidor")</MudText>
+                    </CardHeaderContent>
+                    <CardHeaderActions>
+                        <MudIconButton Icon="@Icons.Material.Filled.Person" Color="Color.Default" />
+                    </CardHeaderActions>
+                </MudCardHeader>
+                <EditForm Model="model" OnValidSubmit="GuardarRepartidor">
+                    <DataAnnotationsValidator />
+                    <MudCardContent>
+                        <MudTextField @bind-Value="model.Name" 
+                                     Label="Nombre completo" 
+                                     Variant="Variant.Outlined" 
+                                     Margin="Margin.Dense"
+                                     Adornment="Adornment.Start"
+                                     AdornmentIcon="@Icons.Material.Filled.Badge"
+                                     Class="mb-3"></MudTextField>
+                        
+                        <MudNumericField @bind-Value="model.EmployeeNumber" 
+                                        Label="Número de nómina" 
+                                        Variant="Variant.Outlined" 
+                                        Margin="Margin.Dense"
+                                        Adornment="Adornment.Start"
+                                        AdornmentIcon="@Icons.Material.Filled.Numbers"
+                                        Class="mb-3"></MudNumericField>
+                        
+                        <MudSelect T="int" Label="Sucursal Base" @bind-Value="model.BranchId"
+                                  Variant="Variant.Outlined"
+                                  Margin="Margin.Dense"
+                                  AnchorOrigin="Origin.BottomCenter"
+                                  Adornment="Adornment.Start"
+                                  AdornmentIcon="@Icons.Material.Filled.Store"
+                                  Class="mb-3">
+                            <MudSelectItem T="int" Value="0">Seleccione sucursal...</MudSelectItem>
+                            @foreach (var sucursal in sucursales)
+                            {
+                                <MudSelectItem T="int" Value="@sucursal.Id">@sucursal.Name</MudSelectItem>
+                            }
+                        </MudSelect>
+                        
+                        <MudSwitch @bind-Value="model.IsActive" 
+                                   Label="Repartidor Activo" 
+                                   Color="Color.Success"
+                                   ThumbIcon="@(model.IsActive ? Icons.Material.Filled.Check : Icons.Material.Filled.Close)"></MudSwitch>
+                    </MudCardContent>
+                    <MudCardActions Class="d-flex justify-end pa-4">
+                        @if (isEditing)
+                        {
+                            <MudButton Variant="Variant.Outlined" Color="Color.Error" OnClick="CancelEdit" Class="mr-2">Cancelar</MudButton>
+                        }
+                        <MudButton ButtonType="ButtonType.Submit"
+                                   Variant="Variant.Filled"
+                                   Color="Color.Primary"
+                                   StartIcon="@Icons.Material.Filled.Save">
+                            @(isEditing ? "Actualizar" : "Guardar")
+                        </MudButton>
+                    </MudCardActions>
+                </EditForm>
+            </MudCard>
+        </MudItem>
+
+        <MudItem xs="12" md="8">
+            <MudCard Elevation="4" Class="rounded-lg animate-slide-up">
+                <MudTable ServerData="ServerReload" 
+                          Dense="true" 
+                          Hover="true" 
+                          Striped="true"
+                          @ref="table"
+                          Elevation="0">
+                    <ToolBarContent>
+                        <MudText Typo="Typo.h6" Color="Color.Primary">
+                            <MudIcon Icon="@Icons.Material.Filled.List" Class="mr-2" />
+                            Listado de Repartidores
+                        </MudText>
+                        <MudSpacer />
+                        <MudTextField T="string" 
+                                     ValueChanged="@(s=>OnSearch(s))" 
+                                     Placeholder="Buscar..." 
+                                     Adornment="Adornment.Start"
+                                     AdornmentIcon="@Icons.Material.Filled.Search" 
+                                     IconSize="Size.Medium" 
+                                     Variant="Variant.Outlined"
+                                     Margin="Margin.Dense"
+                                     Class="mt-0"></MudTextField>
+                    </ToolBarContent>
+                    <HeaderContent>
+                        <MudTh><MudTableSortLabel SortLabel="Id" T="DelivererDto">ID</MudTableSortLabel></MudTh>
+                        <MudTh><MudTableSortLabel SortLabel="EmployeeNumber" T="DelivererDto">Nómina</MudTableSortLabel></MudTh>
+                        <MudTh><MudTableSortLabel SortLabel="Name" T="DelivererDto">Nombre</MudTableSortLabel></MudTh>
+                        <MudTh><MudTableSortLabel SortLabel="BranchId" T="DelivererDto">Sucursal</MudTableSortLabel></MudTh>
+                        <MudTh>Estado</MudTh>
+                        <MudTh Style="text-align:center">Acciones</MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd DataLabel="Id">
+                            <MudChip T="string" Color="Color.Default" Size="Size.Small" Variant="Variant.Outlined">@context.Id</MudChip>
+                        </MudTd>
+                        <MudTd DataLabel="Nomina">
+                            <MudText Typo="Typo.body2" Class="font-weight-bold">@context.EmployeeNumber</MudText>
+                        </MudTd>
+                        <MudTd DataLabel="Name">
+                             <div class="d-flex align-center">
+                                <MudIcon Icon="@Icons.Material.Filled.SportsMotorsports" Size="Size.Small" Class="mr-2" Color="Color.Warning" />
+                                <MudText Typo="Typo.body2">@context.Name</MudText>
+                            </div>
+                        </MudTd>
+                        <MudTd DataLabel="BranchId">
+                             <div class="d-flex align-center">
+                                <MudIcon Icon="@Icons.Material.Filled.Store" Size="Size.Small" Class="mr-2" Color="Color.Secondary" />
+                                <MudText Typo="Typo.body2">@GetSucursalName(context.BranchId)</MudText>
+                            </div>
+                        </MudTd>
+                        <MudTd DataLabel="Activa">
+                            @if (context.IsActive)
+                            {
+                                <MudChip T="string" Color="Color.Success" Size="Size.Small" Icon="@Icons.Material.Filled.CheckCircle">Activo</MudChip>
+                            }
+                            else
+                            {
+                                <MudChip T="string" Color="Color.Error" Size="Size.Small" Icon="@Icons.Material.Filled.Cancel">Inactivo</MudChip>
+                            }
+                        </MudTd>
+                        <MudTd Style="text-align:center">
+                            <MudTooltip Text="Editar">
+                                <MudIconButton Icon="@Icons.Material.Filled.Edit"
+                                               Color="Color.Primary"
+                                               Size="Size.Small"
+                                               OnClick="@(() => EditRepartidor(context))" />
+                            </MudTooltip>
+                        </MudTd>
+                    </RowTemplate>
+                    <NoRecordsContent>
+                        <MudPaper Elevation="0" Class="pa-6 d-flex flex-column align-center justify-center bg-transparent">
+                            <MudIcon Icon="@Icons.Material.Filled.SearchOff" Size="Size.Large" Color="Color.Default" Style="opacity: 0.5;" />
+                            <MudText Typo="Typo.body1" Class="mt-2 text-muted">No se encontraron repartidores</MudText>
+                        </MudPaper>
+                    </NoRecordsContent>
+                    <LoadingContent>
+                        <MudPaper Elevation="0" Class="pa-6 d-flex flex-column align-center justify-center bg-transparent">
+                            <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+                            <MudText Typo="Typo.body2" Class="mt-2">Cargando...</MudText>
+                        </MudPaper>
+                    </LoadingContent>
+                    <PagerContent>
+                        <MudTablePager />
+                    </PagerContent>
+                </MudTable>
+            </MudCard>
+        </MudItem>
+    </MudGrid>
+</MudContainer>
+
+<style>
+    .animate-fade-in { animation: fadeIn 0.5s ease-out; }
+    .animate-slide-up { animation: slideUp 0.5s ease-out; }
+    @@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    @@keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+    .rounded-lg { border-radius: 12px !important; }
+    .font-weight-bold { font-weight: 700; }
+</style>
+
+@code {
+    private DelivererViewModel model = new() { BranchId = 0, IsActive = true };
+    private bool isEditing = false;
+    private int editingId = 0;
+    
+    private IEnumerable<BranchDto> sucursales = Enumerable.Empty<BranchDto>();
+    private MudTable<DelivererDto>? table;
+    private string searchString = "";
+    
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            sucursales = await BranchService.GetAllAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error loading branches");
+            Snackbar.Add("Error al cargar sucursales", Severity.Error);
+        }
+    }
+    
+    private string GetSucursalName(int id) => sucursales.FirstOrDefault(s => s.Id == id)?.Name ?? id.ToString();
+
+    private void EditRepartidor(DelivererDto selected)
+    {
+        editingId = selected.Id;
+        model = new DelivererViewModel
+        {
+            Name = selected.Name,
+            EmployeeNumber = selected.EmployeeNumber,
+            BranchId = selected.BranchId,
+            IsActive = selected.IsActive
+        };
+        isEditing = true;
+        StateHasChanged();
+    }
+
+    private void CancelEdit()
+    {
+        model = new DelivererViewModel { BranchId = 0, IsActive = true };
+        isEditing = false;
+        editingId = 0;
+        StateHasChanged();
+    }
+
+    private async Task<TableData<DelivererDto>> ServerReload(TableState state, CancellationToken token)
+    {
+        try 
+        {
+            var request = new SearchDelivererRequest
+            {
+                SearchTerm = searchString,
+                Page = state.Page + 1,
+                PageSize = state.PageSize,
+                SortColumn = state.SortLabel,
+                SortAscending = state.SortDirection != SortDirection.Descending
+            };
+
+            var result = await DelivererService.GetPagedAsync(request, token);
+            
+            return new TableData<DelivererDto>() { TotalItems = result.TotalCount, Items = result.Items };
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error loading deliverers");
+            return new TableData<DelivererDto>() { TotalItems = 0, Items = Array.Empty<DelivererDto>() };
+        }
+    }
+
+    private void OnSearch(string text)
+    {
+        searchString = text;
+        table?.ReloadServerData();
+    }
+
+    private async Task GuardarRepartidor()
+    {
+        try
+        {
+            if (isEditing)
+            {
+                var updateDto = new UpdateDelivererDto
+                {
+                    Id = editingId,
+                    Name = model.Name,
+                    EmployeeNumber = model.EmployeeNumber,
+                    BranchId = model.BranchId,
+                    IsActive = model.IsActive
+                };
+                await DelivererService.UpdateAsync(updateDto);
+                Snackbar.Add("Repartidor actualizado exitosamente", Severity.Success);
+            }
+            else
+            {
+                var createDto = new CreateDelivererDto
+                {
+                    Name = model.Name,
+                    EmployeeNumber = model.EmployeeNumber,
+                    BranchId = model.BranchId,
+                    IsActive = model.IsActive
+                };
+                await DelivererService.CreateAsync(createDto);
+                Snackbar.Add("Repartidor registrado exitosamente", Severity.Success);
+            }
+
+            await table.ReloadServerData();
+            CancelEdit();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error al guardar el repartidor");
+            Snackbar.Add($"Error: {ex.Message}", Severity.Error);
+        }
+    }
+
+    public class DelivererViewModel
+    {
+        [Required(ErrorMessage = "El nombre es obligatorio")]
+        public string Name { get; set; } = string.Empty;
+        
+        [Required(ErrorMessage = "El número de nómina es obligatorio")]
+        public int EmployeeNumber { get; set; }
+        
+        [Range(1, int.MaxValue, ErrorMessage = "Debe seleccionar una sucursal")]
+        public int BranchId { get; set; }
+        
+        public bool IsActive { get; set; } = true;
+    }
+}
