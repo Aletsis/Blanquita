@@ -1,0 +1,27 @@
+{
+  "name": "blanquita-whatsapp-service",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "WhatsApp synchronization microservice using Baileys",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "npx -p typescript tsc",
+    "start": "node dist/index.js",
+    "dev": "ts-node src/index.ts"
+  },
+  "dependencies": {
+    "@whiskeysockets/baileys": "^6.6.0",
+    "cors": "^2.8.5",
+    "express": "^4.19.2",
+    "pino": "^9.1.0",
+    "qrcode": "^1.5.3"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "^4.17.25",
+    "@types/node": "^20.19.41",
+    "@types/qrcode": "^1.5.6",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.4.5"
+  }
+}
