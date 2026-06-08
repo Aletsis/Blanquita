@@ -78,4 +78,10 @@ public class SupervisorRepository : ISupervisorRepository
         return await _context.Supervisors
             .AnyAsync(s => s.Name == name, cancellationToken);
     }
+
+    public async Task<Supervisor?> GetByEmployeeNumberAsync(int employeeNumber, CancellationToken cancellationToken = default)
+    {
+        return await _context.Supervisors
+            .FirstOrDefaultAsync(s => s.EmployeeNumber == employeeNumber, cancellationToken);
+    }
 }

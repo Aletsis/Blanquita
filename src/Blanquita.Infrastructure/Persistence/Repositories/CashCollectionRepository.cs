@@ -69,6 +69,12 @@ public class CashCollectionRepository : ICashCollectionRepository
 
     public async Task UpdateAsync(CashCollection cashCollection, CancellationToken cancellationToken = default)
     {
+        var trackedEntity = _context.CashCollections.Local.FirstOrDefault(e => e.Id == cashCollection.Id);
+        if (trackedEntity != null)
+        {
+            _context.Entry(trackedEntity).State = EntityState.Detached;
+        }
+
         _context.CashCollections.Update(cashCollection);
         await _context.SaveChangesAsync(cancellationToken);
     }
@@ -85,8 +91,8 @@ public class CashCollectionRepository : ICashCollectionRepository
 
     public async Task<int> GetNextFolioAsync(string cashRegisterName, CancellationToken cancellationToken = default)
     {
-        var today = DateTime.Today;
-        var startUtc = today.Kind == DateTimeKind.Utc ? today : today.ToUniversalTime();
+        var todayLocal = DateTime.SpecifyKind(DateTime.Today, DateTimeKind.Local);
+        var startUtc = todayLocal.ToUniversalTime();
         var endUtc = startUtc.AddDays(1);
 
         var maxFolio = await _context.CashCollections
@@ -101,15 +107,34 @@ public class CashCollectionRepository : ICashCollectionRepository
 
     public async Task<IEnumerable<CashCollection>> GetPendingCollectionsByRegisterAsync(string cashRegisterName, CancellationToken cancellationToken = default)
     {
-        var today = DateTime.Today;
-        var startUtc = today.Kind == DateTimeKind.Utc ? today : today.ToUniversalTime();
+        var todayLocal = DateTime.SpecifyKind(DateTime.Today, DateTimeKind.Local);
+        var startUtc = todayLocal.ToUniversalTime();
         var endUtc = startUtc.AddDays(1);
 
         return await _context.CashCollections
+            .AsNoTracking()
             .Where(c => c.CashRegisterName == cashRegisterName 
                    && !c.IsForCashCut 
                    && c.CollectionDateTime >= startUtc 
                    && c.CollectionDateTime < endUtc)
+            .OrderBy(c => c.CollectionDateTime)
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<IEnumerable<CashCollection>> GetCollectionsByRegisterAndTimeAsync(string cashRegisterName, DateTime startTime, DateTime endTime, CancellationToken cancellationToken = default)
+    {
+        // Asegurar que los tiempos tengan el Kind correcto antes de convertir
+        var startLocal = DateTime.SpecifyKind(startTime, DateTimeKind.Local);
+        var endLocal = DateTime.SpecifyKind(endTime, DateTimeKind.Local);
+
+        var startUtc = startLocal.ToUniversalTime();
+        var endUtc = endLocal.ToUniversalTime();
+
+        return await _context.CashCollections
+            .AsNoTracking()
+            .Where(c => c.CashRegisterName == cashRegisterName 
+                   && c.CollectionDateTime >= startUtc 
+                   && c.CollectionDateTime <= endUtc)
             .OrderBy(c => c.CollectionDateTime)
             .ToListAsync(cancellationToken);
     }

@@ -52,6 +52,9 @@ public class CashCollection : BaseEntity
         var denominations = CashDenominations.Create(thousands, fiveHundreds, twoHundreds,
             hundreds, fifties, twenties);
 
+        if (denominations.CalculateTotal().Amount <= 0)
+            throw new Exceptions.BusinessRuleViolationException("Una colecta de efectivo debe contener al menos un billete.");
+
         return new CashCollection(denominations, cashRegisterName, cashierName,
             supervisorName, DateTime.UtcNow, folio, isForCashCut);
     }

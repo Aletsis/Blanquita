@@ -3,7 +3,9 @@ using Blanquita.Application.Interfaces;
 using Blanquita.Application.Interfaces.Repositories;
 using Blanquita.Domain.Exceptions;
 using Blanquita.Infrastructure.ExternalServices.FoxPro.Common;
+using Blanquita.Infrastructure.ExternalServices.FoxPro.Exceptions;
 using Blanquita.Infrastructure.ExternalServices.FoxPro.Mappers;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 
 namespace Blanquita.Infrastructure.ExternalServices.FoxPro.Repositories;
@@ -16,15 +18,18 @@ public class FoxProProductRepository : IProductCatalogRepository
     private readonly IConfiguracionService _configService;
     private readonly IFoxProReaderFactory _readerFactory;
     private readonly ILogger<FoxProProductRepository> _logger;
+    private readonly IMemoryCache _cache;
 
     public FoxProProductRepository(
         IConfiguracionService configService,
         IFoxProReaderFactory readerFactory,
-        ILogger<FoxProProductRepository> logger)
+        ILogger<FoxProProductRepository> logger,
+        IMemoryCache cache)
     {
         _configService = configService;
         _readerFactory = readerFactory;
         _logger = logger;
+        _cache = cache;
     }
 
     public async Task<ProductDto?> GetByCodeAsync(string code, CancellationToken cancellationToken = default)
@@ -140,6 +145,67 @@ public class FoxProProductRepository : IProductCatalogRepository
              // But let's throw custom exception if critical.
              // For now, let's rethrow similar to GetByCode
              throw new FoxProDataReadException($"Error al buscar productos", filePath, ex);
+        }
+    }
+
+    public async Task<IEnumerable<ProductSearchDto>> GetByIdsAsync(IEnumerable<int> ids, CancellationToken cancellationToken = default)
+    {
+        var idSet = ids.ToHashSet();
+        var results = new List<ProductSearchDto>();
+        var missingIds = new List<int>();
+
+        // 1. Intentar obtener de caché
+        foreach (var id in idSet)
+        {
+            if (_cache.TryGetValue($"Product_{id}", out ProductSearchDto? cachedProduct) && cachedProduct != null)
+            {
+                results.Add(cachedProduct);
+            }
+            else
+            {
+                missingIds.Add(id);
+            }
+        }
+
+        if (!missingIds.Any()) return results;
+
+        var config = await _configService.ObtenerConfiguracionAsync();
+        var filePath = config.Mgw10005Path;
+
+        if (string.IsNullOrEmpty(filePath) || !File.Exists(filePath))
+        {
+            _logger.LogWarning("Archivo MGW10005 no encontrado o no configurado: {FilePath}", filePath);
+            return results;
+        }
+
+        try
+        {
+            using var reader = _readerFactory.CreateReader(filePath);
+
+            while (reader.Read())
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                var id = reader.GetInt32Safe("CIDPRODU01");
+                if (missingIds.Contains(id))
+                {
+                    var product = FoxProProductMapper.MapToSearchDto(reader);
+                    results.Add(product);
+                    
+                    // Guardar en caché con expiración
+                    var cacheEntryOptions = new MemoryCacheEntryOptions()
+                        .SetSlidingExpiration(TimeSpan.FromHours(4))
+                        .SetSize(1);
+                    _cache.Set($"Product_{id}", product, cacheEntryOptions);
+                }
+            }
+
+            return results;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error al obtener productos por IDs en FoxPro");
+            throw new FoxProDataReadException($"Error al leer productos por IDs", filePath, ex);
         }
     }
 

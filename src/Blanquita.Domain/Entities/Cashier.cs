@@ -11,19 +11,21 @@ public class Cashier : BaseEntity
     public string Name { get; private set; }
     public BranchId BranchId { get; private set; }
     public bool IsActive { get; private set; }
+    public int IDContpaq { get; private set; }
 
     // EF Core constructor
     private Cashier() { }
 
-    private Cashier(int employeeNumber, string name, BranchId branchId, bool isActive = true)
+    private Cashier(int employeeNumber, string name, BranchId branchId, int idContpaq = 0, bool isActive = true)
     {
         EmployeeNumber = employeeNumber;
         Name = name;
         BranchId = branchId;
+        IDContpaq = idContpaq;
         IsActive = isActive;
     }
 
-    public static Cashier Create(int employeeNumber, string name, int branchId, bool isActive = true)
+    public static Cashier Create(int employeeNumber, string name, int branchId, int idContpaq = 0, bool isActive = true)
     {
         if (employeeNumber <= 0)
             throw new ArgumentException("Employee number must be greater than zero", nameof(employeeNumber));
@@ -31,7 +33,12 @@ public class Cashier : BaseEntity
         if (string.IsNullOrWhiteSpace(name))
             throw new ArgumentException("Name cannot be empty", nameof(name));
 
-        return new Cashier(employeeNumber, name, BranchId.Create(branchId), isActive);
+        return new Cashier(employeeNumber, name, BranchId.Create(branchId), idContpaq, isActive);
+    }
+
+    public void UpdateIDContpaq(int idContpaq)
+    {
+        IDContpaq = idContpaq;
     }
 
     public void UpdateName(string name)

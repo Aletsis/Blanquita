@@ -13,4 +13,5 @@ public interface ISupervisorRepository
     Task UpdateAsync(Supervisor supervisor, CancellationToken cancellationToken = default);
     Task DeleteAsync(int id, CancellationToken cancellationToken = default);
     Task<bool> ExistsAsync(string name, CancellationToken cancellationToken = default);
+    Task<Supervisor?> GetByEmployeeNumberAsync(int employeeNumber, CancellationToken cancellationToken = default);
 }

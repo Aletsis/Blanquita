@@ -8,11 +8,10 @@ public static class FoxProReaderExtensions
 {
     public static int GetInt32Safe(this IFoxProDataReader reader, string columnName)
     {
-        var ordinal = reader.GetOrdinal(columnName);
-        if (reader.IsDBNull(ordinal)) return 0;
-
         try 
         {
+            var ordinal = reader.GetOrdinal(columnName);
+            if (reader.IsDBNull(ordinal)) return 0;
             var value = reader.GetValue(ordinal);
             return Convert.ToInt32(value);
         }
@@ -24,20 +23,25 @@ public static class FoxProReaderExtensions
 
     public static string GetStringSafe(this IFoxProDataReader reader, string columnName)
     {
-        var ordinal = reader.GetOrdinal(columnName);
-        if (reader.IsDBNull(ordinal)) return string.Empty;
-
-        var value = reader.GetValue(ordinal);
-        return value?.ToString()?.Trim() ?? string.Empty;
+        try
+        {
+            var ordinal = reader.GetOrdinal(columnName);
+            if (reader.IsDBNull(ordinal)) return string.Empty;
+            var value = reader.GetValue(ordinal);
+            return value?.ToString()?.Trim() ?? string.Empty;
+        }
+        catch
+        {
+            return string.Empty;
+        }
     }
 
     public static decimal GetDecimalSafe(this IFoxProDataReader reader, string columnName)
     {
-        var ordinal = reader.GetOrdinal(columnName);
-        if (reader.IsDBNull(ordinal)) return 0m;
-        
         try
         {
+            var ordinal = reader.GetOrdinal(columnName);
+            if (reader.IsDBNull(ordinal)) return 0m;
             var value = reader.GetValue(ordinal);
             return Convert.ToDecimal(value);
         }
@@ -49,11 +53,10 @@ public static class FoxProReaderExtensions
 
     public static DateTime GetDateTimeSafe(this IFoxProDataReader reader, string columnName)
     {
-        var ordinal = reader.GetOrdinal(columnName);
-        if (reader.IsDBNull(ordinal)) return DateTime.MinValue;
-
         try 
         {
+            var ordinal = reader.GetOrdinal(columnName);
+            if (reader.IsDBNull(ordinal)) return DateTime.MinValue;
             return reader.GetDateTime(ordinal);
         }
         catch
@@ -64,11 +67,10 @@ public static class FoxProReaderExtensions
 
     public static double GetDoubleSafe(this IFoxProDataReader reader, string columnName)
     {
-        var ordinal = reader.GetOrdinal(columnName);
-        if (reader.IsDBNull(ordinal)) return 0d;
-
         try 
         {
+            var ordinal = reader.GetOrdinal(columnName);
+            if (reader.IsDBNull(ordinal)) return 0d;
             var value = reader.GetValue(ordinal);
             return Convert.ToDouble(value);
         }
@@ -76,5 +78,10 @@ public static class FoxProReaderExtensions
         {
             return 0d;
         }
+    }
+
+    public static bool HasColumn(this IFoxProDataReader reader, string columnName)
+    {
+        return reader.GetOrdinal(columnName) >= 0;
     }
 }

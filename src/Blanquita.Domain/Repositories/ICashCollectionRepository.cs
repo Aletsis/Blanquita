@@ -15,4 +15,5 @@ public interface ICashCollectionRepository
     Task DeleteAsync(int id, CancellationToken cancellationToken = default);
     Task<int> GetNextFolioAsync(string cashRegisterName, CancellationToken cancellationToken = default);
     Task<IEnumerable<CashCollection>> GetPendingCollectionsByRegisterAsync(string cashRegisterName, CancellationToken cancellationToken = default);
+    Task<IEnumerable<CashCollection>> GetCollectionsByRegisterAndTimeAsync(string cashRegisterName, DateTime startTime, DateTime endTime, CancellationToken cancellationToken = default);
 }

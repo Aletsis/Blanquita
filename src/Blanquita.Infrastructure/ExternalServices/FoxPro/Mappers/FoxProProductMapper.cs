@@ -15,6 +15,7 @@ public static class FoxProProductMapper
     {
         return new ProductDto
         {
+            Id = reader.GetInt32Safe("CIDPRODU01"),
             Code = reader.GetStringSafe("CCODIGOP01"),
             Name = reader.GetStringSafe("CNOMBREP01"),
             BasePrice = reader.GetDecimalSafe("CPRECIO1"),
@@ -29,6 +30,7 @@ public static class FoxProProductMapper
     {
         return new ProductSearchDto
         {
+            Id = reader.GetInt32Safe("CIDPRODU01"),
             Code = reader.GetStringSafe("CCODIGOP01"),
             Name = reader.GetStringSafe("CNOMBREP01"),
             Price = reader.GetDecimalSafe("CPRECIO1"),

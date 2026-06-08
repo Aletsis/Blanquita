@@ -3,6 +3,7 @@ using Blanquita.Application.Interfaces;
 using Blanquita.Application.Interfaces.Repositories;
 using Blanquita.Domain.Exceptions;
 using Blanquita.Infrastructure.ExternalServices.FoxPro.Common;
+using Blanquita.Infrastructure.ExternalServices.FoxPro.Exceptions;
 using Blanquita.Infrastructure.ExternalServices.FoxPro.Mappers;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;

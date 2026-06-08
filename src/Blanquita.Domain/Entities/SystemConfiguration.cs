@@ -68,4 +68,13 @@ public class SystemConfiguration : BaseEntity
 
     [MaxLength(500)]
     public string AlertEmails { get; set; } = string.Empty;
+
+    [MaxLength(500)]
+    public string CommercialApiUrl { get; set; } = string.Empty;
+
+    [MaxLength(500)]
+    public string CommercialApiKey { get; set; } = string.Empty;
+
+    [MaxLength(500)]
+    public string WhatsAppServiceUrl { get; set; } = string.Empty;
 }

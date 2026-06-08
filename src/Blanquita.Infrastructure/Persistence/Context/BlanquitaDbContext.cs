@@ -1,5 +1,6 @@
 using Blanquita.Domain.Entities;
 using Blanquita.Domain.ValueObjects;
+using Blanquita.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Blanquita.Infrastructure.Persistence.Identity;
@@ -26,6 +27,8 @@ public class BlanquitaDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<Branch> Branches { get; set; } = null!;
     public DbSet<SentInvoiceLog> SentInvoiceLogs { get; set; } = null!;
     public DbSet<DetalleReporte> DetallesReporte { get; set; } = null!;
+    public DbSet<Deliverer> Deliverers { get; set; } = null!;
+    public DbSet<ConciliacionCorte> ConciliacionCortes { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -35,6 +38,11 @@ public class BlanquitaDbContext : IdentityDbContext<ApplicationUser>
         modelBuilder.Entity<ApplicationUser>(entity =>
         {
             entity.Property(u => u.Id).HasColumnType("text");
+            entity.HasOne<Branch>()
+                .WithMany()
+                .HasForeignKey(u => u.BranchId)
+                .IsRequired(false)
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.Entity<Microsoft.AspNetCore.Identity.IdentityRole>(entity =>
@@ -54,6 +62,8 @@ public class BlanquitaDbContext : IdentityDbContext<ApplicationUser>
             entity.Property(e => e.SeriesCliente).HasMaxLength(50);
             entity.Property(e => e.SeriesGlobal).HasMaxLength(50);
             entity.Property(e => e.SeriesDevolucion).HasMaxLength(50);
+            entity.Property(e => e.Direccion).HasMaxLength(500);
+            entity.Property(e => e.ConceptosSalida).HasMaxLength(500);
         });
 
         // Value converters for Value Objects
@@ -74,6 +84,19 @@ public class BlanquitaDbContext : IdentityDbContext<ApplicationUser>
             entity.Property(e => e.Name).HasColumnName("Nombre").IsRequired().HasMaxLength(200);
             entity.Property(e => e.BranchId).HasColumnName("Sucursal").HasConversion(branchIdConverter).IsRequired();
             entity.Property(e => e.IsActive).HasColumnName("Edo").IsRequired();
+            entity.Property(e => e.IDContpaq).HasColumnName("IDContpaq").HasDefaultValue(0).IsRequired();
+            entity.HasIndex(e => e.EmployeeNumber).IsUnique();
+        });
+
+        // Configure Deliverer
+        modelBuilder.Entity<Deliverer>(entity =>
+        {
+            entity.ToTable("Repartidores");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.EmployeeNumber).HasColumnName("NumNomina").IsRequired();
+            entity.Property(e => e.Name).HasColumnName("Nombre").IsRequired().HasMaxLength(200);
+            entity.Property(e => e.BranchId).HasColumnName("Sucursal").HasConversion(branchIdConverter).IsRequired();
+            entity.Property(e => e.IsActive).HasColumnName("Edo").IsRequired();
             entity.HasIndex(e => e.EmployeeNumber).IsUnique();
         });
 
@@ -85,6 +108,7 @@ public class BlanquitaDbContext : IdentityDbContext<ApplicationUser>
             entity.Property(e => e.Name).HasColumnName("Nombre").IsRequired().HasMaxLength(200);
             entity.Property(e => e.Serie).HasColumnName("Serie").HasMaxLength(20);
             entity.Property(e => e.BranchId).HasColumnName("Sucursal").HasConversion(branchIdConverter).IsRequired();
+            entity.Property(e => e.Tipo).HasColumnName("TipoTerminal").HasDefaultValue(TipoTerminal.PisoVentas).IsRequired();
             entity.Property(e => e.IsLastRegister).HasColumnName("Ultima").IsRequired();
             
             entity.OwnsOne(e => e.PrinterConfig, printerConfig =>
@@ -103,9 +127,12 @@ public class BlanquitaDbContext : IdentityDbContext<ApplicationUser>
         {
             entity.ToTable("Encargadas");
             entity.HasKey(e => e.Id);
+            entity.Property(e => e.EmployeeNumber).HasColumnName("NumNomina").IsRequired();
             entity.Property(e => e.Name).HasColumnName("Nombre").IsRequired().HasMaxLength(200);
             entity.Property(e => e.BranchId).HasColumnName("Sucursal").HasConversion(branchIdConverter).IsRequired();
             entity.Property(e => e.IsActive).HasColumnName("Edo").IsRequired();
+            entity.Property(e => e.PhoneNumber).HasColumnName("Telefono").HasMaxLength(20);
+            entity.HasIndex(e => e.EmployeeNumber).IsUnique();
         });
 
         // Configure CashCollection
@@ -232,6 +259,9 @@ public class BlanquitaDbContext : IdentityDbContext<ApplicationUser>
             entity.Property(e => e.SmtpPassword).HasMaxLength(200);
             entity.Property(e => e.SmtpFromEmail).HasMaxLength(200);
             entity.Property(e => e.SmtpFromName).HasMaxLength(200);
+            entity.Property(e => e.CommercialApiUrl).HasMaxLength(500);
+            entity.Property(e => e.CommercialApiKey).HasMaxLength(500);
+            entity.Property(e => e.WhatsAppServiceUrl).HasMaxLength(500);
         });
 
         // Configure LabelDesign
@@ -334,6 +364,37 @@ public class BlanquitaDbContext : IdentityDbContext<ApplicationUser>
             entity.Property(e => e.Devolucion).HasColumnName("Devolucion").HasColumnType("decimal(18,2)").IsRequired();
             entity.Property(e => e.VentaGlobal).HasColumnName("VentaGlobal").HasColumnType("decimal(18,2)").IsRequired();
             entity.Property(e => e.Total).HasColumnName("Total").HasColumnType("decimal(18,2)").IsRequired();
+        });
+
+        // Configure ConciliacionCorte
+        modelBuilder.Entity<ConciliacionCorte>(entity =>
+        {
+            entity.ToTable("ConciliacionCortes");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.AperturaId).HasColumnName("AperturaId").IsRequired();
+            entity.Property(e => e.Sucursal).HasColumnName("Sucursal").IsRequired().HasMaxLength(200);
+            entity.Property(e => e.Caja).HasColumnName("Caja").IsRequired().HasMaxLength(200);
+            entity.Property(e => e.Cajero).HasColumnName("Cajero").IsRequired().HasMaxLength(200);
+            
+            entity.Property(e => e.TotalRecolecciones).HasColumnName("TotalRecolecciones").HasColumnType("decimal(18,2)").IsRequired();
+            entity.Property(e => e.EfectivoEntregado).HasColumnName("EfectivoEntregado").HasColumnType("decimal(18,2)").IsRequired();
+            entity.Property(e => e.TotalEfectivo).HasColumnName("TotalEfectivo").HasColumnType("decimal(18,2)").IsRequired();
+            
+            entity.Property(e => e.Banregio).HasColumnName("Banregio").HasColumnType("decimal(18,2)").IsRequired();
+            entity.Property(e => e.Banbajio).HasColumnName("Banbajio").HasColumnType("decimal(18,2)").IsRequired();
+            entity.Property(e => e.TotalTarjetas).HasColumnName("TotalTarjetas").HasColumnType("decimal(18,2)").IsRequired();
+            
+            entity.Property(e => e.Devoluciones).HasColumnName("Devoluciones").HasColumnType("decimal(18,2)").IsRequired();
+            entity.Property(e => e.TotalEntregado).HasColumnName("TotalEntregado").HasColumnType("decimal(18,2)").IsRequired();
+            entity.Property(e => e.TotalEsperado).HasColumnName("TotalEsperado").HasColumnType("decimal(18,2)").IsRequired();
+            entity.Property(e => e.Diferencia).HasColumnName("Diferencia").HasColumnType("decimal(18,2)").IsRequired();
+            
+            entity.Property(e => e.FechaCreacion).HasColumnName("FechaCreacion").IsRequired();
+            
+            entity.HasIndex(e => e.FechaCreacion);
+            entity.HasIndex(e => e.Sucursal);
+            entity.HasIndex(e => e.Caja);
+            entity.HasIndex(e => e.AperturaId);
         });
     }
 }

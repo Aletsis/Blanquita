@@ -49,6 +49,9 @@ public class CashCut : BaseEntity
         var totals = CashCutTotals.Create(totalThousands, totalFiveHundreds, totalTwoHundreds,
             totalHundreds, totalFifties, totalTwenties, totalSlips, totalBanbajio, totalBanregio);
 
+        if (totals.TotalSlips.Amount <= 0)
+            throw new Exceptions.BusinessRuleViolationException("Un corte de caja debe tener un total mayor a cero.");
+
         return new CashCut(totals, cashRegisterName, supervisorName, cashierName,
             branchName, DateTime.UtcNow);
     }
@@ -57,7 +60,7 @@ public class CashCut : BaseEntity
 
     public bool IsValid()
     {
-        // Business rule: A cash cut is valid if it has a grand total greater than zero
-        return GetGrandTotal().Amount > 0;
+        // Business rule: A cash cut is valid if it has a total slips greater than zero
+        return Totals.TotalSlips.Amount > 0;
     }
 }

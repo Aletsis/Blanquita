@@ -13,23 +13,32 @@ public class FoxProDataReaderWrapper : IFoxProDataReader
 
     public bool Read() => _reader.Read();
 
-    public object GetValue(int ordinal) => _reader.GetValue(ordinal);
+    public object GetValue(int ordinal) => ordinal >= 0 ? _reader.GetValue(ordinal) : DBNull.Value;
 
-    public string GetString(int ordinal) => _reader.GetString(ordinal);
+    public string GetString(int ordinal) => ordinal >= 0 ? _reader.GetString(ordinal) : string.Empty;
 
-    public decimal GetDecimal(int ordinal) => _reader.GetDecimal(ordinal);
+    public decimal GetDecimal(int ordinal) => ordinal >= 0 ? _reader.GetDecimal(ordinal) : 0m;
 
-    public int GetInt32(int ordinal) => _reader.GetInt32(ordinal);
+    public int GetInt32(int ordinal) => ordinal >= 0 ? _reader.GetInt32(ordinal) : 0;
 
-    public DateTime GetDateTime(int ordinal) => _reader.GetDateTime(ordinal);
+    public DateTime GetDateTime(int ordinal) => ordinal >= 0 ? _reader.GetDateTime(ordinal) : DateTime.MinValue;
 
-    public int GetOrdinal(string name) => _reader.GetOrdinal(name);
+    public int GetOrdinal(string name)
+    {
+        try
+        {
+            return _reader.GetOrdinal(name);
+        }
+        catch
+        {
+            return -1;
+        }
+    }
 
     public bool IsDBNull(int ordinal)
     {
-        // DbfDataReader methods might throw or return generic values, handling requires care.
-        // DbfDataReader doesn't have IsDBNull easily exposed in same way as IDataRecord usually.
-        // We rely on GetValue returning DBNull.Value or null
+        if (ordinal < 0) return true;
+        
         try
         {
             var value = _reader.GetValue(ordinal);

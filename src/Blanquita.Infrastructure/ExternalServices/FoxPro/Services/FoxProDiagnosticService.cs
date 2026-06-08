@@ -3,6 +3,7 @@ using Blanquita.Application.Interfaces;
 using Blanquita.Application.Interfaces.Repositories;
 using Blanquita.Domain.Exceptions;
 using Blanquita.Infrastructure.ExternalServices.FoxPro.Common;
+using Blanquita.Infrastructure.ExternalServices.FoxPro.Exceptions;
 using DbfDataReader;
 using Microsoft.Extensions.Logging;
 using System.Diagnostics;

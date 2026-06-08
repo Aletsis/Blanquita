@@ -17,4 +17,9 @@ public class FoxProReaderFactory : IFoxProReaderFactory
         var reader = DbfReaderFactory.CreateReader(filePath);
         return new FoxProDataReaderWrapper(reader);
     }
+
+    public IFoxProDataReader CreateReverseReader(string filePath)
+    {
+        return new FoxProReverseDataReader(filePath);
+    }
 }

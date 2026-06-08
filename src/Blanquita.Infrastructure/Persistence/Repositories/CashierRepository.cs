@@ -28,6 +28,13 @@ public class CashierRepository : ICashierRepository
             .FirstOrDefaultAsync(c => c.EmployeeNumber == employeeNumber, cancellationToken);
     }
 
+    public async Task<Cashier?> GetByIDContpaqAsync(int idContpaq, CancellationToken cancellationToken = default)
+    {
+        return await _context.Cashiers
+            .AsNoTracking()
+            .FirstOrDefaultAsync(c => c.IDContpaq == idContpaq, cancellationToken);
+    }
+
     public async Task<IEnumerable<Cashier>> GetAllAsync(CancellationToken cancellationToken = default)
     {
         return await _context.Cashiers

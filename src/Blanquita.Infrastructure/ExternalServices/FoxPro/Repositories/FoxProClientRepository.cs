@@ -2,6 +2,7 @@ using Blanquita.Application.DTOs;
 using Blanquita.Application.Interfaces;
 using Blanquita.Application.Interfaces.Repositories;
 using Blanquita.Infrastructure.ExternalServices.FoxPro.Common;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 
 namespace Blanquita.Infrastructure.ExternalServices.FoxPro.Repositories;
@@ -11,21 +12,64 @@ public class FoxProClientRepository : IClientCatalogRepository
     private readonly IConfiguracionService _configService;
     private readonly IFoxProReaderFactory _readerFactory;
     private readonly ILogger<FoxProClientRepository> _logger;
+    private readonly IMemoryCache _cache;
 
     public FoxProClientRepository(
         IConfiguracionService configService,
         IFoxProReaderFactory readerFactory,
-        ILogger<FoxProClientRepository> logger)
+        ILogger<FoxProClientRepository> logger,
+        IMemoryCache cache)
     {
         _configService = configService;
         _readerFactory = readerFactory;
         _logger = logger;
+        _cache = cache;
     }
 
     public async Task<ClientSearchDto?> GetByCodeAsync(string code, CancellationToken cancellationToken = default)
     {
         var results = await SearchInternalAsync(code, isExactMatch: true, cancellationToken);
         return results.FirstOrDefault();
+    }
+
+    public async Task<ClientSearchDto?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
+    {
+        var results = await SearchInternalAsync(string.Empty, isExactMatch: false, cancellationToken, isById: true, idFilter: id);
+        return results.FirstOrDefault();
+    }
+
+    public async Task<IEnumerable<ClientSearchDto>> GetByIdsAsync(IEnumerable<int> ids, CancellationToken cancellationToken = default)
+    {
+        var idSet = ids.ToHashSet();
+        var results = new List<ClientSearchDto>();
+        var missingIds = new List<int>();
+
+        foreach (var id in idSet)
+        {
+            if (_cache.TryGetValue($"Client_{id}", out ClientSearchDto? cachedClient) && cachedClient != null)
+            {
+                results.Add(cachedClient);
+            }
+            else
+            {
+                missingIds.Add(id);
+            }
+        }
+
+        if (!missingIds.Any()) return results;
+
+        var missingClients = await SearchInternalAsync(string.Empty, isExactMatch: false, cancellationToken, isById: true, idFilter: 0, idsFilter: missingIds);
+
+        foreach (var client in missingClients)
+        {
+            results.Add(client);
+            var cacheEntryOptions = new MemoryCacheEntryOptions()
+                .SetSlidingExpiration(TimeSpan.FromHours(4))
+                .SetSize(1);
+            _cache.Set($"Client_{client.Id}", client, cacheEntryOptions);
+        }
+
+        return results;
     }
 
     public async Task<IEnumerable<ClientSearchDto>> SearchAsync(string searchTerm, CancellationToken cancellationToken = default)
@@ -38,7 +82,7 @@ public class FoxProClientRepository : IClientCatalogRepository
         return await SearchInternalAsync(string.Empty, isExactMatch: false, cancellationToken, isGetAll: true);
     }
 
-    private async Task<IEnumerable<ClientSearchDto>> SearchInternalAsync(string searchTerm, bool isExactMatch, CancellationToken cancellationToken, bool isGetAll = false)
+    private async Task<IEnumerable<ClientSearchDto>> SearchInternalAsync(string searchTerm, bool isExactMatch, CancellationToken cancellationToken, bool isGetAll = false, bool isById = false, int idFilter = 0, IEnumerable<int>? idsFilter = null)
     {
         var config = await _configService.ObtenerConfiguracionAsync();
         var clientPath = config.Mgw10002Path;
@@ -52,7 +96,9 @@ public class FoxProClientRepository : IClientCatalogRepository
 
         var clients = new List<ClientSearchDto>();
         var term = searchTerm?.Trim();
-        if (string.IsNullOrEmpty(term) && !isGetAll) return clients;
+        if (string.IsNullOrEmpty(term) && !isGetAll && !isById) return clients;
+
+        var idSet = idsFilter?.ToHashSet();
 
         bool isNumeric = term?.All(char.IsDigit) ?? false;
 
@@ -67,11 +113,23 @@ public class FoxProClientRepository : IClientCatalogRepository
                     var code = reader.GetStringSafe("CCODIGOC01");
                     var name = reader.GetStringSafe("CRAZONSO01");
                     var rfc = reader.GetStringSafe("CRFC");
+                    var id = reader.GetInt32Safe("CIDCLIEN01");
 
                     bool match = isGetAll;
                     if (!isGetAll)
                     {
-                        if (isExactMatch)
+                        if (isById)
+                        {
+                            if (idSet != null)
+                            {
+                                match = idSet.Contains(id);
+                            }
+                            else
+                            {
+                                match = (id == idFilter);
+                            }
+                        }
+                        else if (isExactMatch)
                         {
                             match = string.Equals(code, term, StringComparison.OrdinalIgnoreCase);
                         }
@@ -87,7 +145,7 @@ public class FoxProClientRepository : IClientCatalogRepository
                     {
                         var client = new ClientSearchDto
                         {
-                            Id = reader.GetInt32Safe("CIDCLIEN01"),
+                            Id = id,
                             Code = code,
                             Name = name,
                             Rfc = rfc,

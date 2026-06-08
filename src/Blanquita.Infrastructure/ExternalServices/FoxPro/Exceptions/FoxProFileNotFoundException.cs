@@ -1,4 +1,4 @@
-namespace Blanquita.Domain.Exceptions;
+namespace Blanquita.Infrastructure.ExternalServices.FoxPro.Exceptions;
 
 /// <summary>
 /// Excepción lanzada cuando no se encuentra un archivo FoxPro/DBF esperado.

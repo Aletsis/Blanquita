@@ -6,6 +6,7 @@ public interface ICashierRepository
 {
     Task<Cashier?> GetByIdAsync(int id, CancellationToken cancellationToken = default);
     Task<Cashier?> GetByEmployeeNumberAsync(int employeeNumber, CancellationToken cancellationToken = default);
+    Task<Cashier?> GetByIDContpaqAsync(int idContpaq, CancellationToken cancellationToken = default);
     Task<IEnumerable<Cashier>> GetAllAsync(CancellationToken cancellationToken = default);
     Task<IEnumerable<Cashier>> GetByBranchAsync(int branchId, CancellationToken cancellationToken = default);
     Task<IEnumerable<Cashier>> GetActiveAsync(CancellationToken cancellationToken = default);
