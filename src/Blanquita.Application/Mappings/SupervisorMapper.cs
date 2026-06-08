@@ -10,21 +10,25 @@ public static class SupervisorMapper
         return new SupervisorDto
         {
             Id = supervisor.Id,
+            EmployeeNumber = supervisor.EmployeeNumber,
             Name = supervisor.Name,
             BranchId = supervisor.BranchId,
+            PhoneNumber = supervisor.PhoneNumber,
             IsActive = supervisor.IsActive
         };
     }
 
     public static Supervisor ToEntity(this CreateSupervisorDto dto)
     {
-        return Supervisor.Create(dto.Name, dto.BranchId, dto.IsActive);
+        return Supervisor.Create(dto.EmployeeNumber, dto.Name, dto.BranchId, dto.PhoneNumber, dto.IsActive);
     }
 
     public static void UpdateEntity(this UpdateSupervisorDto dto, Supervisor supervisor)
     {
+        supervisor.UpdateEmployeeNumber(dto.EmployeeNumber);
         supervisor.UpdateName(dto.Name);
         supervisor.UpdateBranch(dto.BranchId);
+        supervisor.UpdatePhoneNumber(dto.PhoneNumber);
 
         if (dto.IsActive)
             supervisor.Activate();

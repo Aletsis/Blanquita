@@ -23,6 +23,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Blanquita.Application\Blanquita.Application.csproj" />
+    <ProjectReference Include="..\..\src\Blanquita.Domain\Blanquita.Domain.csproj" />
   </ItemGroup>
 
 </Project>

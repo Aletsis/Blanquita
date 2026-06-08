@@ -10,10 +10,12 @@ public class CashRegisterMapperTests
     [Fact]
     public void ToDto_ShouldMapCorrectly()
     {
-        var entity = CashRegister.Create("Caja 1", "127.0.0.1", 9100, 1, true);
+        var entity = CashRegister.Create("Caja 1", "S1", 101, "127.0.0.1", 9100, 1, true);
         var dto = entity.ToDto();
 
         Assert.Equal(entity.Name, dto.Name);
+        Assert.Equal(entity.Serie, dto.Serie);
+        Assert.Equal(entity.IdContpaqi, dto.IdContpaqi);
         Assert.Equal(entity.PrinterConfig.IpAddress, dto.PrinterIp);
         Assert.Equal(entity.BranchId.Value, dto.BranchId);
         Assert.Equal(entity.IsLastRegister, dto.IsLastRegister);
@@ -25,6 +27,8 @@ public class CashRegisterMapperTests
         var dto = new CreateCashRegisterDto
         {
             Name = "Caja 2",
+            Serie = "S2",
+            IdContpaqi = 102,
             PrinterIp = "10.0.0.1",
             PrinterPort = 8080,
             BranchId = 2,
@@ -34,6 +38,8 @@ public class CashRegisterMapperTests
         var entity = CashRegisterMapper.ToEntity(dto);
 
         Assert.Equal(dto.Name, entity.Name);
+        Assert.Equal(dto.Serie, entity.Serie);
+        Assert.Equal(dto.IdContpaqi, entity.IdContpaqi);
         Assert.Equal(dto.PrinterIp, entity.PrinterConfig.IpAddress);
         Assert.Equal(dto.BranchId, entity.BranchId.Value);
     }
@@ -41,10 +47,12 @@ public class CashRegisterMapperTests
     [Fact]
     public void UpdateEntity_ShouldUpdateCorrectly()
     {
-        var entity = CashRegister.Create("Old", "127.0.0.1", 9100, 1, false);
+        var entity = CashRegister.Create("Old", "SO", 90, "127.0.0.1", 9100, 1, false);
         var dto = new UpdateCashRegisterDto
         {
             Name = "New",
+            Serie = "SN",
+            IdContpaqi = 99,
             PrinterIp = "1.1.1.1",
             PrinterPort = 9999,
             BranchId = 5,
@@ -54,6 +62,8 @@ public class CashRegisterMapperTests
         dto.UpdateEntity(entity);
 
         Assert.Equal("New", entity.Name);
+        Assert.Equal("SN", entity.Serie);
+        Assert.Equal(99, entity.IdContpaqi);
         Assert.Equal("1.1.1.1", entity.PrinterConfig.IpAddress);
         Assert.Equal(9999, entity.PrinterConfig.Port);
         Assert.Equal(5, entity.BranchId.Value);

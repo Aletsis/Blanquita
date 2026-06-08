@@ -19,4 +19,5 @@ public interface IProductCatalogRepository
     /// Busca productos que coincidan con el término de búsqueda en varios campos.
     /// </summary>
     Task<IEnumerable<ProductSearchDto>> SearchAsync(string searchTerm, CancellationToken cancellationToken = default);
+    Task<IEnumerable<ProductSearchDto>> GetByIdsAsync(IEnumerable<int> ids, CancellationToken cancellationToken = default);
 }

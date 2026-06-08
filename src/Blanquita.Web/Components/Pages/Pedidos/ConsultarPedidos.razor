@@ -1,0 +1,295 @@
+@page "/consultar-pedidos"
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Roles = "Admin,Security")]
+@using Blanquita.Domain.Enums
+@inject IBranchService BranchService
+@inject ISnackbar Snackbar
+@inject ILogger<ConsultarPedidos> Logger
+@inject IDialogService DialogService
+@inject IFoxProPedidoRepository PedidoRepository
+@inject ICashRegisterService CashRegisterService
+
+<PageTitle>Consultar Pedidos - Blanquita</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-6 animate-fade-in">
+    <!-- Header -->
+    <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-6">
+        <div class="pa-3 rounded-lg bg-primary-light mr-4">
+            <MudIcon Icon="@Icons.Material.Filled.Receipt" Color="Color.Primary" Size="Size.Large" />
+        </div>
+        <div>
+            <MudText Typo="Typo.h4" Class="font-weight-bold" Color="Color.Primary">Consultar Pedidos</MudText>
+            <MudText Typo="Typo.subtitle1" Color="Color.Secondary">Revisión de notas de pedidos</MudText>
+        </div>
+    </MudStack>
+
+    <!-- Filters -->
+    <MudPaper Elevation="4" Class="pa-6 rounded-xl mb-8 bg-surface border-light">
+        <MudGrid>
+            <MudItem xs="12" md="4">
+                <MudSelect T="int" Label="Sucursal" @bind-Value="_selectedBranchId" Variant="Variant.Outlined" AnchorOrigin="Origin.BottomCenter" AdornmentIcon="@Icons.Material.Filled.Store" AdornmentColor="Color.Primary" Margin="Margin.Dense">
+                    <MudSelectItem Value="0">Todas las sucursales</MudSelectItem>
+                    @foreach (var sucursal in _branches)
+                    {
+                        <MudSelectItem Value="@sucursal.Id">@sucursal.Name</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="12" md="4">
+                <MudTextField @bind-Value="_comanda" Label="Comanda" Variant="Variant.Outlined" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.ConfirmationNumber" Placeholder="Ej: 12345" Clearable="true" Margin="Margin.Dense" />
+            </MudItem>
+            <MudItem xs="12" md="4">
+                <MudDatePicker Label="Fecha de Pedido" @bind-Date="_selectedDate" Variant="Variant.Outlined" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.CalendarToday" Editable="true" Color="Color.Primary" Margin="Margin.Dense" />
+            </MudItem>
+            <MudItem xs="12" Class="d-flex justify-end mt-2">
+                <MudButton Variant="Variant.Filled" 
+                           Color="Color.Primary" 
+                           StartIcon="@Icons.Material.Filled.Search" 
+                           OnClick="Consultar" 
+                           Size="Size.Large" 
+                           Class="rounded-pill px-10 shadow-primary"
+                           Disabled="_loading">
+                    @if (_loading)
+                    {
+                        <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                        <text>Buscando...</text>
+                    }
+                    else
+                    {
+                        <text>Consultar</text>
+                    }
+                </MudButton>
+            </MudItem>
+        </MudGrid>
+    </MudPaper>
+
+    <!-- Results Area -->
+    @if (_loading)
+    {
+        <MudPaper Elevation="0" Class="d-flex flex-column align-center justify-center pa-16 rounded-xl bg-transparent">
+            <MudProgressCircular Color="Color.Primary" Style="height:80px;width:80px;" Indeterminate="true" Thickness="3" />
+            <MudText Typo="Typo.h6" Class="mt-6" Color="Color.Primary">Analizando registros...</MudText>
+        </MudPaper>
+    }
+    else if (_pedidos.Any())
+    {
+        <div class="animate-slide-up">
+            <MudTable Items="@_pedidos" Hover="true" Breakpoint="Breakpoint.Sm" Elevation="4" Class="rounded-xl overflow-hidden mb-8" Dense="true" Striped="true" FixedHeader="true">
+                <ToolBarContent>
+                    <MudText Typo="Typo.h6">Resultados de la búsqueda</MudText>
+                    <MudSpacer />
+                    <MudChip T="string" Color="Color.Info" Variant="Variant.Text" Icon="@Icons.Material.Filled.FilterList">@_pedidos.Count registros encontrados</MudChip>
+                </ToolBarContent>
+                <HeaderContent>
+                    <MudTh>Folio</MudTh>
+                    <MudTh>Fecha</MudTh>
+                    <MudTh>Sucursal</MudTh>
+                    <MudTh>Comanda</MudTh>
+                    <MudTh>Cliente</MudTh>
+                    <MudTh>Total</MudTh>
+                    <MudTh>Estado</MudTh>
+                    <MudTh Style="text-align: center;">Acciones</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="Folio">
+                        <MudText Typo="Typo.body2" Class="font-weight-bold">@context.Folio</MudText>
+                    </MudTd>
+                    <MudTd DataLabel="Fecha">@context.Fecha.ToShortDateString()</MudTd>
+                    <MudTd DataLabel="Sucursal">@context.BranchName</MudTd>
+                    <MudTd DataLabel="Comanda">
+                        <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Secondary">@context.Comanda</MudChip>
+                    </MudTd>
+                    <MudTd DataLabel="Cliente">@context.Cliente</MudTd>
+                    <MudTd DataLabel="Total">
+                        <MudText Typo="Typo.body2" Class="font-weight-bold" Color="Color.Primary">@context.Total.ToString("C2")</MudText>
+                    </MudTd>
+                    <MudTd DataLabel="Estado">
+                        @{
+                            var color = context.Status == "Cobrada" ? Color.Success : 
+                                       (context.Status == "Impresa" ? Color.Info : 
+                                       (context.Status == "Pendiente" ? Color.Warning : Color.Error));
+                                       
+                            var icon = context.Status == "Cobrada" ? Icons.Material.Filled.Payments : 
+                                      (context.Status == "Impresa" ? Icons.Material.Filled.Print : 
+                                      (context.Status == "Pendiente" ? Icons.Material.Filled.AccessTime : 
+                                      (context.Status == "Cancelado" ? Icons.Material.Filled.Cancel : Icons.Material.Filled.KeyboardReturn)));
+                        }
+                        <MudChip T="string" Color="@color" Size="Size.Small" Icon="@icon">@context.Status</MudChip>
+                    </MudTd>
+                    <MudTd DataLabel="Acciones" Style="text-align: center;">
+                        <MudTooltip Text="Ver Detalles">
+                            <MudIconButton Icon="@Icons.Material.Filled.Visibility" Color="Color.Info" Size="Size.Small" Variant="Variant.Filled" Class="mr-1" OnClick="@(() => VerDetalles(context))" />
+                        </MudTooltip>
+                        <MudTooltip Text="Imprimir">
+                            <MudIconButton Icon="@Icons.Material.Filled.Print" Color="Color.Default" Size="Size.Small" Variant="Variant.Outlined" />
+                        </MudTooltip>
+                    </MudTd>
+                </RowTemplate>
+                <PagerContent>
+                    <MudTablePager InfoFormat="{first_item}-{last_item} de {all_items}" RowsPerPageString="Filas por página:" />
+                </PagerContent>
+            </MudTable>
+        </div>
+    }
+    else if (_hasSearched)
+    {
+        <MudPaper Elevation="0" Outlined="true" Class="pa-16 d-flex flex-column align-center justify-center rounded-xl border-dashed border-2 bg-light-gradient animate-fade-in">
+            <div class="pa-6 rounded-circle bg-white shadow-sm mb-6">
+                <MudIcon Icon="@Icons.Material.Filled.SearchOff" Size="Size.Large" Color="Color.Default" Style="font-size: 3rem;" />
+            </div>
+            <MudText Typo="Typo.h5" Class="font-weight-bold mb-2">Sin resultados</MudText>
+            <MudText Typo="Typo.body1" Color="Color.Secondary" Align="Align.Center">No encontramos ningún pedido con los criterios seleccionados.<br />Intente ajustar los filtros de búsqueda.</MudText>
+            <MudButton Variant="Variant.Outlined" Color="Color.Primary" Class="mt-6 rounded-pill" OnClick="() => _hasSearched = false">Limpiar Búsqueda</MudButton>
+        </MudPaper>
+    }
+    else
+    {
+        <MudPaper Elevation="0" Outlined="true" Class="pa-16 d-flex flex-column align-center justify-center rounded-xl border-dashed border-2 bg-light-gradient">
+            <MudIcon Icon="@Icons.Material.Filled.TouchApp" Size="Size.Large" Color="Color.Default" Class="mb-4 opacity-50" Style="font-size: 3rem;" />
+            <MudText Typo="Typo.h6" Color="Color.Default" Class="opacity-70">Complete los filtros y haga clic en "Consultar"</MudText>
+        </MudPaper>
+    }
+</MudContainer>
+
+<style>
+    .animate-fade-in { animation: fadeIn 0.6s ease-out; }
+    .animate-slide-up { animation: slideUp 0.6s ease-out; }
+    @@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    @@keyframes slideUp { from { transform: translateY(30px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+    .bg-primary-light { background-color: rgba(25, 118, 210, 0.08); }
+    .bg-light-gradient { background: linear-gradient(135deg, #fdfbfb 0%, #ebedee 100%); }
+    .rounded-xl { border-radius: 20px !important; }
+    .font-weight-bold { font-weight: 700; }
+    .border-light { border: 1px solid rgba(0,0,0,0.05) !important; }
+    .shadow-primary { box-shadow: 0 4px 14px 0 rgba(25, 118, 210, 0.39) !important; }
+    .opacity-50 { opacity: 0.5; }
+    .opacity-70 { opacity: 0.7; }
+    .blur-backdrop { backdrop-filter: blur(4px); background-color: rgba(0,0,0,0.3); }
+</style>
+
+@code {
+    private IEnumerable<BranchDto> _branches = Enumerable.Empty<BranchDto>();
+    private int _selectedBranchId;
+    private string _comanda = "";
+    private DateTime? _selectedDate = DateTime.Today;
+    private bool _loading;
+    private bool _hasSearched = false;
+    
+    // Lista temporal para la UI (Placeholder)
+    private List<PedidoDto> _pedidos = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _branches = await BranchService.GetAllAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error al cargar sucursales");
+            Snackbar.Add("Error al cargar sucursales", Severity.Error);
+        }
+    }
+
+    private async Task Consultar()
+    {
+        if (!_selectedDate.HasValue)
+        {
+            Snackbar.Add("Por favor seleccione una fecha", Severity.Warning);
+            return;
+        }
+
+        _loading = true;
+        _hasSearched = true;
+        _pedidos.Clear();
+        
+        try
+        {
+            var series = new List<string>();
+            string branchName = "Todas";
+
+            if (_selectedBranchId > 0)
+            {
+                var branch = _branches.FirstOrDefault(b => b.Id == _selectedBranchId);
+                branchName = branch?.Name ?? "Sucursal";
+                
+                // Obtener cajas de la sucursal de tipo Pedidos para saber qué series buscar
+                var registers = await CashRegisterService.GetByBranchAsync(_selectedBranchId);
+                series = registers
+                    .Where(r => r.Tipo == TipoTerminal.Pedidos)
+                    .Select(r => r.Serie)
+                    .Where(s => !string.IsNullOrEmpty(s))
+                    .Distinct()
+                    .ToList();
+
+                if (!series.Any())
+                {
+                    Logger.LogWarning("La sucursal {BranchId} ({BranchName}) no tiene cajas de pedidos configuradas con series", _selectedBranchId, branchName);
+                }
+            }
+            else
+            {
+                // Obtener todas las cajas de tipo Pedidos para buscar sus series
+                var registers = await CashRegisterService.GetAllAsync();
+                series = registers
+                    .Where(r => r.Tipo == TipoTerminal.Pedidos)
+                    .Select(r => r.Serie)
+                    .Where(s => !string.IsNullOrEmpty(s))
+                    .Distinct()
+                    .ToList();
+
+                if (!series.Any())
+                {
+                    Logger.LogWarning("No se encontraron cajas de pedidos configuradas con series en el sistema");
+                }
+            }
+
+            var results = await PedidoRepository.SearchPedidosAsync(_selectedDate.Value, series, _comanda);
+            
+            _pedidos = results.ToList();
+
+            // Si se filtró por sucursal, nos aseguramos que el nombre de la sucursal sea el correcto en el DTO
+            if (_selectedBranchId > 0)
+            {
+                foreach(var p in _pedidos) p.BranchName = branchName;
+            }
+            else 
+            {
+                // Si no se filtró por sucursal, podríamos intentar determinarla por la serie, 
+                // pero por ahora lo dejamos como está o buscamos el nombre de la sucursal
+                foreach (var p in _pedidos)
+                {
+                    // Intentamos encontrar la sucursal por la serie (esto asume que las series son únicas por sucursal)
+                    // Para esto necesitaríamos cargar todas las cajas una vez
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error al consultar pedidos");
+            Snackbar.Add("Error al consultar pedidos. Verifique la configuración de rutas.", Severity.Error);
+        }
+        finally
+        {
+            _loading = false;
+        }
+        
+        if (_pedidos.Any())
+            Snackbar.Add($"Búsqueda completada. {_pedidos.Count} registros encontrados.", Severity.Success);
+    }
+
+    private async Task VerDetalles(PedidoDto pedido)
+    {
+        var parameters = new DialogParameters { ["Pedido"] = pedido };
+        var options = new DialogOptions { 
+            CloseButton = true, 
+            MaxWidth = MaxWidth.Medium, 
+            FullWidth = true,
+            BackgroundClass = "blur-backdrop"
+        };
+        
+        await DialogService.ShowAsync<Blanquita.Web.Components.Dialogs.DialogoDetallePedido>("Detalle de Pedido", parameters, options);
+    }
+
+}

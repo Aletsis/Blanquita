@@ -1,69 +1,217 @@
-﻿<MudNavMenu>
-    <MudNavLink Href="/" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Dashboard">
+<!-- Encabezado de la barra lateral con Gradiente Premium y Estilo Moderno -->
+<div class="px-6 py-5 mb-3 border-b bg-light-gradient">
+    <MudText Typo="Typo.caption" Class="font-weight-black tracking-wider text-indigo uppercase">Plataforma Administrativa</MudText>
+    <MudText Typo="Typo.h5" Class="font-weight-black tracking-tight" Style="background: linear-gradient(135deg, #4f46e5, #06b6d4); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+        La Blanquita
+    </MudText>
+</div>
+
+<MudNavMenu Class="px-2">
+    <!-- Inicio -->
+    <MudNavLink Href="/" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Dashboard" Class="nav-item-pill">
         Inicio
     </MudNavLink>
-    <MudNavGroup Title="Clientes" Expanded="false" Icon="@Icons.Material.Filled.People">
-        <MudNavLink Href="/clientes" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.PersonSearch">
+    
+    <!-- Clientes -->
+    <MudNavGroup Title="Clientes" Expanded="false" Icon="@Icons.Material.Filled.People" Class="nav-group-pill">
+        <MudNavLink Href="/clientes" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.PersonSearch" Class="nav-item-pill sub-item">
             Buscador de Clientes
         </MudNavLink>
     </MudNavGroup>
-    <MudNavGroup Title="Abarrotes" Expanded="false" Icon="@Icons.Material.Filled.ShoppingCart">
-        <MudNavLink Href="/productos/buscador" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Search">
+    
+    <!-- Abarrotes -->
+    <MudNavGroup Title="Abarrotes" Expanded="false" Icon="@Icons.Material.Filled.ShoppingCart" Class="nav-group-pill">
+        <MudNavLink Href="/productos/buscador" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Search" Class="nav-item-pill sub-item">
             Buscador de Productos
         </MudNavLink>
-        <MudNavLink Href="/etiquetas" Match="NavLinkMatch.Prefix" Icon="@Icons.Custom.Uncategorized.ColorPalette">
+        <MudNavLink Href="/etiquetas" Match="NavLinkMatch.Prefix" Icon="@Icons.Custom.Uncategorized.ColorPalette" Class="nav-item-pill sub-item">
             Imprimir etiquetas
         </MudNavLink>
     </MudNavGroup>
-    <AuthorizeView>
+    
+    <!-- Comercial -->
+    <AuthorizeView Roles="Admin,Abarrotes,User, Supervisor" Context="comercialContext">
         <Authorized>
-            <MudNavGroup Title="Reportes" Expanded="false" Icon="@Icons.Material.Filled.FilePresent">
-                <MudNavLink Href="/reportes" Icon="@Icons.Material.Filled.Receipt">
-                    Reportes de facturación
+            <MudNavGroup Title="Comercial" Expanded="false" Icon="@Icons.Material.Filled.Store" Class="nav-group-pill">
+                <MudNavLink Href="/abarrotes/compras" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Receipt" Class="nav-item-pill sub-item">
+                    Compras
                 </MudNavLink>
-                <MudNavLink Href="/historico" Icon="@Icons.Material.Filled.History">
-                    Histórico de reportes de facturación
-                </MudNavLink>
-                <MudNavLink Href="/reimprimir" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Print">
-                    Reimprimir Recoleccion de Efectivo o Corte de Caja
-                </MudNavLink>
-                <MudNavLink Href="/reimpresion-devoluciones" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.AssignmentReturn">
-                    Reimpresión de Devoluciones
-                </MudNavLink>
-                <MudNavLink Href="/reportes/facturacion-cliente" Icon="@Icons.Material.Filled.ReceiptLong">
-                    Facturación por Cliente
-                </MudNavLink>
-                <MudNavLink Href="/reportes/devoluciones" Icon="@Icons.Material.Filled.AssignmentReturn">
-                    Reporte de Devoluciones
+                <MudNavLink Href="/comercial/salidas" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Outbox" Class="nav-item-pill sub-item">
+                    Salidas
                 </MudNavLink>
             </MudNavGroup>
         </Authorized>
     </AuthorizeView>
-    <MudNavGroup Title="Cajas" Expanded="false" Icon="@Icons.Material.Filled.Money">
-        <MudNavLink Href="/recoleccion" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.AttachMoney">
+
+    
+    <!-- Reportes (Solo Admin) -->
+    <AuthorizeView Roles="Admin" Context="reportesContext">
+        <Authorized>
+            <MudNavGroup Title="Reportes" Expanded="false" Icon="@Icons.Material.Filled.FilePresent" Class="nav-group-pill">
+                <MudNavLink Href="/reportes" Icon="@Icons.Material.Filled.Receipt" Class="nav-item-pill sub-item">
+                    Reportes de facturación
+                </MudNavLink>
+                <MudNavLink Href="/historico" Icon="@Icons.Material.Filled.History" Class="nav-item-pill sub-item">
+                    Histórico de reportes
+                </MudNavLink>
+                <MudNavLink Href="/reimprimir" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Print" Class="nav-item-pill sub-item">
+                    Reimprimir Recoleccion o Corte
+                </MudNavLink>
+                <MudNavLink Href="/reimpresion-devoluciones" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.AssignmentReturn" Class="nav-item-pill sub-item">
+                    Reimpresión de Devoluciones
+                </MudNavLink>
+                <MudNavLink Href="/reportes/facturacion-cliente" Icon="@Icons.Material.Filled.ReceiptLong" Class="nav-item-pill sub-item">
+                    Facturación por Cliente
+                </MudNavLink>
+                <MudNavLink Href="/reportes/devoluciones" Icon="@Icons.Material.Filled.AssignmentReturn" Class="nav-item-pill sub-item">
+                    Reporte de Devoluciones
+                </MudNavLink>
+                <MudNavLink Href="/reportes/ventas" Icon="@Icons.Material.Filled.AccessTime" Class="nav-item-pill sub-item">
+                    Ventas por Rango y Hora
+                </MudNavLink>
+            </MudNavGroup>
+        </Authorized>
+    </AuthorizeView>
+    
+    <!-- Cajas -->
+    <MudNavGroup Title="Cajas" Expanded="false" Icon="@Icons.Material.Filled.Money" Class="nav-group-pill">
+        <MudNavLink Href="/recoleccion" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.AttachMoney" Class="nav-item-pill sub-item">
             Recoleccion de efectivo
         </MudNavLink>
-        <MudNavLink Href="/corte-caja" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.MoneyOff">
+        <MudNavLink Href="/corte-caja" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.MoneyOff" Class="nav-item-pill sub-item">
             Corte de caja
         </MudNavLink>
+        <MudNavLink Href="/conciliacion-corte" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Balance" Class="nav-item-pill sub-item">
+            Conciliación de corte
+        </MudNavLink>
+        <MudNavLink Href="/consulta-conciliaciones" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.ListAlt" Class="nav-item-pill sub-item">
+            Consulta de conciliaciones
+        </MudNavLink>
     </MudNavGroup>
-    <AuthorizeView>
+    
+    <!-- Pedidos -->
+    <AuthorizeView Roles="Admin,Security" Context="pedidosContext">
         <Authorized>
-            <MudDivider Class="my-2" />
-            <MudNavGroup Title="Configuraciones" Expanded="false" Icon="@Icons.Material.Filled.Settings">
-                <MudNavLink Href="/configuracion" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Settings">
+            <MudNavGroup Title="Pedidos" Expanded="false" Icon="@Icons.Material.Filled.ShoppingBasket" Class="nav-group-pill">
+                <MudNavLink Href="/consultar-pedidos" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Search" Class="nav-item-pill sub-item">
+                    Consultar Pedidos
+                </MudNavLink>
+                <MudNavLink Href="/consultar-rutas" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.LocalShipping" Class="nav-item-pill sub-item">
+                    Consultar Rutas
+                </MudNavLink>
+                <MudNavLink Href="/reimprimir-pedidos" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.ReceiptLong" Class="nav-item-pill sub-item">
+                    Reimprimir Pedidos
+                </MudNavLink>
+            </MudNavGroup>
+        </Authorized>
+    </AuthorizeView>
+    
+    <!-- Configuraciones (Solo Admin) -->
+    <AuthorizeView Roles="Admin" Context="configContext">
+        <Authorized>
+            <MudDivider Class="my-3 mx-2" />
+            <MudNavGroup Title="Configuraciones" Expanded="false" Icon="@Icons.Material.Filled.Settings" Class="nav-group-pill">
+                <MudNavLink Href="/configuracion" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Settings" Class="nav-item-pill sub-item">
                     Configuracion
                 </MudNavLink>
-                <MudNavLink Href="/configuracion/etiquetas" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Label">
+                <MudNavLink Href="/configuracion/etiquetas" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Label" Class="nav-item-pill sub-item">
                     Diseño de Etiquetas
                 </MudNavLink>
-                <MudNavLink Href="/añadir-cajera" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Person">
+                <MudNavLink Href="/configuracion/usuarios" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.ManageAccounts" Class="nav-item-pill sub-item">
+                    Administrar Usuarios
+                </MudNavLink>
+                <MudNavLink Href="/añadir-cajera" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Person" Class="nav-item-pill sub-item">
                     Añadir cajera
                 </MudNavLink>
-                <MudNavLink Href="/añadir-encargada" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Person">
+                <MudNavLink Href="/añadir-encargada" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Person" Class="nav-item-pill sub-item">
                     Añadir encargada
+                </MudNavLink>
+                <MudNavLink Href="/añadir-repartidor" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.DeliveryDining" Class="nav-item-pill sub-item">
+                    Añadir repartidor
                 </MudNavLink>
             </MudNavGroup>
         </Authorized>
     </AuthorizeView>
 </MudNavMenu>
+
+<style>
+    .border-b {
+        border-bottom: 1px solid rgba(226, 232, 240, 0.8) !important;
+    }
+    
+    .bg-light-gradient {
+        background: linear-gradient(180deg, #f8fafc 0%, #ffffff 100%) !important;
+    }
+    
+    .tracking-wider {
+        letter-spacing: 0.05em !important;
+    }
+    
+    .text-indigo {
+        color: #4f46e5 !important;
+    }
+    
+    .uppercase {
+        text-transform: uppercase !important;
+    }
+
+    /* Estilo de Pills redondeadas para los links */
+    .nav-item-pill {
+        border-radius: 8px !important;
+        margin-top: 2px !important;
+        margin-bottom: 2px !important;
+        transition: all 0.2s ease !important;
+        color: #475569 !important;
+    }
+    
+    .nav-item-pill:hover {
+        background-color: rgba(79, 70, 229, 0.04) !important;
+        color: #4f46e5 !important;
+    }
+
+    .nav-item-pill.active {
+        background-color: rgba(79, 70, 229, 0.08) !important;
+        color: #4f46e5 !important;
+        font-weight: 600 !important;
+    }
+    
+    .nav-item-pill.active .mud-nav-link-icon {
+        color: #4f46e5 !important;
+        transform: scale(1.05);
+    }
+    
+    .sub-item {
+        padding-left: 24px !important;
+        font-size: 0.875rem !important;
+    }
+
+    /* Estilo de los iconos en el menú */
+    .mud-nav-link-icon {
+        color: #64748b !important;
+        transition: transform 0.2s ease !important;
+    }
+
+    .nav-item-pill:hover .mud-nav-link-icon {
+        color: #4f46e5 !important;
+        transform: scale(1.1);
+    }
+
+    /* Estilo del NavGroup */
+    .nav-group-pill .mud-nav-group-header {
+        border-radius: 8px !important;
+        margin-top: 2px !important;
+        margin-bottom: 2px !important;
+        color: #475569 !important;
+        transition: all 0.2s ease !important;
+    }
+
+    .nav-group-pill .mud-nav-group-header:hover {
+        background-color: rgba(15, 23, 42, 0.02) !important;
+        color: #0f172a !important;
+    }
+    
+    .mud-nav-menu {
+        max-height: calc(100vh - 120px) !important;
+        overflow-y: auto !important;
+    }
+</style>

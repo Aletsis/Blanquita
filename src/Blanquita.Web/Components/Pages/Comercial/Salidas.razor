@@ -1,0 +1,377 @@
+@page "/comercial/salidas"
+@using Blanquita.Application.DTOs
+@using Blanquita.Application.Interfaces
+@using Blanquita.Web.Components.Dialogs
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Roles = "Admin,Abarrotes,User")]
+@inject ICommercialApiService CommercialApiService
+@inject AuthenticationStateProvider AuthStateProvider
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+@inject IUserService UserService
+@inject IBranchService BranchService
+@inject ILogger<Salidas> Logger
+
+<PageTitle>Salidas de Almacén - API Comercial</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4 animate-fade-in">
+    <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-6">
+        <MudText Typo="Typo.h4" Class="font-weight-bold" Style="background: linear-gradient(45deg, #4f46e5, #06b6d4); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+            <MudIcon Icon="@Icons.Material.Filled.Store" Class="mr-2" Size="Size.Large" Color="Color.Primary" />
+            Salidas de Almacén (API Comercial)
+        </MudText>
+        <MudStack Row="true" Spacing="2">
+            <MudButton Variant="Variant.Filled" 
+                       StartIcon="@Icons.Material.Filled.Add" 
+                       Color="Color.Success" 
+                       OnClick="AbrirNuevaSalidaDialog" 
+                       Disabled="@_buscando"
+                       Class="px-6">
+                Nueva
+            </MudButton>
+            <MudButton Variant="Variant.Filled" 
+                       StartIcon="@Icons.Material.Filled.Search" 
+                       Color="Color.Primary" 
+                       OnClick="CargarSalidas" 
+                       Disabled="@_buscando"
+                       Class="px-6">
+                @if (_buscando) 
+                { 
+                    <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" /> 
+                    <text>Buscando...</text> 
+                } 
+                else 
+                { 
+                    <text>Buscar</text> 
+                }
+            </MudButton>
+        </MudStack>
+
+    </MudStack>
+
+    <!-- Panel de Filtros -->
+    <MudCard Elevation="4" Class="pa-4 rounded-lg mb-6">
+        <MudCardContent>
+            <MudGrid>
+                <!-- Concepto -->
+                <MudItem xs="12" sm="4" md="3">
+                    <MudSelect T="string" 
+                               Label="Concepto" 
+                               Value="_selectedConceptoCodigo" 
+                               ValueChanged="OnConceptoFilterChanged"
+                               Variant="Variant.Outlined" 
+                               Margin="Margin.Dense"
+                               Clearable="true">
+                        <MudSelectItem Value="@((string)null!)">Todos los conceptos</MudSelectItem>
+                        @if (_conceptosFiltrados != null)
+                        {
+                            @foreach (var c in _conceptosFiltrados)
+                            {
+                                <MudSelectItem Value="@c.CCODIGOCONCEPTO">@($"{c.CCODIGOCONCEPTO} - {c.CNOMBRECONCEPTO}")</MudSelectItem>
+                            }
+                        }
+                    </MudSelect>
+                </MudItem>
+
+                <!-- Folio -->
+                <MudItem xs="12" sm="4" md="3">
+                    <MudNumericField @bind-Value="_folioFilter" 
+                                     Label="Folio" 
+                                     Variant="Variant.Outlined" 
+                                     Margin="Margin.Dense"
+                                     Clearable="true"
+                                     HideSpinButtons="true"
+                                     OnKeyUp="HandleKeyUp" />
+                </MudItem>
+
+                <!-- Rango de Fechas -->
+                <MudItem xs="12" sm="4" md="6">
+                    <MudDateRangePicker Label="Rango de Fechas" 
+                                        @bind-DateRange="_dateRange" 
+                                        Variant="Variant.Outlined" 
+                                        Margin="Margin.Dense" 
+                                        Clearable="true" />
+                </MudItem>
+            </MudGrid>
+        </MudCardContent>
+    </MudCard>
+
+    <!-- Tabla de Resultados -->
+    <MudItem xs="12">
+        @if (_salidas == null)
+        {
+            <div class="d-flex flex-column align-center justify-center pa-12">
+                <MudProgressCircular Color="Color.Primary" Size="Size.Large" Indeterminate="true" />
+                <MudText Typo="Typo.body1" Class="mt-4 text-muted">Cargando conexión con la API Comercial...</MudText>
+            </div>
+        }
+        else if (!_salidas.Any())
+        {
+            <MudAlert Severity="Severity.Info" Class="mt-4 rounded-lg">
+                No se encontraron salidas de almacén con los filtros especificados. Presione "Buscar" para actualizar la lista.
+            </MudAlert>
+        }
+        else
+        {
+            <MudTable Items="@_salidas" 
+                      Hover="true" 
+                      Dense="true" 
+                      Striped="true" 
+                      Elevation="4" 
+                      Class="rounded-lg animate-slide-up"
+                      OnRowClick="RowClickEvent"
+                      T="CommercialSalidaDto">
+                <HeaderContent>
+                    <MudTh>Fecha</MudTh>
+                    <MudTh>Serie</MudTh>
+                    <MudTh>Folio</MudTh>
+                    <MudTh Style="text-align: right;">Impuesto</MudTh>
+                    <MudTh Style="text-align: right;">Total</MudTh>
+                    <MudTh>Referencia</MudTh>
+                    <MudTh>Estado</MudTh>
+                    <MudTh Style="text-align: center;">Acciones</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="Fecha">@context.CFECHA?.ToString("dd/MM/yyyy")</MudTd>
+                    <MudTd DataLabel="Serie">@context.CSERIEDOCUMENTO</MudTd>
+                    <MudTd DataLabel="Folio" Class="font-weight-bold">@context.CFOLIO</MudTd>
+                    <MudTd DataLabel="Impuesto" Style="text-align: right;">@context.CIMPUESTO1.ToString("C2")</MudTd>
+                    <MudTd DataLabel="Total" Style="text-align: right;" Class="font-weight-bold text-indigo">@context.CTOTAL.ToString("C2")</MudTd>
+                    <MudTd DataLabel="Referencia">@context.CREFERENCIA</MudTd>
+                    <MudTd DataLabel="Estado">
+                        @if (context.CCANCELADO == 1)
+                        {
+                            <MudChip T="string" Color="Color.Error" Size="Size.Small" Variant="Variant.Filled">Cancelado</MudChip>
+                        }
+                        else
+                        {
+                            <MudChip T="string" Color="Color.Success" Size="Size.Small" Variant="Variant.Filled">Vigente</MudChip>
+                        }
+                    </MudTd>
+                    <MudTd DataLabel="Acciones" Style="text-align: center;">
+                        <MudButton Variant="Variant.Filled" 
+                                   Color="Color.Info" 
+                                   Size="Size.Small" 
+                                   StartIcon="@Icons.Material.Filled.Visibility"
+                                   OnClick="@(() => VerDetalles(context))">
+                            Detalles
+                        </MudButton>
+                    </MudTd>
+                </RowTemplate>
+                <PagerContent>
+                    <MudTablePager />
+                </PagerContent>
+            </MudTable>
+        }
+    </MudItem>
+</MudContainer>
+
+<style>
+    .animate-fade-in {
+        animation: fadeIn 0.5s ease-out;
+    }
+    .animate-slide-up {
+        animation: slideUp 0.5s ease-out;
+    }
+    @@keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+    @@keyframes slideUp {
+        from { transform: translateY(20px); opacity: 0; }
+        to { transform: translateY(0); opacity: 1; }
+    }
+    .rounded-lg {
+        border-radius: 12px !important;
+    }
+    .font-weight-bold {
+        font-weight: 700 !important;
+    }
+    .text-indigo {
+        color: #3f51b5 !important;
+    }
+</style>
+
+@code {
+    private bool _buscando = false;
+    private string _username = string.Empty;
+    
+    // Filtros
+    private string? _selectedConceptoCodigo;
+    private double? _folioFilter;
+    private DateRange _dateRange = new DateRange(DateTime.Now.AddMonths(-1), DateTime.Now);
+
+    private IEnumerable<CommercialSalidaDto>? _salidas;
+    private List<string>? _allowedConcepts;
+    private IEnumerable<CommercialConceptoDto>? _conceptosFiltrados;
+
+    // Gestión del doble clic en MudTable
+    private DateTime _lastClickTime = DateTime.MinValue;
+    private int _lastClickedDocId = -1;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            _username = authState.User.Identity?.Name ?? string.Empty;
+
+            if (string.IsNullOrEmpty(_username))
+            {
+                Snackbar.Add("Error de sesión: No se pudo identificar al usuario actual.", Severity.Error);
+                return;
+            }
+
+            // Recuperar usuario actual para filtrar por sucursal si corresponde
+            var currentUser = await UserService.GetByUsernameAsync(_username);
+            
+            if (currentUser != null && currentUser.Role != "Admin" && currentUser.BranchId.HasValue)
+            {
+                var branch = await BranchService.GetByIdAsync(currentUser.BranchId.Value);
+                if (branch != null)
+                {
+                    if (!string.IsNullOrEmpty(branch.ConceptosSalida))
+                    {
+                        _allowedConcepts = branch.ConceptosSalida.Split(',', StringSplitOptions.RemoveEmptyEntries).ToList();
+                    }
+                    else
+                    {
+                        // Si pertenece a una sucursal pero no tiene conceptos asignados, no debe ver salidas
+                        _allowedConcepts = new List<string>();
+                    }
+                }
+            }
+
+            // Cargar los conceptos desde la API Comercial
+            try
+            {
+                var todosConceptos = await CommercialApiService.GetConceptosAsync(33, _username);
+                if (_allowedConcepts != null)
+                {
+                    _conceptosFiltrados = todosConceptos.Where(c => _allowedConcepts.Contains(c.CCODIGOCONCEPTO)).ToList();
+                }
+                else
+                {
+                    _conceptosFiltrados = todosConceptos.ToList();
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError(ex, "Error al cargar la lista de conceptos para filtrar.");
+            }
+            
+            // Carga inicial de salidas
+            await CargarSalidas();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error al inicializar la página de salidas");
+            Snackbar.Add($"Error de conexión: {ex.Message}", Severity.Error);
+            _salidas = Enumerable.Empty<CommercialSalidaDto>();
+        }
+    }
+
+    private async Task OnConceptoFilterChanged(string? value)
+    {
+        _selectedConceptoCodigo = value;
+        await CargarSalidas();
+    }
+
+    private async Task CargarSalidas()
+    {
+        if (string.IsNullOrEmpty(_username)) return;
+
+        _buscando = true;
+        StateHasChanged();
+
+        try
+        {
+            DateTime? fechaDesde = _dateRange?.Start;
+            DateTime? fechaHasta = _dateRange?.End;
+
+            // Si se seleccionó un concepto específico, filtramos solo por ese.
+            // Si no, filtramos por los conceptos permitidos de la sucursal.
+            var conceptsToFilter = !string.IsNullOrEmpty(_selectedConceptoCodigo)
+                ? new List<string> { _selectedConceptoCodigo }
+                : _allowedConcepts;
+
+            _salidas = await CommercialApiService.GetSalidasAsync(
+                null, 
+                _folioFilter, 
+                fechaDesde, 
+                fechaHasta, 
+                _username,
+                conceptsToFilter);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error al consultar salidas de la API");
+            Snackbar.Add($"Error al consultar salidas: {ex.Message}", Severity.Error);
+            _salidas = Enumerable.Empty<CommercialSalidaDto>();
+        }
+        finally
+        {
+            _buscando = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task HandleKeyUp(KeyboardEventArgs args)
+    {
+        if (args.Key == "Enter")
+        {
+            await CargarSalidas();
+        }
+    }
+
+    private void RowClickEvent(TableRowClickEventArgs<CommercialSalidaDto> args)
+    {
+        var doc = args.Item;
+        var now = DateTime.Now;
+        if (doc.CIDDOCUMENTO == _lastClickedDocId && (now - _lastClickTime).TotalMilliseconds < 300)
+        {
+            // Ejecutar doble clic
+            VerDetalles(doc);
+        }
+        _lastClickTime = now;
+        _lastClickedDocId = doc.CIDDOCUMENTO;
+    }
+
+    private void VerDetalles(CommercialSalidaDto salida)
+    {
+        var parameters = new DialogParameters
+        {
+            { nameof(DialogoDetallesSalida.DocumentoId), salida.CIDDOCUMENTO },
+            { nameof(DialogoDetallesSalida.Username), _username },
+            { nameof(DialogoDetallesSalida.Serie), salida.CSERIEDOCUMENTO },
+            { nameof(DialogoDetallesSalida.Folio), salida.CFOLIO },
+            { nameof(DialogoDetallesSalida.Total), salida.CTOTAL },
+            { nameof(DialogoDetallesSalida.CodigoConcepto), salida.CCODIGOCONCEPTO },
+            { nameof(DialogoDetallesSalida.Fecha), salida.CFECHA },
+            { nameof(DialogoDetallesSalida.RazonSocial), salida.CRAZONSOCIAL },
+            { nameof(DialogoDetallesSalida.Referencia), salida.CREFERENCIA }
+        };
+
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium, FullWidth = true };
+        DialogService.Show<DialogoDetallesSalida>("Partidas de Salida", parameters, options);
+    }
+
+    private async Task AbrirNuevaSalidaDialog()
+    {
+        var parameters = new DialogParameters
+        {
+            { nameof(DialogoNuevaSalida.Username), _username },
+            { nameof(DialogoNuevaSalida.AllowedConcepts), _allowedConcepts }
+        };
+
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium, FullWidth = true };
+        var dialog = DialogService.Show<DialogoNuevaSalida>("Nueva Salida de Almacén", parameters, options);
+        var result = await dialog.Result;
+
+        if (!result.Canceled)
+        {
+            await CargarSalidas();
+        }
+    }
+}
+

@@ -1,11 +1,10 @@
-﻿@page "/diagnostico"
+@page "/diagnostico"
 @using Microsoft.AspNetCore.Authorization
-@attribute [Authorize]
+@attribute [Authorize(Roles = "Admin")]
 @using Blanquita.Web.Components.Layout
 @using Blanquita.Application.Interfaces
 @using Blanquita.Application.DTOs
 @using Blanquita.Application.Queries.FoxPro.DiagnoseFoxProFile
-@using Blanquita.Infrastructure.Models
 @using MediatR
 @inject IConfiguracionService ConfigService
 @inject IMediator Mediator

@@ -60,15 +60,16 @@ public class CashCutTests
     [Fact]
     public void IsValid_ShouldReturnTrue_WhenTotalGreaterThanZero()
     {
-        // IsValid checks if GrandTotal (sum of collections) > 0
-        var cashCut = CashCut.Create(1, 0, 0, 0, 0, 0, 100m, 0, 0, "R", "S", "C", "B");
+        // IsValid checks if TotalSlips > 0
+        var cashCut = CashCut.Create(0, 0, 0, 0, 0, 0, 100m, 0, 0, "R", "S", "C", "B");
         Assert.True(cashCut.IsValid());
     }
 
     [Fact]
     public void IsValid_ShouldReturnFalse_WhenTotalIsZero()
     {
-        var cashCut = CashCut.Create(0, 0, 0, 0, 0, 0, 0, 0, 0, "R", "S", "C", "B");
-        Assert.False(cashCut.IsValid());
+        // Creating a cut with 0 slips should throw a BusinessRuleViolationException
+        Assert.Throws<Blanquita.Domain.Exceptions.BusinessRuleViolationException>(() =>
+            CashCut.Create(0, 0, 0, 0, 0, 0, 0m, 0, 0, "R", "S", "C", "B"));
     }
 }

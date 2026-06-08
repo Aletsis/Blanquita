@@ -61,6 +61,24 @@ public class DatabaseMigrationService
                 _logger.LogInformation("Rol 'User' creado.");
             }
 
+            if (!await _roleManager.RoleExistsAsync("Security"))
+            {
+                await _roleManager.CreateAsync(new IdentityRole("Security"));
+                _logger.LogInformation("Rol 'Security' creado.");
+            }
+
+            if (!await _roleManager.RoleExistsAsync("Supervisor"))
+            {
+                await _roleManager.CreateAsync(new IdentityRole("Supervisor"));
+                _logger.LogInformation("Rol 'Supervisor' creado.");
+            }
+
+            if (!await _roleManager.RoleExistsAsync("Abarrotes"))
+            {
+                await _roleManager.CreateAsync(new IdentityRole("Abarrotes"));
+                _logger.LogInformation("Rol 'Abarrotes' creado.");
+            }
+
             // Seed Admin User
             var adminEmail = "admin@blanquita.com";
             var adminUser = await _userManager.FindByEmailAsync(adminEmail);

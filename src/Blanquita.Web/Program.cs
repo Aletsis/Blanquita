@@ -94,6 +94,10 @@ Env.Load();
     }
 
     app.UseHttpsRedirection();
+    
+    // Custom exception handling middleware
+    app.UseMiddleware<Blanquita.Web.Middleware.ExceptionHandlingMiddleware>();
+    
     app.UseStaticFiles();
     app.UseAntiforgery();
 

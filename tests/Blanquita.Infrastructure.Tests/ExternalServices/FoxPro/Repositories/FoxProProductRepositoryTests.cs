@@ -2,6 +2,7 @@ using Blanquita.Application.Interfaces;
 using Blanquita.Infrastructure.ExternalServices.FoxPro.Common;
 using Blanquita.Infrastructure.ExternalServices.FoxPro.Repositories;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Caching.Memory;
 using Moq;
 using Xunit;
 
@@ -12,6 +13,7 @@ public class FoxProProductRepositoryTests : IDisposable
     private readonly Mock<IConfiguracionService> _mockConfigService;
     private readonly Mock<IFoxProReaderFactory> _mockReaderFactory;
     private readonly Mock<ILogger<FoxProProductRepository>> _mockLogger;
+    private readonly Mock<IMemoryCache> _mockCache;
     private readonly Mock<IFoxProDataReader> _mockReader;
     private readonly FoxProProductRepository _repository;
     private readonly string _tempFilePath;
@@ -22,11 +24,13 @@ public class FoxProProductRepositoryTests : IDisposable
         _mockReaderFactory = new Mock<IFoxProReaderFactory>();
         _mockLogger = new Mock<ILogger<FoxProProductRepository>>();
         _mockReader = new Mock<IFoxProDataReader>();
+        _mockCache = new Mock<IMemoryCache>();
 
         _repository = new FoxProProductRepository(
             _mockConfigService.Object,
             _mockReaderFactory.Object,
-            _mockLogger.Object);
+            _mockLogger.Object,
+            _mockCache.Object);
 
         // Crear archivo temporal real para pasar la validación File.Exists
         _tempFilePath = Path.GetTempFileName();

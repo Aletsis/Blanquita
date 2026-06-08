@@ -17,7 +17,9 @@ public class ConfiguracionHelperTests
             Mgw10005Path = "path/to/mgw5.dbf",
             Mgw10045Path = "path/to/mgw45.dbf",
             Mgw10002Path = "path/to/mgw2.dbf",
-            Mgw10011Path = "path/to/mgw11.dbf"
+            Mgw10011Path = "path/to/mgw11.dbf",
+            Pos10008Path = "path/to/pos8.dbf",
+            Pos10010Path = "path/to/pos10.dbf"
         };
     }
 

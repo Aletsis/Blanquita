@@ -13,4 +13,5 @@ public interface ISupervisorService
     Task<SupervisorDto> UpdateAsync(UpdateSupervisorDto dto, CancellationToken cancellationToken = default);
     Task DeleteAsync(int id, CancellationToken cancellationToken = default);
     Task<PagedResult<SupervisorDto>> GetPagedAsync(SearchSupervisorRequest request, CancellationToken cancellationToken = default);
+    Task<SupervisorDto?> GetByEmployeeNumberAsync(int employeeNumber, CancellationToken cancellationToken = default);
 }

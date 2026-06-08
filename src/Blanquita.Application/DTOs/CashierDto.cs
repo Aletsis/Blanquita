@@ -7,6 +7,7 @@ public record CashierDto
     public string Name { get; init; } = string.Empty;
     public int BranchId { get; init; }
     public bool IsActive { get; init; }
+    public int IDContpaq { get; init; }
 }
 
 public record CreateCashierDto
@@ -15,6 +16,7 @@ public record CreateCashierDto
     public string Name { get; init; } = string.Empty;
     public int BranchId { get; init; }
     public bool IsActive { get; init; }
+    public int IDContpaq { get; init; }
 }
 
 public record UpdateCashierDto
@@ -24,4 +26,5 @@ public record UpdateCashierDto
     public string Name { get; init; } = string.Empty;
     public int BranchId { get; init; }
     public bool IsActive { get; init; }
+    public int IDContpaq { get; init; }
 }

@@ -1,9 +1,9 @@
-namespace Blanquita.Infrastructure.Models;
+namespace Blanquita.Application.DTOs;
 
 /// <summary>
-/// Modelo de configuración de la aplicación para persistencia
+/// Modelo de configuración de la aplicación antigua para migración
 /// </summary>
-public class AppConfiguration
+public class LegacyAppConfiguration
 {
     public string Pos10041Path { get; set; } = string.Empty;
     public string Pos10042Path { get; set; } = string.Empty;

@@ -8,4 +8,6 @@ public class BranchDto
     public string SeriesCliente { get; set; } = "";
     public string SeriesGlobal { get; set; } = "";
     public string SeriesDevolucion { get; set; } = "";
+    public string Direccion { get; set; } = string.Empty;
+    public string? ConceptosSalida { get; set; }
 }

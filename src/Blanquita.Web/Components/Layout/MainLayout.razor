@@ -1,42 +1,130 @@
-﻿@inherits LayoutComponentBase
+@inherits LayoutComponentBase
+@inject NavigationManager Navigation
 
-<MudThemeProvider />
+<MudThemeProvider Theme="_theme" />
 <MudPopoverProvider />
 <MudDialogProvider />
 <MudSnackbarProvider />
 
 <MudLayout>
-    <MudAppBar Elevation="1" Dense="true">
-        <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start" OnClick="@((e) => DrawerToggle())" />
-        <MudText Typo="Typo.h6" Class="ml-3">Carnicerias La Blanquita</MudText>
+    <!-- AppBar Premium con Gradiente Sutil y Sombreado Suave -->
+    <MudAppBar Elevation="0" Class="border-b px-4 bg-white" Style="height: 64px;">
+        <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start" OnClick="@((e) => DrawerToggle())" Class="mr-2" />
+        
+        <MudStack Row="true" AlignItems="AlignItems.Center" Class="gap-2">
+            <MudAvatar Color="Color.Primary" Variant="Variant.Filled" Size="Size.Medium" Class="shadow-md">
+                <MudIcon Icon="@Icons.Material.Filled.Store" />
+            </MudAvatar>
+            <MudText Typo="Typo.h6" Class="font-weight-black tracking-tight" Style="background: linear-gradient(135deg, #4f46e5, #06b6d4); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+                La Blanquita
+            </MudText>
+        </MudStack>
+        
         <MudSpacer />
+        
         <AuthorizeView>
             <Authorized>
                 <SessionTimeout />
-                <MudText Class="mr-4">Hola, @context.User.Identity?.Name</MudText>
-                <MudButton Variant="Variant.Filled" Color="Color.Secondary" OnClick="Logout" StartIcon="@Icons.Material.Filled.Logout">Cerrar Sesión</MudButton>
+                <div class="d-flex align-center gap-3">
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Class="d-none d-sm-flex gap-2">
+                        <MudAvatar Color="Color.Primary" Size="Size.Small" Variant="Variant.Filled" Class="shadow-sm">
+                            @context.User.Identity?.Name?[0].ToString().ToUpper()
+                        </MudAvatar>
+                        <MudText Typo="Typo.body2" Class="font-weight-bold text-slate">
+                            Hola, <span class="text-indigo">@context.User.Identity?.Name</span>
+                        </MudText>
+                    </MudStack>
+                    <MudButton Variant="Variant.Outlined" 
+                               Color="Color.Error" 
+                               Size="Size.Small"
+                               OnClick="Logout" 
+                               StartIcon="@Icons.Material.Filled.Logout"
+                               Class="rounded-pill px-4 font-weight-bold shadow-sm hover-error-bg">
+                        Salir
+                    </MudButton>
+                </div>
             </Authorized>
             <NotAuthorized>
-                <MudButton Variant="Variant.Filled" Color="Color.Secondary" Href="/login" StartIcon="@Icons.Material.Filled.Login">Iniciar Sesión</MudButton>
+                <MudButton Variant="Variant.Filled" 
+                           Color="Color.Primary" 
+                           Size="Size.Medium"
+                           Href="/login" 
+                           StartIcon="@Icons.Material.Filled.Login"
+                           Class="rounded-pill px-6 shadow-md">
+                    Iniciar Sesión
+                </MudButton>
             </NotAuthorized>
         </AuthorizeView>
     </MudAppBar>
-    <MudDrawer @bind-Open="@_drawerOpen" Elevation="2" ClipMode="DrawerClipMode.Always">
-        <MudDrawerHeader>
-            <MudText Typo="Typo.h6" Class="mt-1">Menú</MudText>
-        </MudDrawerHeader>
-        <NavMenu/>
+
+    <!-- Barra de Navegación Lateral con Bordes Suaves -->
+    <MudDrawer @bind-Open="@_drawerOpen" Elevation="1" ClipMode="DrawerClipMode.Always" Width="280px" Class="border-r">
+        <NavMenu />
     </MudDrawer>
-    <MudMainContent>
-            @Body
+
+    <!-- Contenido Principal con Espaciado Fluido -->
+    <MudMainContent Class="bg-slate pa-4 pa-sm-6 animate-fade-in-content">
+        @Body
     </MudMainContent>
 </MudLayout>
 
 <div id="blazor-error-ui">
-    An unhandled error has occurred.
-    <a href="" class="reload">Reload</a>
+    Ha ocurrido un error inesperado.
+    <a href="" class="reload">Recargar</a>
     <a class="dismiss">🗙</a>
 </div>
+
+<style>
+    .border-b {
+        border-bottom: 1px solid rgba(226, 232, 240, 0.8) !important;
+    }
+    .border-r {
+        border-right: 1px solid rgba(226, 232, 240, 0.8) !important;
+    }
+    .shadow-sm {
+        box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05) !important;
+    }
+    .shadow-md {
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1) !important;
+    }
+    .rounded-pill {
+        border-radius: 9999px !important;
+    }
+    .tracking-tight {
+        letter-spacing: -0.025em !important;
+    }
+    .font-weight-black {
+        font-weight: 900 !important;
+    }
+    .font-weight-bold {
+        font-weight: 700 !important;
+    }
+    .text-slate {
+        color: #334155 !important;
+    }
+    .text-indigo {
+        color: #4f46e5 !important;
+    }
+    .bg-slate {
+        background-color: #f8fafc !important;
+    }
+    
+    .hover-error-bg:hover {
+        background-color: rgba(239, 68, 68, 0.04) !important;
+    }
+
+    .animate-fade-in-content {
+        animation: fadeIn 0.4s ease-out;
+    }
+    .mud-main-content {
+        padding-top: 80px !important;
+    }
+    @@keyframes fadeIn {
+        from { opacity: 0; transform: translateY(5px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+</style>
+
 @code {
     bool _drawerOpen = true;
 
@@ -45,11 +133,35 @@
         _drawerOpen = !_drawerOpen;
     }
 
-    [Inject] NavigationManager Navigation { get; set; }
-
     private void Logout()
     {
         Navigation.NavigateTo("/Account/logout", forceLoad: true);
     }
-}
 
+    private MudTheme _theme = new()
+    {
+        PaletteLight = new PaletteLight()
+        {
+            Primary = "#4f46e5", // Indigo Moderno
+            Secondary = "#06b6d4", // Cyan
+            Tertiary = "#8b5cf6", // Violeta
+            AppbarBackground = "#ffffff", 
+            AppbarText = "#1e293b", 
+            Background = "#f8fafc", 
+            DrawerBackground = "#ffffff", 
+            DrawerText = "#334155",
+            DrawerIcon = "#475569",
+            Success = "#10b981", // Esmeralda
+            Warning = "#f59e0b", // Ámbar
+            Error = "#ef4444", // Rosa/Rojo
+            Info = "#3b82f6", // Azul real
+            Surface = "#ffffff",
+            TextPrimary = "#0f172a", 
+            TextSecondary = "#475569"
+        },
+        LayoutProperties = new LayoutProperties()
+        {
+            DefaultBorderRadius = "12px"
+        }
+    };
+}

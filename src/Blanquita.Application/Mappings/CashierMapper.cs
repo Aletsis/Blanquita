@@ -13,13 +13,14 @@ public static class CashierMapper
             EmployeeNumber = cashier.EmployeeNumber,
             Name = cashier.Name,
             BranchId = cashier.BranchId,
-            IsActive = cashier.IsActive
+            IsActive = cashier.IsActive,
+            IDContpaq = cashier.IDContpaq
         };
     }
 
     public static Cashier ToEntity(this CreateCashierDto dto)
     {
-        return Cashier.Create(dto.EmployeeNumber, dto.Name, dto.BranchId, dto.IsActive);
+        return Cashier.Create(dto.EmployeeNumber, dto.Name, dto.BranchId, dto.IDContpaq, dto.IsActive);
     }
 
     public static void UpdateEntity(this UpdateCashierDto dto, Cashier cashier)
@@ -27,6 +28,7 @@ public static class CashierMapper
         cashier.UpdateName(dto.Name);
         cashier.UpdateEmployeeNumber(dto.EmployeeNumber);
         cashier.UpdateBranch(dto.BranchId);
+        cashier.UpdateIDContpaq(dto.IDContpaq);
 
         if (dto.IsActive)
             cashier.Activate();

@@ -2,6 +2,7 @@ namespace Blanquita.Application.DTOs;
 
 public class ProductSearchDto
 {
+    public int Id { get; set; }
     public string Code { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
     public decimal Price { get; set; } // Cprecio1

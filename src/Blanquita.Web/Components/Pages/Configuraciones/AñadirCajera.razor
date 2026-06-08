@@ -1,6 +1,6 @@
-﻿@page "/añadir-cajera"
+@page "/añadir-cajera"
 @using Microsoft.AspNetCore.Authorization
-@attribute [Authorize]
+@attribute [Authorize(Roles = "Admin")]
 @using System.ComponentModel.DataAnnotations
 @using Blanquita.Application.DTOs
 @using Blanquita.Application.Interfaces
@@ -41,6 +41,14 @@
                         
                         <MudNumericField @bind-Value="model.EmployeeNumber" 
                                         Label="Número de nómina" 
+                                        Variant="Variant.Outlined" 
+                                        Margin="Margin.Dense"
+                                        Adornment="Adornment.Start"
+                                        AdornmentIcon="@Icons.Material.Filled.Numbers"
+                                        Class="mb-3"></MudNumericField>
+
+                        <MudNumericField @bind-Value="model.IDContpaq" 
+                                        Label="ID Contpaqi" 
                                         Variant="Variant.Outlined" 
                                         Margin="Margin.Dense"
                                         Adornment="Adornment.Start"
@@ -108,6 +116,7 @@
                     <HeaderContent>
                         <MudTh><MudTableSortLabel SortLabel="Id" T="CashierDto">ID</MudTableSortLabel></MudTh>
                         <MudTh><MudTableSortLabel SortLabel="EmployeeNumber" T="CashierDto">Nómina</MudTableSortLabel></MudTh>
+                        <MudTh><MudTableSortLabel SortLabel="IDContpaq" T="CashierDto">ID Contpaqi</MudTableSortLabel></MudTh>
                         <MudTh><MudTableSortLabel SortLabel="Name" T="CashierDto">Nombre</MudTableSortLabel></MudTh>
                         <MudTh><MudTableSortLabel SortLabel="BranchId" T="CashierDto">Sucursal</MudTableSortLabel></MudTh>
                         <MudTh>Estado</MudTh>
@@ -119,6 +128,9 @@
                         </MudTd>
                         <MudTd DataLabel="Nomina">
                             <MudText Typo="Typo.body2" Class="font-weight-bold">@context.EmployeeNumber</MudText>
+                        </MudTd>
+                        <MudTd DataLabel="ID Contpaqi">
+                            <MudChip T="string" Color="Color.Info" Size="Size.Small" Variant="Variant.Outlined">@context.IDContpaq</MudChip>
                         </MudTd>
                         <MudTd DataLabel="Name">
                              <div class="d-flex align-center">
@@ -225,7 +237,8 @@
             Name = selected.Name,
             EmployeeNumber = selected.EmployeeNumber,
             BranchId = selected.BranchId,
-            IsActive = selected.IsActive
+            IsActive = selected.IsActive,
+            IDContpaq = selected.IDContpaq
         };
         isEditing = true;
         StateHasChanged();
@@ -233,7 +246,7 @@
 
     private void CancelEdit()
     {
-        model = new CashierViewModel { BranchId = 0, IsActive = true };
+        model = new CashierViewModel { BranchId = 0, IsActive = true, IDContpaq = 0 };
         isEditing = false;
         editingId = 0;
         StateHasChanged();
@@ -281,7 +294,8 @@
                     Name = model.Name,
                     EmployeeNumber = model.EmployeeNumber,
                     BranchId = model.BranchId,
-                    IsActive = model.IsActive
+                    IsActive = model.IsActive,
+                    IDContpaq = model.IDContpaq
                 };
                 await CashierService.UpdateAsync(updateDto);
                 Snackbar.Add("Cajera actualizada exitosamente", Severity.Success);
@@ -293,7 +307,8 @@
                     Name = model.Name,
                     EmployeeNumber = model.EmployeeNumber,
                     BranchId = model.BranchId,
-                    IsActive = model.IsActive
+                    IsActive = model.IsActive,
+                    IDContpaq = model.IDContpaq
                 };
                 await CashierService.CreateAsync(createDto);
                 Snackbar.Add("Cajera registrada exitosamente", Severity.Success);
@@ -316,5 +331,6 @@
         public int EmployeeNumber { get; set; }
         public int BranchId { get; set; }
         public bool IsActive { get; set; } = true;
+        public int IDContpaq { get; set; }
     }
 }

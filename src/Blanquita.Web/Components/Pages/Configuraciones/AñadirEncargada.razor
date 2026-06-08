@@ -1,6 +1,6 @@
-﻿@page "/añadir-encargada"
+@page "/añadir-encargada"
 @using Microsoft.AspNetCore.Authorization
-@attribute [Authorize]
+@attribute [Authorize(Roles = "Admin")]
 @using System.ComponentModel.DataAnnotations
 @using Blanquita.Application.DTOs
 @using Blanquita.Application.Interfaces
@@ -31,6 +31,15 @@
                 <EditForm Model="model" OnValidSubmit="GuardarEncargada">
                     <DataAnnotationsValidator />
                     <MudCardContent>
+                        <MudNumericField @bind-Value="model.EmployeeNumber" 
+                                         Label="Número de nómina" 
+                                         Variant="Variant.Outlined" 
+                                         Margin="Margin.Dense"
+                                         Min="1"
+                                         Adornment="Adornment.Start"
+                                         AdornmentIcon="@Icons.Material.Filled.Numbers"
+                                         Class="mb-3"></MudNumericField>
+
                         <MudTextField @bind-Value="model.Name" 
                                      Label="Nombre de encargada" 
                                      Variant="Variant.Outlined" 
@@ -51,6 +60,15 @@
                                 <MudSelectItem T="int" Value="@sucursal.Id">@sucursal.Name</MudSelectItem>
                             }
                         </MudSelect>
+
+                        <MudTextField @bind-Value="model.PhoneNumber" 
+                                     Label="Teléfono (10 dígitos MX)" 
+                                     Variant="Variant.Outlined" 
+                                     Margin="Margin.Dense"
+                                     Adornment="Adornment.Start"
+                                     AdornmentIcon="@Icons.Material.Filled.Phone"
+                                     For="@(() => model.PhoneNumber)"
+                                     Class="mb-3"></MudTextField>
                         
                         <MudSwitch @bind-Value="model.IsActive" 
                                   Label="Cuenta Activa" 
@@ -99,14 +117,19 @@
                     </ToolBarContent>
                     <HeaderContent>
                         <MudTh><MudTableSortLabel SortLabel="Id" T="SupervisorDto">ID</MudTableSortLabel></MudTh>
+                        <MudTh><MudTableSortLabel SortLabel="EmployeeNumber" T="SupervisorDto">Nómina</MudTableSortLabel></MudTh>
                         <MudTh><MudTableSortLabel SortLabel="Name" T="SupervisorDto">Nombre</MudTableSortLabel></MudTh>
                         <MudTh><MudTableSortLabel SortLabel="BranchId" T="SupervisorDto">Sucursal</MudTableSortLabel></MudTh>
+                        <MudTh>Teléfono</MudTh>
                         <MudTh>Estado</MudTh>
                         <MudTh Style="text-align:center">Acciones</MudTh>
                     </HeaderContent>
                     <RowTemplate>
                         <MudTd DataLabel="Id">
                             <MudChip T="string" Color="Color.Default" Size="Size.Small" Variant="Variant.Outlined">@context.Id</MudChip>
+                        </MudTd>
+                        <MudTd DataLabel="EmployeeNumber">
+                            <MudChip T="string" Color="Color.Info" Size="Size.Small" Variant="Variant.Text" Icon="@Icons.Material.Filled.Numbers">@context.EmployeeNumber</MudChip>
                         </MudTd>
                         <MudTd DataLabel="Name">
                              <div class="d-flex align-center">
@@ -118,6 +141,12 @@
                              <div class="d-flex align-center">
                                 <MudIcon Icon="@Icons.Material.Filled.Store" Size="Size.Small" Class="mr-2" Color="Color.Secondary" />
                                 <MudText Typo="Typo.body2">@GetSucursalName(context.BranchId)</MudText>
+                            </div>
+                        </MudTd>
+                        <MudTd DataLabel="Teléfono">
+                            <div class="d-flex align-center">
+                                <MudIcon Icon="@Icons.Material.Filled.Phone" Size="Size.Small" Class="mr-2" Color="Color.Info" />
+                                <MudText Typo="Typo.body2">@context.PhoneNumber</MudText>
                             </div>
                         </MudTd>
                         <MudTd DataLabel="Activa">
@@ -210,8 +239,10 @@
         editingId = selected.Id;
         model = new SupervisorViewModel
         {
+            EmployeeNumber = selected.EmployeeNumber,
             Name = selected.Name,
             BranchId = selected.BranchId,
+            PhoneNumber = selected.PhoneNumber,
             IsActive = selected.IsActive
         };
         isEditing = true;
@@ -220,7 +251,7 @@
 
     private void CancelEdit()
     {
-        model = new SupervisorViewModel { BranchId = 0, IsActive = true };
+        model = new SupervisorViewModel { EmployeeNumber = 0, BranchId = 0, IsActive = true };
         isEditing = false;
         editingId = 0;
         StateHasChanged();
@@ -247,6 +278,9 @@
                     break;
                  case "Id":
                     data = data.OrderByDirection(state.SortDirection, o => o.Id);
+                    break;
+                 case "EmployeeNumber":
+                    data = data.OrderByDirection(state.SortDirection, o => o.EmployeeNumber);
                     break;
                  case "BranchId":
                     data = data.OrderByDirection(state.SortDirection, o => o.BranchId);
@@ -279,8 +313,10 @@
                 var updateDto = new UpdateSupervisorDto
                 {
                     Id = editingId,
+                    EmployeeNumber = model.EmployeeNumber,
                     Name = model.Name,
                     BranchId = model.BranchId,
+                    PhoneNumber = model.PhoneNumber,
                     IsActive = model.IsActive
                 };
                 await SupervisorService.UpdateAsync(updateDto);
@@ -290,8 +326,10 @@
             {
                 var createDto = new CreateSupervisorDto
                 {
+                    EmployeeNumber = model.EmployeeNumber,
                     Name = model.Name,
                     BranchId = model.BranchId,
+                    PhoneNumber = model.PhoneNumber,
                     IsActive = model.IsActive
                 };
                 await SupervisorService.CreateAsync(createDto);
@@ -310,9 +348,18 @@
 
     public class SupervisorViewModel
     {
-        [Required]
+        [Required(ErrorMessage = "El número de nómina es requerido")]
+        [Range(1, int.MaxValue, ErrorMessage = "El número de nómina debe ser mayor a cero")]
+        public int EmployeeNumber { get; set; }
+
+        [Required(ErrorMessage = "El nombre es requerido")]
         public string Name { get; set; } = string.Empty;
+        
         public int BranchId { get; set; }
+        
+        [RegularExpression(@"^\d{10}$", ErrorMessage = "El número de teléfono debe tener exactamente 10 dígitos (ej. 3312345678).")]
+        public string? PhoneNumber { get; set; }
+        
         public bool IsActive { get; set; } = true;
     }
 }

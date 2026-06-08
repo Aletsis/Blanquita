@@ -1,14 +1,17 @@
-﻿@page "/corte-caja"
+@page "/corte-caja"
 @using Blanquita.Application.DTOs
 @using Blanquita.Application.Interfaces
+@using Blanquita.Application.Queries.Supervisors
+@using Blanquita.Application.Queries.Cashiers
+@using Blanquita.Application.Queries.Cajas
+@using Blanquita.Application.Commands.Cajas
+@using Blanquita.Application.Queries.Conciliaciones
+@using Blanquita.Application.Helpers
+@using MediatR
 @using System.Globalization
-@inject ICashRegisterService CashRegisterService
-@inject IPrintingService PrintingService
 @inject ISnackbar Snackbar
-@inject ISupervisorService SupervisorService
-@inject ICashierService CashierService
-@inject ICashCutService CashCutService
-@inject ICashCollectionService CashCollectionService
+@inject IMediator Mediator
+
 
 <PageTitle>Corte de Caja</PageTitle>
 
@@ -67,65 +70,50 @@
                                 }
                             }
                         </MudSelect>
-
-                        <MudSelect T="int" 
-                                   Label="Seleccione cajera" 
-                                   @bind-Value="_selectedCashierId"
-                                   Variant="Variant.Outlined"
-                                   AnchorOrigin="Origin.BottomCenter"
-                                   Class="mb-4"
-                                   Disabled="@(_selectedSupervisorId == 0)"
-                                   Adornment="Adornment.Start"
-                                   AdornmentIcon="@Icons.Material.Filled.Person">
-                            @if (cashiers == null || !cashiers.Any())
-                            {
-                                <MudSelectItem T="int" Value="0">-- Seleccione una encargada primero --</MudSelectItem>
-                            }
-                            else
-                            {
-                                <MudSelectItem T="int" Value="0">-- Seleccione una cajera --</MudSelectItem>
-                                @foreach (var cashier in cashiers)
-                                {
-                                    if (cashier.IsActive)
-                                    {
-                                        <MudSelectItem T="int" Value="@cashier.Id">
-                                            <div class="d-flex align-center">
-                                                <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Size="Size.Small" Color="Color.Success" Class="mr-2"/>
-                                                @cashier.Name
-                                            </div>
-                                        </MudSelectItem>
-                                    }
-                                }
-                            }
-                        </MudSelect>
-
                         <MudSelect T="int" 
                                    Label="Seleccione caja" 
                                    Value="_selectedCashRegisterId"
                                    ValueChanged="@(async (int value) => await OnCashRegisterChanged(value))"
                                    Variant="Variant.Outlined"
                                    AnchorOrigin="Origin.BottomCenter"
+                                   Class="mb-4"
                                    Disabled="@(_selectedSupervisorId == 0)"
                                    Adornment="Adornment.Start"
                                    AdornmentIcon="@Icons.Material.Filled.PointOfSale">
-                            @if (cashRegisters == null || !cashRegisters.Any())
+                            @if (_availableBoxes == null || !_availableBoxes.Any())
                             {
-                                <MudSelectItem T="int" Value="0">-- Seleccione una encargada primero --</MudSelectItem>
+                                <MudSelectItem T="int" Value="0">
+                                    @(_selectedSupervisorId == 0 ? "-- Seleccione una encargada primero --" : "-- No hay cajas con apertura disponibles --")
+                                </MudSelectItem>
                             }
                             else
                             {
                                 <MudSelectItem T="int" Value="0">-- Seleccione una caja --</MudSelectItem>
-                                @foreach (var register in cashRegisters)
+                                @foreach (var box in _availableBoxes)
                                 {
-                                    <MudSelectItem T="int" Value="@register.Id">
+                                    <MudSelectItem T="int" Value="@box.Id">
                                         <div class="d-flex align-center">
                                             <MudIcon Icon="@Icons.Material.Filled.Print" Size="Size.Small" Class="mr-2"/>
-                                            @register.Name
+                                            @box.Name (Apertura: @box.Time.ToString("HH:mm"))
                                         </div>
                                     </MudSelectItem>
                                 }
                             }
                         </MudSelect>
+
+                        @if (!string.IsNullOrEmpty(_resolvedCashierName))
+                        {
+                            <MudPaper Elevation="0" Class="pa-3 rounded-lg border-light bg-light d-flex align-center">
+                                <MudIcon Icon="@Icons.Material.Filled.Person" Color="Color.Secondary" Class="mr-2" />
+                                <MudText Typo="Typo.body1">Cajera asignada: <b>@_resolvedCashierName</b></MudText>
+                            </MudPaper>
+                        }
+                        else if (_selectedSupervisorId > 0 && _selectedCashRegisterId > 0)
+                        {
+                            <MudAlert Severity="Severity.Warning" Dense="true" Class="rounded-lg">
+                                No se pudo auto-resolver la cajera para este turno.
+                            </MudAlert>
+                        }
                     </MudCardContent>
                 </MudCard>
             </MudItem>
@@ -237,20 +225,19 @@
 @code {
     private CashCutViewModel model = new CashCutViewModel();
     private int _selectedCashRegisterId = 0;
-    private List<CashRegisterDto>? cashRegisters;
+    private List<AvailableBoxDto> _availableBoxes = new();
     private int _selectedSupervisorId = 0;
     private int _selectedCashierId = 0;
     private List<SupervisorDto>? supervisors;
-    private List<CashierDto>? cashiers;
+    private string? _resolvedCashierName;
     private SupervisorDto? _selectedSupervisor;
     private bool _isSubmitting = false;
     private decimal _totalCollections = 0;
 
     protected override async Task OnInitializedAsync()
     {
-        supervisors = (await SupervisorService.GetAllAsync()).ToList();
-        cashiers = new List<CashierDto>();
-        cashRegisters = new List<CashRegisterDto>();
+        var result = await Mediator.Send(new GetSupervisorsQuery());
+        supervisors = result.ToList();
     }
 
     private async Task OnSupervisorChanged(int supervisorId)
@@ -259,19 +246,17 @@
         _selectedCashierId = 0; 
         _selectedCashRegisterId = 0;
         _totalCollections = 0;
+        _resolvedCashierName = null;
+        _availableBoxes = new List<AvailableBoxDto>();
 
-        if (supervisorId > 0)
+        if (supervisorId > 0 && supervisors != null)
         {
-            _selectedSupervisor = await SupervisorService.GetByIdAsync(supervisorId);
-            
-            // Usar GetByBranchAsync que aún existe en los servicios
-            cashRegisters = (await CashRegisterService.GetByBranchAsync(_selectedSupervisor.BranchId)).ToList();
-            cashiers = (await CashierService.GetByBranchAsync(_selectedSupervisor.BranchId)).ToList(); 
-        }
-        else
-        {
-            cashRegisters = new List<CashRegisterDto>();
-            cashiers = new List<CashierDto>();
+            _selectedSupervisor = supervisors.FirstOrDefault(s => s.Id == supervisorId);
+            if (_selectedSupervisor != null)
+            {
+                var data = await Mediator.Send(new GetAvailableBoxesQuery(DateTime.Today, _selectedSupervisor.BranchId));
+                _availableBoxes = data.ToList();
+            }
         }
 
         StateHasChanged();
@@ -281,14 +266,32 @@
     {
         _selectedCashRegisterId = cashRegisterId;
         _totalCollections = 0;
+        _selectedCashierId = 0;
+        _resolvedCashierName = null;
 
-        if (cashRegisterId > 0 && cashRegisters != null)
+        if (cashRegisterId > 0 && _availableBoxes != null)
         {
-            var register = cashRegisters.FirstOrDefault(r => r.Id == cashRegisterId);
-            if (register != null)
+            var selectedBox = _availableBoxes.FirstOrDefault(b => b.Id == cashRegisterId);
+            if (selectedBox != null)
             {
                 // Obtener recolecciones sin corte de esta caja
-                await LoadCollectionsTotal(register.Name);
+                await LoadCollectionsTotal(selectedBox.Name);
+
+                // Obtener cajera automática según el CashierId del turno
+                if (_selectedSupervisor != null)
+                {
+                    var cashier = await Mediator.Send(new GetCashierByContpaqIdQuery(_selectedSupervisor.BranchId, selectedBox.CashierId));
+                    if (cashier != null)
+                    {
+                        _selectedCashierId = cashier.Id;
+                        _resolvedCashierName = cashier.Name;
+                    }
+                    else
+                    {
+                        _selectedCashierId = 0;
+                        _resolvedCashierName = $"ID Contpaqi: {selectedBox.CashierId} (No registrada)";
+                    }
+                }
             }
         }
 
@@ -299,27 +302,7 @@
     {
         try
         {
-            var today = DateTime.Today;
-            var endOfDay = today.AddDays(1).AddTicks(-1);
-
-            var searchRequest = new SearchCashCollectionRequest
-            {
-                FechaInicio = today,
-                FechaFin = endOfDay,
-                CashRegisterName = cashRegisterName,
-                IsCut = false
-            };
-
-            var collections = await CashCollectionService.SearchAsync(searchRequest);
-            
-            // Calcular el total de las recolecciones (suma de denominaciones)
-            _totalCollections = collections.Sum(c => 
-                (c.Thousands * 1000m) + 
-                (c.FiveHundreds * 500m) + 
-                (c.TwoHundreds * 200m) + 
-                (c.Hundreds * 100m) + 
-                (c.Fifties * 50m) + 
-                (c.Twenties * 20m));
+            _totalCollections = await Mediator.Send(new GetCollectionsTotalQuery(cashRegisterName, DateTime.Today));
         }
         catch (Exception ex)
         {
@@ -339,7 +322,6 @@
         _isSubmitting = true;
         try
         {
-            // 1. Prepare Request
             var request = new ProcessCashCutRequest
             {
                 SupervisorId = _selectedSupervisorId,
@@ -350,22 +332,23 @@
                 TotalBanregio = model.TotalBanregio
             };
 
-            // 2. Delegate Business Logic to Service
-            var savedCut = await CashCutService.ProcessCashCutAsync(request);
+            var command = new ProcessCashCutCommand(request);
+            var result = await Mediator.Send(command);
 
-            // 3. Print (Presentation/Side-effect)
-            // We need printer info, so we fetch the register
-            // Optimization: Could request printer info as part of the service result wrap, but redundant for DTO.
-            var register = await CashRegisterService.GetByIdAsync(_selectedCashRegisterId);
-
-            try
+            if (result.Success)
             {
-                await PrintingService.PrintCashCutAsync(savedCut, register.PrinterIp, register.PrinterPort);
-                Snackbar.Add("✅ Corte impreso correctamente", Severity.Success);
+                if (result.PrintingSucceeded)
+                {
+                    Snackbar.Add("✅ Corte impreso correctamente", Severity.Success);
+                }
+                else
+                {
+                    Snackbar.Add($"⚠️ Corte guardado, pero {result.Message}", Severity.Warning);
+                }
             }
-            catch (Exception)
+            else
             {
-                 Snackbar.Add("❌ Error al imprimir corte.", Severity.Error);
+                Snackbar.Add($"❌ Error al realizar el corte: {result.Message}", Severity.Error);
             }
         }
         catch (Exception ex)
@@ -385,16 +368,14 @@
         _selectedCashierId = 0;
         _selectedCashRegisterId = 0;
         _totalCollections = 0;
+        _resolvedCashierName = null;
+        _availableBoxes = new List<AvailableBoxDto>();
         model = new CashCutViewModel();
     }
 
-    /// <summary>
-    /// Calcula el efectivo a entregar: Total Tira - Total Tarjetas - Total Recolecciones
-    /// </summary>
     private decimal CalculateCashToDeliver()
     {
-        var totalCards = model.TotalBanbajio + model.TotalBanregio;
-        return model.TotalSlips - totalCards - _totalCollections;
+        return FinancialCalculator.CalculateCashToDeliver(model.TotalSlips, model.TotalBanbajio, model.TotalBanregio, _totalCollections);
     }
 
     public class CashCutViewModel

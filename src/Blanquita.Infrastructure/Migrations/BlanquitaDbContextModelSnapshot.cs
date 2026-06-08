@@ -34,6 +34,15 @@ namespace Blanquita.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<string>("ConceptosSalida")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("Direccion")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(100)
@@ -188,6 +197,9 @@ namespace Blanquita.Infrastructure.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("Sucursal");
 
+                    b.Property<int>("IdContpaqi")
+                        .HasColumnType("integer");
+
                     b.Property<bool>("IsLastRegister")
                         .HasColumnType("boolean")
                         .HasColumnName("Ultima");
@@ -204,6 +216,12 @@ namespace Blanquita.Infrastructure.Migrations
                         .HasColumnType("character varying(20)")
                         .HasColumnName("Serie");
 
+                    b.Property<int>("Tipo")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0)
+                        .HasColumnName("TipoTerminal");
+
                     b.HasKey("Id");
 
                     b.HasIndex("Name")
@@ -213,6 +231,133 @@ namespace Blanquita.Infrastructure.Migrations
                 });
 
             modelBuilder.Entity("Blanquita.Domain.Entities.Cashier", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("BranchId")
+                        .HasColumnType("integer")
+                        .HasColumnName("Sucursal");
+
+                    b.Property<int>("EmployeeNumber")
+                        .HasColumnType("integer")
+                        .HasColumnName("NumNomina");
+
+                    b.Property<int>("IDContpaq")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0)
+                        .HasColumnName("IDContpaq");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean")
+                        .HasColumnName("Edo");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("Nombre");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EmployeeNumber")
+                        .IsUnique();
+
+                    b.ToTable("Cajeras", (string)null);
+                });
+
+            modelBuilder.Entity("Blanquita.Domain.Entities.ConciliacionCorte", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AperturaId")
+                        .HasColumnType("integer")
+                        .HasColumnName("AperturaId");
+
+                    b.Property<decimal>("Banbajio")
+                        .HasColumnType("decimal(18,2)")
+                        .HasColumnName("Banbajio");
+
+                    b.Property<decimal>("Banregio")
+                        .HasColumnType("decimal(18,2)")
+                        .HasColumnName("Banregio");
+
+                    b.Property<string>("Caja")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("Caja");
+
+                    b.Property<string>("Cajero")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("Cajero");
+
+                    b.Property<decimal>("Devoluciones")
+                        .HasColumnType("decimal(18,2)")
+                        .HasColumnName("Devoluciones");
+
+                    b.Property<decimal>("Diferencia")
+                        .HasColumnType("decimal(18,2)")
+                        .HasColumnName("Diferencia");
+
+                    b.Property<decimal>("EfectivoEntregado")
+                        .HasColumnType("decimal(18,2)")
+                        .HasColumnName("EfectivoEntregado");
+
+                    b.Property<DateTime>("FechaCreacion")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("FechaCreacion");
+
+                    b.Property<string>("Sucursal")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("Sucursal");
+
+                    b.Property<decimal>("TotalEfectivo")
+                        .HasColumnType("decimal(18,2)")
+                        .HasColumnName("TotalEfectivo");
+
+                    b.Property<decimal>("TotalEntregado")
+                        .HasColumnType("decimal(18,2)")
+                        .HasColumnName("TotalEntregado");
+
+                    b.Property<decimal>("TotalEsperado")
+                        .HasColumnType("decimal(18,2)")
+                        .HasColumnName("TotalEsperado");
+
+                    b.Property<decimal>("TotalRecolecciones")
+                        .HasColumnType("decimal(18,2)")
+                        .HasColumnName("TotalRecolecciones");
+
+                    b.Property<decimal>("TotalTarjetas")
+                        .HasColumnType("decimal(18,2)")
+                        .HasColumnName("TotalTarjetas");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AperturaId");
+
+                    b.HasIndex("Caja");
+
+                    b.HasIndex("FechaCreacion");
+
+                    b.HasIndex("Sucursal");
+
+                    b.ToTable("ConciliacionCortes", (string)null);
+                });
+
+            modelBuilder.Entity("Blanquita.Domain.Entities.Deliverer", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -243,7 +388,7 @@ namespace Blanquita.Infrastructure.Migrations
                     b.HasIndex("EmployeeNumber")
                         .IsUnique();
 
-                    b.ToTable("Cajeras", (string)null);
+                    b.ToTable("Repartidores", (string)null);
                 });
 
             modelBuilder.Entity("Blanquita.Domain.Entities.DetalleReporte", b =>
@@ -531,6 +676,10 @@ namespace Blanquita.Infrastructure.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("Sucursal");
 
+                    b.Property<int>("EmployeeNumber")
+                        .HasColumnType("integer")
+                        .HasColumnName("NumNomina");
+
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean")
                         .HasColumnName("Edo");
@@ -541,7 +690,15 @@ namespace Blanquita.Infrastructure.Migrations
                         .HasColumnType("character varying(200)")
                         .HasColumnName("Nombre");
 
+                    b.Property<string>("PhoneNumber")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("Telefono");
+
                     b.HasKey("Id");
+
+                    b.HasIndex("EmployeeNumber")
+                        .IsUnique();
 
                     b.ToTable("Encargadas", (string)null);
                 });
@@ -555,6 +712,16 @@ namespace Blanquita.Infrastructure.Migrations
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
                     b.Property<string>("AlertEmails")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("CommercialApiKey")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("CommercialApiUrl")
                         .IsRequired()
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
@@ -669,6 +836,11 @@ namespace Blanquita.Infrastructure.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
 
+                    b.Property<string>("WhatsAppServiceUrl")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
                     b.HasKey("Id");
 
                     b.ToTable("Configuracion", (string)null);
@@ -680,6 +852,9 @@ namespace Blanquita.Infrastructure.Migrations
                         .HasColumnType("text");
 
                     b.Property<int>("AccessFailedCount")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("BranchId")
                         .HasColumnType("integer");
 
                     b.Property<string>("ConcurrencyStamp")
@@ -730,6 +905,8 @@ namespace Blanquita.Infrastructure.Migrations
                         .HasColumnType("character varying(256)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("BranchId");
 
                     b.HasIndex("NormalizedEmail")
                         .HasDatabaseName("EmailIndex");
@@ -1099,6 +1276,14 @@ namespace Blanquita.Infrastructure.Migrations
 
                     b.Navigation("Sucursal")
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("Blanquita.Infrastructure.Persistence.Identity.ApplicationUser", b =>
+                {
+                    b.HasOne("Blanquita.Domain.Entities.Branch", null)
+                        .WithMany()
+                        .HasForeignKey("BranchId")
+                        .OnDelete(DeleteBehavior.Restrict);
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b =>

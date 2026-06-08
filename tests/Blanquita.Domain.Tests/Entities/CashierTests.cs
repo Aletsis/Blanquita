@@ -90,4 +90,41 @@ public class CashierTests
         // Assert
         Assert.True(cashier.IsActive);
     }
+
+    [Fact]
+    public void Create_WithIDContpaq_ShouldCreateCashierWithIDContpaq()
+    {
+        // Arrange
+        var employeeNumber = 12345;
+        var name = "Juan Pérez";
+        var branchId = 1;
+        var idContpaq = 99;
+
+        // Act
+        var cashier = Cashier.Create(employeeNumber, name, branchId, idContpaq);
+
+        // Assert
+        Assert.NotNull(cashier);
+        Assert.Equal(employeeNumber, cashier.EmployeeNumber);
+        Assert.Equal(name, cashier.Name);
+        Assert.Equal(branchId, cashier.BranchId.Value);
+        Assert.Equal(idContpaq, cashier.IDContpaq);
+        Assert.True(cashier.IsActive);
+    }
+
+    [Fact]
+    public void UpdateIDContpaq_ValidID_ShouldUpdateIDContpaq()
+    {
+        // Arrange
+        var cashier = Cashier.Create(12345, "Juan Pérez", 1, 10);
+        var newIdContpaq = 20;
+
+        // Act
+        cashier.UpdateIDContpaq(newIdContpaq);
+
+        // Assert
+        Assert.Equal(newIdContpaq, cashier.IDContpaq);
+    }
 }
+
+

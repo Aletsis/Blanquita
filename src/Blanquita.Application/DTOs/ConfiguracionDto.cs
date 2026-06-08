@@ -132,4 +132,19 @@ public class ConfiguracionDto
     /// Correos para alertas y resúmenes (separados por coma)
     /// </summary>
     public string AlertEmails { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Dirección de la API Comercial
+    /// </summary>
+    public string CommercialApiUrl { get; set; } = string.Empty;
+
+    /// <summary>
+    /// API Key para autenticar las peticiones a la API Comercial
+    /// </summary>
+    public string CommercialApiKey { get; set; } = string.Empty;
+
+    /// <summary>
+    /// URL del microservicio de WhatsApp
+    /// </summary>
+    public string WhatsAppServiceUrl { get; set; } = string.Empty;
 }
