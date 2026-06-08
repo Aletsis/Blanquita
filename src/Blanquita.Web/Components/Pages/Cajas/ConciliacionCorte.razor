@@ -1,0 +1,678 @@
+@page "/conciliacion-corte"
+@using Blanquita.Application.DTOs
+@using Blanquita.Application.Interfaces
+@using Blanquita.Application.Queries.Conciliaciones
+@using Blanquita.Application.Commands.Conciliaciones
+@using MediatR
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@inject IMediator Mediator
+@inject ISupervisorService SupervisorService
+@inject IBranchService BranchService
+@inject AuthenticationStateProvider AuthStateProvider
+@inject IJSRuntime JSRuntime
+@inject ISnackbar Snackbar
+@inject ILogger<ConciliacionCorte> Logger
+
+<PageTitle>Conciliación de Corte</PageTitle>
+
+@if (!IsUserAuthorized)
+{
+    <!-- Pantalla de Autenticación Inline por Nómina -->
+    <MudContainer MaxWidth="MaxWidth.Small" Class="d-flex align-center justify-center animate-fade-in" Style="min-height: 80vh;">
+        <MudPaper Elevation="8" Class="pa-8 rounded-xl" Style="width: 100%; max-width: 450px;">
+            <MudStack Spacing="4">
+                <MudStack AlignItems="AlignItems.Center" Spacing="2">
+                    <MudAvatar Color="Color.Primary" Size="Size.Large" Style="width: 70px; height: 70px;">
+                        <MudIcon Icon="@Icons.Material.Filled.SupervisorAccount" Size="Size.Large" />
+                    </MudAvatar>
+                    <MudText Typo="Typo.h5" Align="Align.Center" Class="font-weight-bold">Acceso de Encargada</MudText>
+                    <MudText Typo="Typo.body2" Align="Align.Center" Color="Color.Secondary">
+                        Ingrese su número de nómina para comenzar la conciliación
+                    </MudText>
+                </MudStack>
+
+                <EditForm Model="this" OnValidSubmit="ValidarNomina">
+                    <MudStack Spacing="3">
+                        <MudNumericField @bind-Value="_employeeNumberInput"
+                                         Label="Número de Nómina"
+                                         Variant="Variant.Outlined"
+                                         Min="1"
+                                         Required="true"
+                                         Adornment="Adornment.Start"
+                                         AdornmentIcon="@Icons.Material.Filled.Numbers"
+                                         HideSpinButtons="true" />
+
+                        @if (!string.IsNullOrEmpty(_authErrorMessage))
+                        {
+                            <MudAlert Severity="Severity.Error" Dense="true" Class="rounded-lg">@_authErrorMessage</MudAlert>
+                        }
+
+                        <MudButton ButtonType="ButtonType.Submit"
+                                   Variant="Variant.Filled"
+                                   Color="Color.Primary"
+                                   FullWidth="true"
+                                   Size="Size.Large"
+                                   Class="rounded-xl mt-2"
+                                   Disabled="@_checkingSupervisor">
+                            @if (_checkingSupervisor)
+                            {
+                                <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true" />
+                                <MudText Class="ms-2">Validando...</MudText>
+                            }
+                            else
+                            {
+                                <MudText>Ingresar</MudText>
+                            }
+                        </MudButton>
+
+                        <MudDivider Class="my-2" />
+
+                        <MudButton Variant="Variant.Text"
+                                   Color="Color.Secondary"
+                                   FullWidth="true"
+                                   StartIcon="@Icons.Material.Filled.Login"
+                                   Href="/login?returnUrl=/conciliacion-corte"
+                                   Class="rounded-xl">
+                            Cambiar a login de usuario
+                        </MudButton>
+                    </MudStack>
+                </EditForm>
+            </MudStack>
+        </MudPaper>
+    </MudContainer>
+}
+else
+{
+    <!-- Contenido de la Página Principal -->
+    <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-6 animate-fade-in">
+        <div class="d-flex flex-column flex-sm-row justify-space-between align-start align-sm-center mb-6">
+            <MudText Typo="Typo.h4" Class="font-weight-bold mb-2 mb-sm-0" Color="Color.Primary">
+                <MudIcon Icon="@Icons.Material.Filled.Balance" Class="mr-2" Size="Size.Large" />
+                Conciliación de Corte
+            </MudText>
+            
+            <div class="d-flex align-center">
+                @if (_isSupervisorAuthenticated)
+                {
+                    <MudChip T="string" Color="Color.Info" Variant="Variant.Text" Icon="@Icons.Material.Filled.Store" Class="mr-2">
+                        Sucursal: @_supervisorBranchName
+                    </MudChip>
+                    <MudChip T="string" Color="Color.Primary" Variant="Variant.Filled" Icon="@Icons.Material.Filled.Person">
+                        @_supervisorName
+                    </MudChip>
+                    <MudIconButton Icon="@Icons.Material.Filled.Logout" Color="Color.Error" OnClick="LogoutSupervisor" Class="ml-1" Title="Salir" />
+                }
+                else
+                {
+                    <MudChip T="string" Color="Color.Success" Variant="Variant.Filled" Icon="@Icons.Material.Filled.AdminPanelSettings">
+                        Administrador
+                    </MudChip>
+                }
+            </div>
+        </div>
+
+        <MudGrid>
+            <!-- Selección de Cajas en Móvil (Oculto en Desktop) -->
+            <MudItem xs="12" Class="d-block d-md-none mb-2">
+                <MudPaper Elevation="4" Class="pa-4 rounded-xl border-light bg-light shadow-sm">
+                    <MudSelect T="int" 
+                               Label="Seleccionar Corte de Caja" 
+                               Value="_selectedShiftId" 
+                               ValueChanged="OnShiftSelected" 
+                               Variant="Variant.Outlined" 
+                               Margin="Margin.Dense"
+                               Adornment="Adornment.Start" 
+                               AdornmentIcon="@Icons.Material.Filled.DesktopWindows">
+                        <MudSelectItem T="int" Value="0">-- Seleccione un corte disponible --</MudSelectItem>
+                        @foreach (var box in _boxes)
+                        {
+                            <MudSelectItem T="int" Value="@box.ShiftId">
+                                @box.Name (Apertura: @box.Time.ToString("HH:mm"))
+                            </MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudPaper>
+            </MudItem>
+
+            <!-- Columna de Selección de Cajas en Desktop (Oculto en Móvil) -->
+            <MudItem xs="12" md="3" Class="d-none d-md-block">
+                <MudPaper Elevation="4" Class="pa-4 rounded-xl h-100" Style="max-height: 80vh; overflow-y: auto;">
+                    <MudText Typo="Typo.h6" Class="mb-4 px-2 font-weight-bold">Cortes Disponibles</MudText>
+                    <MudList T="int" Clickable="true" Color="Color.Primary">
+                        @if (!_boxes.Any())
+                        {
+                            <div class="pa-4 text-center">
+                                <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Color="Color.Success" Size="Size.Large" Class="mb-2" />
+                                <MudText Typo="Typo.body2" Color="Color.Secondary">No hay cortes pendientes</MudText>
+                            </div>
+                        }
+                        @foreach (var box in _boxes)
+                        {
+                            <MudListItem Value="@box.ShiftId" 
+                                         OnClick="@(() => OnShiftSelected(box.ShiftId))"
+                                         Class="@(_selectedShiftId == box.ShiftId ? "bg-primary-light rounded-lg" : "rounded-lg")">
+                                <div class="d-flex align-center">
+                                    <MudIcon Icon="@Icons.Material.Filled.DesktopWindows" Class="mr-3" 
+                                             Color="@(_selectedShiftId == box.ShiftId ? Color.Primary : (box.Status == 0 ? Color.Error : Color.Default))" />
+                                    <div>
+                                        <MudText Typo="Typo.body1" Class="@(_selectedShiftId == box.ShiftId ? "font-weight-bold" : "")">@box.Name</MudText>
+                                        <MudText Typo="Typo.caption" Color="Color.Primary">Apertura: @box.Time.ToString("HH:mm")</MudText>
+                                        @if (box.Status == 0)
+                                        {
+                                            <MudText Typo="Typo.caption" Color="Color.Error" Class="d-block font-weight-bold">Caja sin corte</MudText>
+                                        }
+                                        else
+                                        {
+                                            <MudText Typo="Typo.caption" Color="Color.Primary">Cierre: @box.TimeClose?.ToString("HH:mm")</MudText>   
+                                        }
+                                    </div>
+                                </div>
+                            </MudListItem>
+                        }
+                    </MudList>
+                </MudPaper>
+            </MudItem>
+
+            <!-- Área Principal de Datos -->
+            <MudItem xs="12" md="9">
+                @if (_loading)
+                {
+                    <MudPaper Elevation="0" Class="d-flex align-center justify-center pa-12 rounded-xl h-100">
+                        <MudProgressCircular Color="Color.Primary" Size="Size.Large" Indeterminate="true" />
+                        <MudText Class="ml-4">Cargando datos del sistema...</MudText>
+                    </MudPaper>
+                }
+                else if (_result != null)
+                {
+                    <div class="animate-slide-up">
+                        <div class="d-flex flex-column flex-sm-row justify-space-between align-start align-sm-center mb-4 gap-2">
+                            <MudStack Row="true" AlignItems="AlignItems.Center">
+                                 <MudIcon Icon="@Icons.Material.Filled.Person" Color="Color.Secondary" />
+                                 <MudText Typo="Typo.h6">Cajero: <b>@_result.CashierName</b></MudText>
+                            </MudStack>
+                            <MudButton Variant="Variant.Filled" 
+                                       Color="Color.Primary" 
+                                       Size="Size.Large"
+                                       StartIcon="@Icons.Material.Filled.Save"
+                                       OnClick="GuardarConciliacion"
+                                       Disabled="@(_isSaving || !_result.IsClosed)"
+                                       FullWidth="true"
+                                       Class="rounded-xl px-6 shadow-sm max-w-sm-button">
+                                @if (_isSaving)
+                                {
+                                    <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true" />
+                                    <MudText Class="ms-2">Guardando...</MudText>
+                                }
+                                else
+                                {
+                                    <MudText>Guardar Conciliación</MudText>
+                                }
+                            </MudButton>
+                        </div>
+
+                        @if (!_result.IsClosed)
+                        {
+                            <MudAlert Severity="Severity.Error" Variant="Variant.Filled" Class="mb-6 rounded-lg shadow-sm">
+                                La caja está <b>ABIERTA</b> en Contpaqi. Debe realizar el cierre de caja en el sistema POS para obtener los totales finales.
+                            </MudAlert>
+                        }
+
+                        <MudGrid>
+                            <!-- Tarjeta 1: Datos del Sistema (Contpaqi) -->
+                            <MudItem xs="12" sm="6">
+                                <MudCard Elevation="4" Class="rounded-xl overflow-hidden h-100 border-light">
+                                    <div class="pa-4 bg-primary text-white shadow-sm">
+                                        <MudText Typo="Typo.h6">Datos en Sistema (Contpaqi)</MudText>
+                                    </div>
+                                    <MudCardContent>
+                                        <MudStack Spacing="3">
+                                            <div class="d-flex justify-space-between align-center">
+                                                <MudText Color="Color.Secondary">Cobrado en Efectivo:</MudText>
+                                                <MudText Typo="Typo.h6">@_result.CashCollected.ToString("C2")</MudText>
+                                            </div>
+                                            <div class="d-flex justify-space-between align-center">
+                                                <MudText Color="Color.Secondary">Cobrado con Tarjeta:</MudText>
+                                                <MudText Typo="Typo.h6">@_result.CardCollected.ToString("C2")</MudText>
+                                            </div>
+                                            <div class="d-flex justify-space-between align-center">
+                                                <MudText Color="Color.Error">Devoluciones:</MudText>
+                                                <MudText Typo="Typo.h6" Color="Color.Error">-@Math.Abs(_result.ReturnsTotal).ToString("C2")</MudText>
+                                            </div>
+                                            <MudDivider />
+                                            <div class="d-flex justify-space-between align-center">
+                                                <MudText Typo="Typo.subtitle1" Class="font-weight-bold">Total Vendido:</MudText>
+                                                <MudText Typo="Typo.h5" Color="Color.Primary" Class="font-weight-bold">@_result.TotalSold.ToString("C2")</MudText>
+                                            </div>
+                                        </MudStack>
+                                    </MudCardContent>
+                                </MudCard>
+                            </MudItem>
+
+                            <!-- Tarjeta 2: Datos Físicos / Recibidos -->
+                            <MudItem xs="12" sm="6">
+                                <MudCard Elevation="4" Class="rounded-xl overflow-hidden h-100 border-light">
+                                    <div class="pa-4 bg-secondary text-white shadow-sm">
+                                        <MudText Typo="Typo.h6">Ingreso de Valores Físicos</MudText>
+                                    </div>
+                                    <MudCardContent>
+                                        <MudStack Spacing="3">
+                                            <MudNumericField @bind-Value="_terminalBanbajio" Culture="@_mexicoCulture" Label="Terminal Banbajio" Variant="Variant.Outlined" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.CreditCard" Format="N2" HideSpinButtons="true" Margin="Margin.Dense" />
+                                            <MudNumericField @bind-Value="_terminalBanRegio" Culture="@_mexicoCulture" Label="Terminal BanRegio" Variant="Variant.Outlined" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.CreditCard" Format="N2" HideSpinButtons="true" Margin="Margin.Dense" />
+                                            <MudNumericField @bind-Value="_efectivoRecibido" Culture="@_mexicoCulture" Label="Efectivo en Caja" Variant="Variant.Outlined" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.AttachMoney" Format="N2" HideSpinButtons="true" Margin="Margin.Dense" />
+                                            
+                                            <MudDivider />
+                                            <div class="d-flex justify-space-between align-center mt-1">
+                                                <MudText Typo="Typo.subtitle1" Class="font-weight-bold">Total Tarjetas:</MudText>
+                                                <MudText Typo="Typo.h6" Color="Color.Info" Class="font-weight-bold">@TarjetasFisicas.ToString("C2")</MudText>
+                                            </div>
+                                        </MudStack>
+                                    </MudCardContent>
+                                </MudCard>
+                            </MudItem>
+
+                            <!-- Tarjeta 3: Recolecciones Internas -->
+                            <MudItem xs="12" sm="6">
+                                <MudCard Elevation="4" Class="rounded-xl pa-4 bg-light border-light shadow-sm">
+                                    <MudText Typo="Typo.h6" Color="Color.Primary" Class="mb-4">
+                                        <MudIcon Icon="@Icons.Material.Filled.LocalAtm" Class="mr-2" />
+                                        Recolecciones Pendientes
+                                    </MudText>
+                                    <div class="d-flex justify-space-between align-center">
+                                        <MudText>Total Recolectado:</MudText>
+                                        <MudText Typo="Typo.h5" Class="font-weight-bold">@_result.TotalRecolectado.ToString("C2")</MudText>
+                                    </div>
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mt-2 d-block">
+                                        * Recolecciones realizadas durante el turno que aún no han sido procesadas en un corte global.
+                                    </MudText>
+                                </MudCard>
+                            </MudItem>
+
+                            <!-- Tarjeta 4: Resultados de Conciliación -->
+                            <MudItem xs="12" sm="6">
+                                <MudCard Elevation="4" Class="rounded-xl overflow-hidden shadow-lg border-primary">
+                                    <div class="pa-4 bg-dark text-white">
+                                        <MudText Typo="Typo.h6">Diferencias Finales</MudText>
+                                    </div>
+                                    <MudCardContent>
+                                        <MudStack Spacing="3">
+                                            <!-- Diferencia en Tarjetas -->
+                                            <div class="d-flex justify-space-between align-center">
+                                                <MudText Typo="Typo.body1">Dif. en Tarjetas:</MudText>
+                                                <MudText Typo="Typo.h6" Color="@(DiferenciaTarjeta == 0 ? Color.Success : Color.Error)">
+                                                    @DiferenciaTarjeta.ToString("C2")
+                                                </MudText>
+                                            </div>
+                                            
+                                            <!-- Efectivo Esperado Calculation -->
+                                            <div class="d-flex justify-space-between align-center">
+                                                <MudText Typo="Typo.body2" Color="Color.Secondary">Efectivo Esperado:</MudText>
+                                                <MudText Typo="Typo.body1">@EfectivoEsperado.ToString("C2")</MudText>
+                                            </div>
+
+                                            <MudDivider />
+                                            
+                                            <!-- Diferencia Final en Efectivo -->
+                                            <div class="d-flex justify-space-between align-center pt-2">
+                                                <MudText Typo="Typo.subtitle1" Class="font-weight-bold">DIFERENCIA EFECTIVO:</MudText>
+                                                <MudChip T="string" Color="@(DiferenciaEfectivo == 0 ? Color.Success : (DiferenciaEfectivo > 0 ? Color.Warning : Color.Error))" 
+                                                         Variant="Variant.Filled" Size="Size.Large" Class="font-weight-bold">
+                                                    @DiferenciaEfectivo.ToString("C2")
+                                                </MudChip>
+                                            </div>
+                                        </MudStack>
+                                    </MudCardContent>
+                                </MudCard>
+                            </MudItem>
+                        </MudGrid>
+                    </div>
+                }
+                else if (_hasSearched)
+                {
+                    <MudPaper Elevation="0" Outlined="true" Class="pa-16 d-flex flex-column align-center justify-center rounded-xl border-dashed border-2 bg-light">
+                        <MudIcon Icon="@Icons.Material.Filled.SearchOff" Size="Size.Large" Color="Color.Default" Style="opacity:0.5" />
+                        <MudText Typo="Typo.h6" Class="mt-4">No se encontraron datos</MudText>
+                    </MudPaper>
+                }
+                else
+                {
+                    <MudPaper Elevation="0" Outlined="true" Class="pa-16 d-flex flex-column align-center justify-center rounded-xl border-dashed border-2 bg-light h-100 min-h-300">
+                        <MudIcon Icon="@Icons.Material.Filled.TouchApp" Size="Size.Large" Color="Color.Default" Style="opacity:0.5" />
+                        <MudText Typo="Typo.h6" Class="mt-4 text-center">Seleccione un corte de caja para comenzar la conciliación</MudText>
+                    </MudPaper>
+                }
+            </MudItem>
+        </MudGrid>
+    </MudContainer>
+}
+
+<style>
+    .animate-fade-in { animation: fadeIn 0.5s ease-out; }
+    .animate-slide-up { animation: slideUp 0.5s ease-out; }
+    @@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    @@keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+    .rounded-xl { border-radius: 16px !important; }
+    .bg-primary-light { background-color: rgba(25, 118, 210, 0.08); }
+    .border-light { border: 1px solid rgba(0,0,0,0.08) !important; }
+    .bg-light { background-color: #fafafa; }
+    .bg-dark { background-color: #424242; }
+    .border-primary { border: 2px solid #1976d2 !important; }
+    .font-weight-bold { font-weight: 700; }
+    .min-h-300 { min-height: 300px; }
+    
+    @@media (max-width: 599.98px) {
+        .max-w-sm-button {
+            width: 100% !important;
+        }
+    }
+</style>
+
+@code {
+    // Autenticación por nómina
+    private int _employeeNumberInput;
+    private bool _checkingSupervisor;
+    private string _authErrorMessage = string.Empty;
+    private bool _isSupervisorAuthenticated;
+    private bool _isUserAuthenticated;
+    private bool _isAdmin;
+    
+    private int _supervisorBranchId;
+    private string _supervisorBranchName = string.Empty;
+    private string _supervisorName = string.Empty;
+
+    private bool IsUserAuthorized => _isUserAuthenticated || _isSupervisorAuthenticated;
+    private int? ActiveBranchId => _isAdmin ? null : (_isSupervisorAuthenticated ? _supervisorBranchId : (int?)null);
+
+    // Lógica del negocio
+    private List<AvailableBoxDto> _boxes = new();
+    private int _selectedShiftId;
+    private int _selectedBoxId;
+    private bool _loading;
+    private bool _hasSearched;
+    private bool _isProcessing;
+    private bool _isSaving;
+    private ConciliacionResultDto? _result;
+    
+    // Inputs del usuario
+    private System.Globalization.CultureInfo _mexicoCulture = System.Globalization.CultureInfo.GetCultureInfo("es-MX");
+    private decimal _terminalBanbajio;
+    private decimal _terminalBanRegio;
+    private decimal _efectivoRecibido;
+
+    // Fórmulas de Diferencias
+    private decimal TarjetasFisicas => _terminalBanbajio + _terminalBanRegio;
+    
+    // Diferencia Tarjeta = Físico (TarjetasFisicas) - Sistema (CardCollected)
+    private decimal DiferenciaTarjeta => TarjetasFisicas - (_result?.CardCollected ?? 0);
+
+    // Efectivo Esperado = Total Vendido - Devoluciones - Efectivo Recolectado - TarjetasFisicas
+    private decimal EfectivoEsperado => (_result?.TotalSold ?? 0) - Math.Abs(_result?.ReturnsTotal ?? 0) - (_result?.TotalRecolectado ?? 0) - TarjetasFisicas;
+    
+    // Diferencia Efectivo = Efectivo Recibido - Efectivo Esperado
+    private decimal DiferenciaEfectivo => _efectivoRecibido - EfectivoEsperado;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await CheckAuthSession();
+        }
+    }
+
+    private async Task CheckAuthSession()
+    {
+        try
+        {
+            // 1. Validar si está logueado como usuario estándar en el sistema
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            var user = authState.User;
+            if (user.Identity?.IsAuthenticated == true)
+            {
+                if (!user.IsInRole("Admin") && !user.IsInRole("Supervisor"))
+                {
+                    _authErrorMessage = "No tienes permisos para acceder a esta sección.";
+                    StateHasChanged();
+                    return; // Cae al formulario de nómina
+                }
+                _isUserAuthenticated = true;
+                _isAdmin = user.IsInRole("Admin");
+                StateHasChanged();
+                await CargarCajas();
+                return;
+            }
+
+            // 2. Si no, validar si está logueado temporalmente por número de nómina en sessionStorage
+            var storedNominaStr = await JSRuntime.InvokeAsync<string>("sessionStorage.getItem", "supervisor_nomina");
+            if (int.TryParse(storedNominaStr, out int storedNomina))
+            {
+                var supervisor = await SupervisorService.GetByEmployeeNumberAsync(storedNomina);
+                if (supervisor != null && supervisor.IsActive)
+                {
+                    _isSupervisorAuthenticated = true;
+                    _supervisorBranchId = supervisor.BranchId;
+                    _supervisorName = supervisor.Name;
+                    
+                    var branches = await BranchService.GetAllAsync();
+                    _supervisorBranchName = branches.FirstOrDefault(b => b.Id == supervisor.BranchId)?.Name ?? "Desconocida";
+                    
+                    StateHasChanged();
+                    await CargarCajas();
+                    return;
+                }
+            }
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error al comprobar sesión de autenticación");
+        }
+    }
+
+    private async Task ValidarNomina()
+    {
+        if (_employeeNumberInput <= 0)
+        {
+            _authErrorMessage = "Por favor ingrese un número de nómina válido";
+            return;
+        }
+
+        _checkingSupervisor = true;
+        _authErrorMessage = string.Empty;
+        StateHasChanged();
+
+        try
+        {
+            var supervisor = await SupervisorService.GetByEmployeeNumberAsync(_employeeNumberInput);
+            if (supervisor == null)
+            {
+                _authErrorMessage = "El número de nómina no coincide con ninguna encargada registrada";
+            }
+            else if (!supervisor.IsActive)
+            {
+                _authErrorMessage = "La encargada no se encuentra activa en el sistema";
+            }
+            else
+            {
+                // Authenticated successfully!
+                _isSupervisorAuthenticated = true;
+                _supervisorBranchId = supervisor.BranchId;
+                _supervisorName = supervisor.Name;
+                
+                var branches = await BranchService.GetAllAsync();
+                _supervisorBranchName = branches.FirstOrDefault(b => b.Id == supervisor.BranchId)?.Name ?? "Desconocida";
+
+                // Guardar en sessionStorage
+                await JSRuntime.InvokeVoidAsync("sessionStorage.setItem", "supervisor_nomina", _employeeNumberInput.ToString());
+                
+                Snackbar.Add($"Bienvenida, {supervisor.Name}", Severity.Success);
+                await CargarCajas();
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error al validar la nómina de la encargada");
+            _authErrorMessage = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            _checkingSupervisor = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task LogoutSupervisor()
+    {
+        _isSupervisorAuthenticated = false;
+        _supervisorBranchId = 0;
+        _supervisorName = string.Empty;
+        _supervisorBranchName = string.Empty;
+        _employeeNumberInput = 0;
+        _boxes.Clear();
+        _result = null;
+        _selectedShiftId = 0;
+        _selectedBoxId = 0;
+        
+        await JSRuntime.InvokeVoidAsync("sessionStorage.removeItem", "supervisor_nomina");
+        Snackbar.Add("Sesión cerrada", Severity.Info);
+        StateHasChanged();
+    }
+
+    private async Task CargarCajas()
+    {
+        if (_isProcessing) return;
+        _isProcessing = true;
+        
+        try
+        {
+            Logger.LogInformation("Cargando cajas disponibles para la sucursal {BranchId}", ActiveBranchId);
+            var query = new GetAvailableBoxesQuery(DateTime.Today, ActiveBranchId);
+            var data = await Mediator.Send(query);
+            _boxes = data.ToList();
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error al cargar cajas disponibles");
+            Snackbar.Add("Error al cargar cajas desde FoxPro", Severity.Error);
+        }
+        finally
+        {
+            _isProcessing = false;
+        }
+    }
+
+    private async Task OnShiftSelected(int shiftId)
+    {
+        Logger.LogInformation("Corte seleccionado: {ShiftId}", shiftId);
+        if (_isProcessing) return;
+
+        if (shiftId != 0)
+        {
+            _selectedShiftId = shiftId;
+            var selectedBox = _boxes.FirstOrDefault(b => b.ShiftId == shiftId);
+            if (selectedBox != null)
+            {
+                _selectedBoxId = selectedBox.Id;
+                Logger.LogInformation("Corte seleccionado: {ShiftId} para la caja {BoxId}", _selectedShiftId, _selectedBoxId);
+                await CargarDatos();
+            }
+        }
+        else
+        {
+            _selectedShiftId = 0;
+            _selectedBoxId = 0;
+            _result = null;
+            StateHasChanged();
+        }
+    }
+
+    private async Task CargarDatos()
+    {
+        if (_selectedShiftId == 0 || _isProcessing) return;
+
+        _isProcessing = true;
+        _loading = true;
+        _hasSearched = true;
+        _result = null;
+        _terminalBanbajio = 0;
+        _terminalBanRegio = 0;
+        _efectivoRecibido = 0;
+        StateHasChanged();
+
+        try
+        {
+            Logger.LogInformation("Iniciando carga de datos de conciliación para ShiftId: {ShiftId}", _selectedShiftId);
+            var query = new GetConciliacionQuery(_selectedBoxId, _selectedShiftId, 0, DateTime.Today);
+            _result = await Mediator.Send(query);
+            
+            if (_result == null)
+            {
+                Logger.LogWarning("La consulta GetConciliacionQuery devolvió null para ShiftId: {ShiftId}", _selectedShiftId);
+                Snackbar.Add("No se encontraron datos para el turno seleccionado", Severity.Warning);
+            }
+            else 
+            {
+                Logger.LogInformation("Datos cargados exitosamente para {Caja}", _result.CashRegisterName);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "ERROR FATAL en CargarDatos para ShiftId: {ShiftId}. Mensaje: {Message}", _selectedShiftId, ex.Message);
+            Snackbar.Add($"Error crítico: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _loading = false;
+            _isProcessing = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task GuardarConciliacion()
+    {
+        if (_result == null || _isSaving) return;
+        if (!_result.IsClosed)
+        {
+            Snackbar.Add("No se puede guardar una conciliación si la caja sigue abierta.", Severity.Error);
+            return;
+        }
+
+        _isSaving = true;
+        StateHasChanged();
+
+        try
+        {
+            var command = new SaveConciliacionCorteCommand(
+                ShiftId: _selectedShiftId,
+                BranchName: _result.BranchName,
+                CashRegisterName: _result.CashRegisterName,
+                CashierName: _result.CashierName,
+                TotalRecolecciones: _result.TotalRecolectado,
+                EfectivoEntregado: _efectivoRecibido,
+                Banregio: _terminalBanRegio,
+                Banbajio: _terminalBanbajio,
+                ReturnsTotal: _result.ReturnsTotal,
+                TotalSold: _result.TotalSold
+            );
+
+            await Mediator.Send(command);
+            Snackbar.Add("Conciliación guardada exitosamente", Severity.Success);
+
+            // Limpiar selección actual y recargar cajas (el corte desaparecerá porque ya está guardado)
+            _selectedShiftId = 0;
+            _selectedBoxId = 0;
+            _result = null;
+            await CargarCajas();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error al guardar conciliación de corte");
+            Snackbar.Add($"Error al guardar conciliación: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _isSaving = false;
+            StateHasChanged();
+        }
+    }
+}

@@ -1,0 +1,668 @@
+@page "/consulta-conciliaciones"
+@using Blanquita.Application.DTOs
+@using Blanquita.Application.Interfaces
+@using Blanquita.Application.Queries.Conciliaciones
+@using MediatR
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@inject IBranchService BranchService
+@inject ISupervisorService SupervisorService
+@inject AuthenticationStateProvider AuthStateProvider
+@inject IJSRuntime JSRuntime
+@inject ISnackbar Snackbar
+@inject ILogger<ConsultaConciliaciones> Logger
+@inject IExportService ExportService
+@inject IFileDownloadService FileDownloadService
+@inject IMediator Mediator
+
+<PageTitle>Consulta de Conciliaciones</PageTitle>
+
+@if (!IsUserAuthorized)
+{
+    <!-- Pantalla de Autenticación Inline por Nómina -->
+    <MudContainer MaxWidth="MaxWidth.Small" Class="d-flex align-center justify-center animate-fade-in" Style="min-height: 80vh;">
+        <MudPaper Elevation="8" Class="pa-8 rounded-xl" Style="width: 100%; max-width: 450px;">
+            <MudStack Spacing="4">
+                <MudStack AlignItems="AlignItems.Center" Spacing="2">
+                    <MudAvatar Color="Color.Primary" Size="Size.Large" Style="width: 70px; height: 70px;">
+                        <MudIcon Icon="@Icons.Material.Filled.SupervisorAccount" Size="Size.Large" />
+                    </MudAvatar>
+                    <MudText Typo="Typo.h5" Align="Align.Center" Class="font-weight-bold">Acceso de Encargada</MudText>
+                    <MudText Typo="Typo.body2" Align="Align.Center" Color="Color.Secondary">
+                        Ingrese su número de nómina para consultar el historial de conciliaciones
+                    </MudText>
+                </MudStack>
+
+                <EditForm Model="this" OnValidSubmit="ValidarNomina">
+                    <MudStack Spacing="3">
+                        <MudNumericField @bind-Value="_employeeNumberInput"
+                                         Label="Número de Nómina"
+                                         Variant="Variant.Outlined"
+                                         Min="1"
+                                         Required="true"
+                                         Adornment="Adornment.Start"
+                                         AdornmentIcon="@Icons.Material.Filled.Numbers"
+                                         HideSpinButtons="true" />
+
+                        @if (!string.IsNullOrEmpty(_authErrorMessage))
+                        {
+                            <MudAlert Severity="Severity.Error" Dense="true" Class="rounded-lg">@_authErrorMessage</MudAlert>
+                        }
+
+                        <MudButton ButtonType="ButtonType.Submit"
+                                   Variant="Variant.Filled"
+                                   Color="Color.Primary"
+                                   FullWidth="true"
+                                   Size="Size.Large"
+                                   Class="rounded-xl mt-2"
+                                   Disabled="@_checkingSupervisor">
+                            @if (_checkingSupervisor)
+                            {
+                                <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true" />
+                                <MudText Class="ms-2">Validando...</MudText>
+                            }
+                            else
+                            {
+                                <MudText>Ingresar</MudText>
+                            }
+                        </MudButton>
+
+                        <MudDivider Class="my-2" />
+
+                        <MudButton Variant="Variant.Text"
+                                   Color="Color.Secondary"
+                                   FullWidth="true"
+                                   StartIcon="@Icons.Material.Filled.Login"
+                                   Href="/login?returnUrl=/consulta-conciliaciones"
+                                   Class="rounded-xl">
+                            Cambiar a login de usuario
+                        </MudButton>
+                    </MudStack>
+                </EditForm>
+            </MudStack>
+        </MudPaper>
+    </MudContainer>
+}
+else
+{
+    <!-- Contenido de la Página Principal -->
+    <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-6 animate-fade-in">
+        <div class="d-flex flex-column flex-sm-row justify-space-between align-start align-sm-center mb-6">
+            <MudText Typo="Typo.h4" Class="font-weight-bold mb-2 mb-sm-0" Color="Color.Primary">
+                <MudIcon Icon="@Icons.Material.Filled.ListAlt" Class="mr-2" Size="Size.Large" />
+                Consulta de Conciliaciones
+            </MudText>
+            
+            <div class="d-flex align-center">
+                @if (_isSupervisorAuthenticated)
+                {
+                    <MudChip T="string" Color="Color.Info" Variant="Variant.Text" Icon="@Icons.Material.Filled.Store" Class="mr-2">
+                        Sucursal: @_supervisorBranchName
+                    </MudChip>
+                    <MudChip T="string" Color="Color.Primary" Variant="Variant.Filled" Icon="@Icons.Material.Filled.Person">
+                        @_supervisorName
+                    </MudChip>
+                    <MudIconButton Icon="@Icons.Material.Filled.Logout" Color="Color.Error" OnClick="LogoutSupervisor" Class="ml-1" Title="Salir" />
+                }
+                else
+                {
+                    <MudChip T="string" Color="Color.Success" Variant="Variant.Filled" Icon="@Icons.Material.Filled.AdminPanelSettings">
+                        Administrador
+                    </MudChip>
+                }
+            </div>
+        </div>
+
+        <!-- Panel de Búsqueda y Filtros -->
+        <MudPaper Elevation="4" Class="pa-4 pa-sm-6 rounded-xl mb-6 bg-light border-light shadow-sm">
+            <MudGrid AlignItems="AlignItems.Center">
+                <!-- Selector de Sucursal -->
+                <MudItem xs="12" sm="5">
+                    <MudSelect T="string" 
+                               Label="Sucursal" 
+                               @bind-Value="_selectedBranch" 
+                               Variant="Variant.Outlined" 
+                               Adornment="Adornment.Start" 
+                               AdornmentIcon="@Icons.Material.Filled.Store" 
+                               AnchorOrigin="Origin.BottomCenter" 
+                               Margin="Margin.Dense" 
+                               Required="true"
+                               Disabled="_isSupervisorBranchLocked">
+                        @foreach (var branch in _branches)
+                        {
+                            <MudSelectItem Value="@branch.Name">@branch.Name</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+
+                <!-- Selector de Fecha -->
+                <MudItem xs="12" sm="5">
+                    <MudDatePicker Label="Fecha de Conciliación" 
+                                   @bind-Date="_selectedDate" 
+                                   Variant="Variant.Outlined" 
+                                   Adornment="Adornment.Start" 
+                                   AdornmentIcon="@Icons.Material.Filled.CalendarMonth" 
+                                   Margin="Margin.Dense" 
+                                   Required="true" 
+                                   MaxDate="DateTime.Today" />
+                </MudItem>
+
+                <!-- Botón de Búsqueda -->
+                <MudItem xs="12" sm="2">
+                    <MudButton Variant="Variant.Filled" 
+                               Color="Color.Primary" 
+                               Size="Size.Medium" 
+                               FullWidth="true"
+                               StartIcon="@Icons.Material.Filled.Search" 
+                               OnClick="BuscarConciliaciones" 
+                               Disabled="_loading" 
+                               Class="rounded-xl py-2 shadow-sm font-weight-bold">
+                        @if (_loading)
+                        {
+                            <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true" />
+                            <MudText Class="ms-2">Buscando...</MudText>
+                        }
+                        else
+                        {
+                            <MudText>Buscar</MudText>
+                        }
+                    </MudButton>
+                </MudItem>
+            </MudGrid>
+        </MudPaper>
+
+        <!-- Sección de Resultados -->
+        @if (_loading)
+        {
+            <MudPaper Elevation="0" Class="d-flex align-center justify-center pa-16 rounded-xl">
+                <MudProgressCircular Color="Color.Primary" Size="Size.Large" Indeterminate="true" />
+                <MudText Class="ml-4" Typo="Typo.h6">Buscando conciliaciones en la base de datos...</MudText>
+            </MudPaper>
+        }
+        else if (_conciliaciones != null && _conciliaciones.Any())
+        {
+            <div class="animate-slide-up">
+                <!-- Barra de Acciones y Validación de PDF -->
+                <MudPaper Elevation="4" Class="pa-4 rounded-xl mb-6 d-flex flex-column flex-sm-row justify-space-between align-center border-light shadow-sm bg-light">
+                    <MudStack Spacing="1">
+                        <MudText Typo="Typo.h6" Class="font-weight-bold" Color="Color.Primary">
+                            Conciliaciones Realizadas
+                        </MudText>
+                        @if (_pendingBoxesCount > 0)
+                        {
+                            <MudText Typo="Typo.body2" Color="Color.Error" Class="d-flex align-center font-weight-bold">
+                                <MudIcon Icon="@Icons.Material.Filled.Warning" Size="Size.Small" Class="mr-2" />
+                                Quedan @_pendingBoxesCount cajas pendientes de conciliación. Descarga de PDF inhabilitada.
+                            </MudText>
+                        }
+                        else
+                        {
+                            <MudText Typo="Typo.body2" Color="Color.Success" Class="d-flex align-center">
+                                <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Size="Size.Small" Class="mr-2" />
+                                Todas las cajas de esta fecha están conciliadas. El PDF está listo para descargar.
+                            </MudText>
+                        }
+                    </MudStack>
+                    <MudButton Variant="Variant.Filled"
+                               Color="Color.Secondary"
+                               StartIcon="@Icons.Material.Filled.PictureAsPdf"
+                               Size="Size.Large"
+                               OnClick="ExportarAPdf"
+                               Disabled="@(_exporting || _pendingBoxesCount > 0)"
+                               Class="rounded-xl font-weight-bold mt-3 mt-sm-0 px-6 py-2 shadow-sm">
+                        @if (_exporting)
+                        {
+                            <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                            <text>Generando...</text>
+                        }
+                        else
+                        {
+                            <text>Descargar PDF</text>
+                        }
+                    </MudButton>
+                </MudPaper>
+
+                <MudGrid>
+                    @foreach (var c in _conciliaciones)
+                    {
+                        <MudItem xs="12" md="6" lg="4">
+                            <MudCard Elevation="4" Class="rounded-xl overflow-hidden h-100 border-light transition-card hover-elevation">
+                                <!-- Encabezado de la Tarjeta -->
+                                <div class="pa-4 bg-primary text-white d-flex align-center justify-space-between">
+                                    <div>
+                                        <MudText Typo="Typo.h6" Class="font-weight-bold">
+                                            <MudIcon Icon="@Icons.Material.Filled.DesktopWindows" Class="mr-2" Size="Size.Medium" Style="vertical-align: middle;" />
+                                            @c.Caja
+                                        </MudText>
+                                        <MudText Typo="Typo.body2" Class="opacity-75">
+                                            <MudIcon Icon="@Icons.Material.Filled.Person" Size="Size.Small" Class="mr-1" Style="vertical-align: middle;" />
+                                            @c.Cajero
+                                        </MudText>
+                                    </div>
+                                    <MudIcon Icon="@Icons.Material.Filled.Balance" Size="Size.Large" Class="opacity-25" />
+                                </div>
+
+                                <MudCardContent Class="pa-5">
+                                    <MudStack Spacing="3">
+                                        <!-- SECCIÓN EFECTIVO -->
+                                        <div>
+                                            <div class="d-flex align-center mb-1">
+                                                <MudIcon Icon="@Icons.Material.Filled.AttachMoney" Color="Color.Success" Size="Size.Small" Class="mr-1" />
+                                                <MudText Typo="Typo.subtitle2" Class="font-weight-bold" Color="Color.Success">Valores en Efectivo</MudText>
+                                            </div>
+                                            <MudStack Spacing="1" Class="pl-4">
+                                                <div class="d-flex justify-space-between text-muted">
+                                                    <MudText Typo="Typo.body2">Recolecciones (Sistema):</MudText>
+                                                    <MudText Typo="Typo.body2">@c.TotalRecolecciones.ToString("C2")</MudText>
+                                                </div>
+                                                <div class="d-flex justify-space-between text-muted">
+                                                    <MudText Typo="Typo.body2">Efectivo Entregado (Físico):</MudText>
+                                                    <MudText Typo="Typo.body2">@c.EfectivoEntregado.ToString("C2")</MudText>
+                                                </div>
+                                                <div class="d-flex justify-space-between font-weight-bold mt-1 text-dark border-top-thin pt-1">
+                                                    <MudText Typo="Typo.body2">Total Efectivo:</MudText>
+                                                    <MudText Typo="Typo.body2">@c.TotalEfectivo.ToString("C2")</MudText>
+                                                </div>
+                                            </MudStack>
+                                        </div>
+
+                                        <MudDivider />
+
+                                        <!-- SECCIÓN TARJETAS -->
+                                        <div>
+                                            <div class="d-flex align-center mb-1">
+                                                <MudIcon Icon="@Icons.Material.Filled.CreditCard" Color="Color.Info" Size="Size.Small" Class="mr-1" />
+                                                <MudText Typo="Typo.subtitle2" Class="font-weight-bold" Color="Color.Info">Valores en Tarjeta</MudText>
+                                            </div>
+                                            <MudStack Spacing="1" Class="pl-4">
+                                                <div class="d-flex justify-space-between text-muted">
+                                                    <MudText Typo="Typo.body2">Terminal BanRegio:</MudText>
+                                                    <MudText Typo="Typo.body2">@c.Banregio.ToString("C2")</MudText>
+                                                </div>
+                                                <div class="d-flex justify-space-between text-muted">
+                                                    <MudText Typo="Typo.body2">Terminal Banbajio:</MudText>
+                                                    <MudText Typo="Typo.body2">@c.Banbajio.ToString("C2")</MudText>
+                                                </div>
+                                                <div class="d-flex justify-space-between font-weight-bold mt-1 text-dark border-top-thin pt-1">
+                                                    <MudText Typo="Typo.body2">Total Tarjetas:</MudText>
+                                                    <MudText Typo="Typo.body2">@c.TotalTarjetas.ToString("C2")</MudText>
+                                                </div>
+                                            </MudStack>
+                                        </div>
+
+                                        <MudDivider />
+
+                                        <!-- SECCIÓN DEVOLUCIONES Y TOTALES FINALES -->
+                                        <div class="bg-gray pa-3 rounded-lg border-light">
+                                            <div class="d-flex justify-space-between text-muted mb-1">
+                                                <MudText Typo="Typo.body2" Class="d-flex align-center">
+                                                    <MudIcon Icon="@Icons.Material.Filled.AssignmentReturn" Color="Color.Error" Size="Size.Small" Class="mr-1" />
+                                                    Devoluciones (Sistema):
+                                                </MudText>
+                                                <MudText Typo="Typo.body2" Color="Color.Error">-@c.Devoluciones.ToString("C2")</MudText>
+                                            </div>
+
+                                            <div class="d-flex justify-space-between font-weight-bold text-dark mt-2 border-top-double pt-2">
+                                                <MudText Typo="Typo.body1">TOTAL ENTREGADO:</MudText>
+                                                <MudText Typo="Typo.body1" Color="Color.Primary">@c.TotalEntregado.ToString("C2")</MudText>
+                                            </div>
+                                            
+                                            <div class="d-flex justify-space-between text-muted mt-1">
+                                                <MudText Typo="Typo.body2" Class="d-flex align-center">
+                                                    <MudIcon Icon="@Icons.Material.Filled.DesktopMac" Size="Size.Small" Class="mr-1" />
+                                                    Sistema (Total Vendido):
+                                                </MudText>
+                                                <MudText Typo="Typo.body2">@c.TotalEsperado.ToString("C2")</MudText>
+                                            </div>
+                                        </div>
+
+                                        <!-- CHIP DE DIFERENCIA -->
+                                        <div class="d-flex align-center justify-space-between mt-2 pt-1">
+                                            <MudText Typo="Typo.subtitle1" Class="font-weight-bold">DIFERENCIA:</MudText>
+                                            <MudChip T="string" Color="@GetChipColor(c.Diferencia)" Variant="Variant.Filled" 
+                                                     Size="Size.Medium" Class="font-weight-bold px-4 rounded-lg">
+                                                @c.Diferencia.ToString("C2")
+                                            </MudChip>
+                                        </div>
+                                    </MudStack>
+                                </MudCardContent>
+                            </MudCard>
+                        </MudItem>
+                    }
+                </MudGrid>
+            </div>
+        }
+        else if (_hasSearched)
+        {
+            <MudPaper Elevation="0" Outlined="true" Class="pa-16 d-flex flex-column align-center justify-center rounded-xl border-dashed border-2 bg-light animate-fade-in">
+                <MudIcon Icon="@Icons.Material.Filled.SearchOff" Size="Size.Large" Color="Color.Default" Style="opacity:0.5; font-size: 4rem;" />
+                <MudText Typo="Typo.h5" Class="mt-4 font-weight-bold">No se encontraron conciliaciones</MudText>
+                <MudText Typo="Typo.body1" Color="Color.Secondary" Class="mt-2 text-center">
+                    No existen registros guardados para la sucursal <b>@_searchedBranch</b> en la fecha <b>@_searchedDate?.ToString("dd/MM/yyyy")</b>.
+                </MudText>
+            </MudPaper>
+        }
+        else
+        {
+            <MudPaper Elevation="0" Outlined="true" Class="pa-16 d-flex flex-column align-center justify-center rounded-xl border-dashed border-2 bg-light h-100 min-h-300 animate-fade-in">
+                <MudIcon Icon="@Icons.Material.Filled.TouchApp" Size="Size.Large" Color="Color.Primary" Style="opacity:0.6; font-size: 4rem;" />
+                <MudText Typo="Typo.h5" Class="mt-4 font-weight-bold">Consulte el historial de cortes</MudText>
+                <MudText Typo="Typo.body1" Color="Color.Secondary" Class="mt-2 text-center">
+                    Seleccione la sucursal y la fecha para listar todas las conciliaciones realizadas por las cajeras.
+                </MudText>
+            </MudPaper>
+        }
+    </MudContainer>
+}
+
+<style>
+    .animate-fade-in { animation: fadeIn 0.5s ease-out; }
+    .animate-slide-up { animation: slideUp 0.5s ease-out; }
+    @@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    @@keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+    
+    .rounded-xl { border-radius: 16px !important; }
+    .border-light { border: 1px solid rgba(0,0,0,0.08) !important; }
+    .bg-light { background-color: #fafafa; }
+    .bg-gray { background-color: #f5f5f5; }
+    .font-weight-bold { font-weight: 700; }
+    .opacity-75 { opacity: 0.75; }
+    .opacity-25 { opacity: 0.25; }
+    .text-muted { color: #666666; }
+    .text-dark { color: #212121; }
+    .min-h-300 { min-height: 300px; }
+    
+    .border-top-thin {
+        border-top: 1px solid rgba(0, 0, 0, 0.12);
+    }
+    
+    .border-top-double {
+        border-top: 3px double rgba(0, 0, 0, 0.15);
+    }
+
+    /* Tarjetas interactivas */
+    .transition-card {
+        transition: transform 0.25s ease, box-shadow 0.25s ease;
+    }
+    .hover-elevation:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.12) !important;
+    }
+</style>
+
+@code {
+    // Autenticación por nómina
+    private int _employeeNumberInput;
+    private bool _checkingSupervisor;
+    private string _authErrorMessage = string.Empty;
+    private bool _isSupervisorAuthenticated;
+    private bool _isUserAuthenticated;
+    private bool _isAdmin;
+    
+    private int _supervisorBranchId;
+    private string _supervisorBranchName = string.Empty;
+    private string _supervisorName = string.Empty;
+
+    private bool IsUserAuthorized => _isUserAuthenticated || _isSupervisorAuthenticated;
+    private bool _isSupervisorBranchLocked => _isSupervisorAuthenticated;
+
+    // Filtros e Historial
+    private List<BranchDto> _branches = new();
+    private string _selectedBranch = string.Empty;
+    private DateTime? _selectedDate = DateTime.Today;
+    private bool _loading = false;
+    private bool _hasSearched = false;
+    private List<ConciliacionCorteDto>? _conciliaciones;
+
+    private string _searchedBranch = string.Empty;
+    private DateTime? _searchedDate;
+
+    // Estado del PDF y Validación de Pendientes
+    private int _pendingBoxesCount = 0;
+    private bool _exporting = false;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await CheckAuthSession();
+        }
+    }
+
+    private async Task CheckAuthSession()
+    {
+        try
+        {
+            // 1. Validar si está logueado como usuario estándar en el sistema
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            var user = authState.User;
+            if (user.Identity?.IsAuthenticated == true)
+            {
+                if (!user.IsInRole("Admin") && !user.IsInRole("Supervisor"))
+                {
+                    _authErrorMessage = "No tienes permisos para acceder a esta sección.";
+                    StateHasChanged();
+                    return; // Cae al formulario de nómina
+                }
+                _isUserAuthenticated = true;
+                _isAdmin = user.IsInRole("Admin");
+                StateHasChanged();
+                await CargarSucursales();
+                return;
+            }
+
+            // 2. Si no, validar si está logueado temporalmente por número de nómina en sessionStorage
+            var storedNominaStr = await JSRuntime.InvokeAsync<string>("sessionStorage.getItem", "supervisor_nomina");
+            if (int.TryParse(storedNominaStr, out int storedNomina))
+            {
+                var supervisor = await SupervisorService.GetByEmployeeNumberAsync(storedNomina);
+                if (supervisor != null && supervisor.IsActive)
+                {
+                    _isSupervisorAuthenticated = true;
+                    _supervisorBranchId = supervisor.BranchId;
+                    _supervisorName = supervisor.Name;
+                    
+                    var branches = await BranchService.GetAllAsync();
+                    _supervisorBranchName = branches.FirstOrDefault(b => b.Id == supervisor.BranchId)?.Name ?? "Desconocida";
+                    
+                    StateHasChanged();
+                    await CargarSucursales();
+                    return;
+                }
+            }
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error al comprobar sesión de autenticación");
+        }
+    }
+
+    private async Task ValidarNomina()
+    {
+        if (_employeeNumberInput <= 0)
+        {
+            _authErrorMessage = "Por favor ingrese un número de nómina válido";
+            return;
+        }
+
+        _checkingSupervisor = true;
+        _authErrorMessage = string.Empty;
+        StateHasChanged();
+
+        try
+        {
+            var supervisor = await SupervisorService.GetByEmployeeNumberAsync(_employeeNumberInput);
+            if (supervisor == null)
+            {
+                _authErrorMessage = "El número de nómina no coincide con ninguna encargada registrada";
+            }
+            else if (!supervisor.IsActive)
+            {
+                _authErrorMessage = "La encargada no se encuentra activa en el sistema";
+            }
+            else
+            {
+                // Authenticated successfully!
+                _isSupervisorAuthenticated = true;
+                _supervisorBranchId = supervisor.BranchId;
+                _supervisorName = supervisor.Name;
+                
+                var branches = await BranchService.GetAllAsync();
+                _supervisorBranchName = branches.FirstOrDefault(b => b.Id == supervisor.BranchId)?.Name ?? "Desconocida";
+
+                // Guardar en sessionStorage
+                await JSRuntime.InvokeVoidAsync("sessionStorage.setItem", "supervisor_nomina", _employeeNumberInput.ToString());
+                
+                Snackbar.Add($"Bienvenida, {supervisor.Name}", Severity.Success);
+                await CargarSucursales();
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error al validar la nómina de la encargada");
+            _authErrorMessage = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            _checkingSupervisor = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task LogoutSupervisor()
+    {
+        _isSupervisorAuthenticated = false;
+        _supervisorBranchId = 0;
+        _supervisorName = string.Empty;
+        _supervisorBranchName = string.Empty;
+        _employeeNumberInput = 0;
+        _branches.Clear();
+        _selectedBranch = string.Empty;
+        _conciliaciones = null;
+        
+        await JSRuntime.InvokeVoidAsync("sessionStorage.removeItem", "supervisor_nomina");
+        Snackbar.Add("Sesión cerrada", Severity.Info);
+        StateHasChanged();
+    }
+
+    private async Task CargarSucursales()
+    {
+        try
+        {
+            var result = await BranchService.GetAllAsync();
+            _branches = result.ToList();
+            
+            if (_isSupervisorAuthenticated)
+            {
+                var favBranch = _branches.FirstOrDefault(b => b.Id == _supervisorBranchId);
+                if (favBranch != null)
+                {
+                    _selectedBranch = favBranch.Name;
+                }
+                else if (_branches.Any())
+                {
+                    _selectedBranch = _branches.First().Name;
+                }
+            }
+            else if (_branches.Any() && string.IsNullOrEmpty(_selectedBranch))
+            {
+                _selectedBranch = _branches.First().Name;
+            }
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error al cargar las sucursales para el selector");
+            Snackbar.Add("Error al cargar las sucursales del sistema", Severity.Error);
+        }
+    }
+
+    private async Task BuscarConciliaciones()
+    {
+        if (string.IsNullOrWhiteSpace(_selectedBranch) || _selectedDate == null)
+        {
+            Snackbar.Add("Seleccione una sucursal y una fecha válidas", Severity.Warning);
+            return;
+        }
+
+        _loading = true;
+        _hasSearched = true;
+        _searchedBranch = _selectedBranch;
+        _searchedDate = _selectedDate;
+        _conciliaciones = null;
+        _pendingBoxesCount = 0;
+        StateHasChanged();
+
+        try
+        {
+            var query = new GetConciliacionesReportQuery(_selectedBranch, _selectedDate.Value);
+            var report = await Mediator.Send(query);
+            
+            _conciliaciones = report.Conciliaciones.ToList();
+            _pendingBoxesCount = report.PendingBoxesCount;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error al consultar conciliaciones de corte");
+            Snackbar.Add($"Error al buscar: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _loading = false;
+            StateHasChanged();
+        }
+    }
+
+    private Color GetChipColor(decimal diferencia)
+    {
+        if (diferencia == 0) return Color.Success;
+        if (diferencia > 0) return Color.Warning;
+        return Color.Error;
+    }
+
+    private async Task ExportarAPdf()
+    {
+        if (_conciliaciones == null || !_conciliaciones.Any() || _pendingBoxesCount > 0)
+        {
+            Snackbar.Add("No se puede descargar el PDF si existen cajas pendientes de conciliación", Severity.Warning);
+            return;
+        }
+
+        _exporting = true;
+        StateHasChanged();
+
+        try
+        {
+            var branchObj = _branches.FirstOrDefault(b => b.Name == _searchedBranch);
+            if (branchObj == null)
+            {
+                Snackbar.Add("Error al obtener la información de la sucursal", Severity.Error);
+                return;
+            }
+
+            if (_searchedDate == null)
+            {
+                Snackbar.Add("Fecha de búsqueda no válida", Severity.Error);
+                return;
+            }
+
+            var pdfBytes = await ExportService.ExportConciliacionesPdfAsync(_conciliaciones, branchObj, _searchedDate.Value);
+            
+            string nombreArchivo = $"Conciliaciones_{_searchedBranch.Replace(" ", "_")}_{_searchedDate.Value:yyyyMMdd}.pdf";
+            await FileDownloadService.DescargarArchivoAsync(pdfBytes, nombreArchivo, "application/pdf");
+            
+            Snackbar.Add("PDF descargado exitosamente", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error al generar el PDF de conciliaciones");
+            Snackbar.Add($"Error al generar el PDF: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _exporting = false;
+            StateHasChanged();
+        }
+    }
+}
