@@ -1,0 +1,494 @@
+@page "/configuracion/usuarios"
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Roles = "Admin")]
+@using System.ComponentModel.DataAnnotations
+@using Blanquita.Application.DTOs
+@using Blanquita.Application.Interfaces
+@inject IUserService UserService
+@inject IBranchService BranchService
+@inject AuthenticationStateProvider AuthStateProvider
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+@inject ILogger<AdministrarUsuarios> Logger
+
+<PageTitle>Administración de Usuarios - Configuración</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4 animate-fade-in">
+    <MudText Typo="Typo.h4" Class="mb-6 font-weight-bold" Style="background: linear-gradient(45deg, #667eea, #764ba2); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+        <MudIcon Icon="@Icons.Material.Filled.ManageAccounts" Class="mr-2" Size="Size.Large" Color="Color.Primary" />
+        Administración de Usuarios
+    </MudText>
+
+    <MudGrid>
+        <!-- Formulario de Crear / Editar -->
+        <MudItem xs="12" md="4">
+            <MudCard Elevation="4" Class="rounded-lg animate-slide-up mb-4">
+                <MudCardHeader>
+                    <CardHeaderContent>
+                        <MudText Typo="Typo.h6">@(isEditing ? "Editar Usuario" : "Nuevo Usuario")</MudText>
+                    </CardHeaderContent>
+                    <CardHeaderActions>
+                        <MudIconButton Icon="@(isEditing ? Icons.Material.Filled.Edit : Icons.Material.Filled.PersonAdd)" Color="Color.Default" />
+                    </CardHeaderActions>
+                </MudCardHeader>
+                <EditForm Model="model" OnValidSubmit="GuardarUsuario">
+                    <DataAnnotationsValidator />
+                    <MudCardContent>
+                        <MudTextField @bind-Value="model.Username" 
+                                     Label="Usuario (Username)" 
+                                     Variant="Variant.Outlined" 
+                                     Margin="Margin.Dense"
+                                     Disabled="isEditing"
+                                     For="@(() => model.Username)"
+                                     Adornment="Adornment.Start"
+                                     AdornmentIcon="@Icons.Material.Filled.Person"
+                                     Class="mb-3"></MudTextField>
+                        
+                        <MudTextField @bind-Value="model.FullName" 
+                                     Label="Nombre Completo" 
+                                     Variant="Variant.Outlined" 
+                                     Margin="Margin.Dense"
+                                     For="@(() => model.FullName)"
+                                     Adornment="Adornment.Start"
+                                     AdornmentIcon="@Icons.Material.Filled.Badge"
+                                     Class="mb-3"></MudTextField>
+                        
+                        <MudTextField @bind-Value="model.Email" 
+                                     Label="Correo Electrónico" 
+                                     Variant="Variant.Outlined" 
+                                     Margin="Margin.Dense"
+                                     InputType="InputType.Email"
+                                     For="@(() => model.Email)"
+                                     Adornment="Adornment.Start"
+                                     AdornmentIcon="@Icons.Material.Filled.Email"
+                                     Class="mb-3"></MudTextField>
+
+                        <MudTextField @bind-Value="model.PhoneNumber" 
+                                     Label="Teléfono (10 dígitos MX)" 
+                                     Variant="Variant.Outlined" 
+                                     Margin="Margin.Dense"
+                                     For="@(() => model.PhoneNumber)"
+                                     Adornment="Adornment.Start"
+                                     AdornmentIcon="@Icons.Material.Filled.Phone"
+                                     Class="mb-3"></MudTextField>
+
+                        <MudTextField @bind-Value="model.Password" 
+                                     Label="@(isEditing ? "Nueva Contraseña (dejar en blanco para no cambiar)" : "Contraseña")" 
+                                     Variant="Variant.Outlined" 
+                                     Margin="Margin.Dense"
+                                     InputType="InputType.Password"
+                                     For="@(() => model.Password)"
+                                     Adornment="Adornment.Start"
+                                     AdornmentIcon="@Icons.Material.Filled.Lock"
+                                     Class="mb-3"></MudTextField>
+                        
+                        <MudSelect T="string" Label="Rol" @bind-Value="model.Role"
+                                  Variant="Variant.Outlined"
+                                  Margin="Margin.Dense"
+                                  AnchorOrigin="Origin.BottomCenter"
+                                  For="@(() => model.Role)"
+                                  Adornment="Adornment.Start"
+                                  AdornmentIcon="@Icons.Material.Filled.Security"
+                                  Class="mb-3">
+                            @foreach (var rol in rolesDisponibles)
+                            {
+                                <MudSelectItem T="string" Value="@rol">@rol</MudSelectItem>
+                            }
+                        </MudSelect>
+
+                        @if (model.Role != "Admin")
+                        {
+                            <MudSelect T="int?" Label="Sucursal" @bind-Value="model.BranchId"
+                                       Variant="Variant.Outlined"
+                                       Margin="Margin.Dense"
+                                       AnchorOrigin="Origin.BottomCenter"
+                                       For="@(() => model.BranchId)"
+                                       Adornment="Adornment.Start"
+                                       AdornmentIcon="@Icons.Material.Filled.Store"
+                                       Class="mb-3">
+                                <MudSelectItem T="int?" Value="null">Selecciona una sucursal...</MudSelectItem>
+                                @foreach (var suc in sucursalesDisponibles)
+                                {
+                                    <MudSelectItem T="int?" Value="@suc.Id">@suc.Name</MudSelectItem>
+                                }
+                            </MudSelect>
+                        }
+                    </MudCardContent>
+                    <MudCardActions Class="d-flex justify-end pa-4">
+                        @if (isEditing)
+                        {
+                            <MudButton Variant="Variant.Outlined" Color="Color.Error" OnClick="CancelEdit" Class="mr-2">Cancelar</MudButton>
+                        }
+                        <MudButton ButtonType="ButtonType.Submit"
+                                   Variant="Variant.Filled"
+                                   Color="Color.Primary"
+                                   StartIcon="@Icons.Material.Filled.Save">
+                            @(isEditing ? "Actualizar" : "Guardar")
+                        </MudButton>
+                    </MudCardActions>
+                </EditForm>
+            </MudCard>
+        </MudItem>
+
+        <!-- Tabla con Listado de Usuarios -->
+        <MudItem xs="12" md="8">
+            <MudCard Elevation="4" Class="rounded-lg animate-slide-up">
+                <MudTable Items="usuariosFiltrados" 
+                          Dense="true" 
+                          Hover="true" 
+                          Striped="true"
+                          Elevation="0">
+                    <ToolBarContent>
+                        <MudText Typo="Typo.h6" Color="Color.Primary">
+                            <MudIcon Icon="@Icons.Material.Filled.List" Class="mr-2" />
+                            Listado de Usuarios
+                        </MudText>
+                        <MudSpacer />
+                        <MudTextField T="string" 
+                                     Value="searchString"
+                                     ValueChanged="OnSearch" 
+                                     Placeholder="Buscar por usuario, nombre o email..." 
+                                     Adornment="Adornment.Start"
+                                     AdornmentIcon="@Icons.Material.Filled.Search" 
+                                     IconSize="Size.Medium" 
+                                     Variant="Variant.Outlined"
+                                     Margin="Margin.Dense"
+                                     Class="mt-0"
+                                     Immediate="true"></MudTextField>
+                    </ToolBarContent>
+                    <HeaderContent>
+                        <MudTh>Usuario</MudTh>
+                        <MudTh>Nombre Completo</MudTh>
+                        <MudTh>Correo Electrónico</MudTh>
+                        <MudTh>Teléfono</MudTh>
+                        <MudTh>Rol</MudTh>
+                        <MudTh>Sucursal</MudTh>
+                        <MudTh Style="text-align:center">Acciones</MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd DataLabel="Usuario">
+                            <MudChip T="string" Color="Color.Default" Size="Size.Small" Variant="Variant.Outlined">@context.Username</MudChip>
+                        </MudTd>
+                        <MudTd DataLabel="Nombre Completo">
+                            <div class="d-flex align-center">
+                                <MudIcon Icon="@Icons.Material.Filled.Person" Size="Size.Small" Class="mr-2" Color="Color.Primary" />
+                                <MudText Typo="Typo.body2">@context.FullName</MudText>
+                            </div>
+                        </MudTd>
+                        <MudTd DataLabel="Correo Electrónico">
+                            <div class="d-flex align-center">
+                                <MudIcon Icon="@Icons.Material.Filled.Email" Size="Size.Small" Class="mr-2" Color="Color.Secondary" />
+                                <MudText Typo="Typo.body2">@context.Email</MudText>
+                            </div>
+                        </MudTd>
+                        <MudTd DataLabel="Teléfono">
+                            <div class="d-flex align-center">
+                                <MudIcon Icon="@Icons.Material.Filled.Phone" Size="Size.Small" Class="mr-2" Color="Color.Info" />
+                                <MudText Typo="Typo.body2">@context.PhoneNumber</MudText>
+                            </div>
+                        </MudTd>
+                        <MudTd DataLabel="Rol">
+                            @if (context.Role == "Admin")
+                            {
+                                <MudChip T="string" Color="Color.Primary" Size="Size.Small" Variant="Variant.Filled">Admin</MudChip>
+                            }
+                            else if (context.Role == "Supervisor")
+                            {
+                                <MudChip T="string" Color="Color.Secondary" Size="Size.Small" Variant="Variant.Filled">Supervisor</MudChip>
+                            }
+                            else if (context.Role == "Security")
+                            {
+                                <MudChip T="string" Color="Color.Warning" Size="Size.Small" Variant="Variant.Filled">Security</MudChip>
+                            }
+                            else if (context.Role == "Abarrotes")
+                            {
+                                <MudChip T="string" Color="Color.Info" Size="Size.Small" Variant="Variant.Filled">Abarrotes</MudChip>
+                            }
+                            else
+                            {
+                                <MudChip T="string" Color="Color.Default" Size="Size.Small" Variant="Variant.Filled">@context.Role</MudChip>
+                            }
+                        </MudTd>
+                        <MudTd DataLabel="Sucursal">
+                            <div class="d-flex align-center">
+                                <MudIcon Icon="@Icons.Material.Filled.Store" Size="Size.Small" Class="mr-2" Color="Color.Default" />
+                                <MudText Typo="Typo.body2">@context.BranchName</MudText>
+                            </div>
+                        </MudTd>
+                        <MudTd Style="text-align:center">
+                            <div class="d-flex justify-center gap-2">
+                                <MudTooltip Text="Editar">
+                                    <MudIconButton Icon="@Icons.Material.Filled.Edit"
+                                                   Color="Color.Primary"
+                                                   Size="Size.Small"
+                                                   OnClick="@(() => EditUsuario(context))" />
+                                </MudTooltip>
+                                <MudTooltip Text="Eliminar">
+                                    <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                                                   Color="Color.Error"
+                                                   Size="Size.Small"
+                                                   Disabled="@(currentUsername != null && context.Username == currentUsername)"
+                                                   OnClick="@(() => EliminarUsuario(context))" />
+                                </MudTooltip>
+                            </div>
+                        </MudTd>
+                    </RowTemplate>
+                    <NoRecordsContent>
+                        <MudPaper Elevation="0" Class="pa-6 d-flex flex-column align-center justify-center bg-transparent">
+                            <MudIcon Icon="@Icons.Material.Filled.SearchOff" Size="Size.Large" Color="Color.Default" Style="opacity: 0.5;" />
+                            <MudText Typo="Typo.body1" Class="mt-2 text-muted">No se encontraron usuarios</MudText>
+                        </MudPaper>
+                    </NoRecordsContent>
+                </MudTable>
+            </MudCard>
+        </MudItem>
+    </MudGrid>
+</MudContainer>
+
+<style>
+    .animate-fade-in {
+        animation: fadeIn 0.5s ease-out;
+    }
+    .animate-slide-up {
+        animation: slideUp 0.5s ease-out;
+    }
+    @@keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+    @@keyframes slideUp {
+        from { transform: translateY(20px); opacity: 0; }
+        to { transform: translateY(0); opacity: 1; }
+    }
+    .rounded-lg {
+        border-radius: 12px !important;
+    }
+</style>
+
+@code {
+    private UserViewModel model = new() { Role = "User" };
+    private bool isEditing = false;
+    private string editingUserId = string.Empty;
+    
+    private List<UserDto> todosLosUsuarios = new();
+    private List<UserDto> usuariosFiltrados = new();
+    private List<string> rolesDisponibles = new();
+    private List<BranchDto> sucursalesDisponibles = new();
+    
+    private string searchString = "";
+    private string? currentUsername;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            currentUsername = authState.User.Identity?.Name;
+
+            rolesDisponibles = await UserService.GetRolesAsync();
+            var branches = await BranchService.GetAllAsync();
+            sucursalesDisponibles = branches.ToList();
+            await CargarUsuariosAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error initializing users administration page");
+            Snackbar.Add("Error al inicializar la página", Severity.Error);
+        }
+    }
+
+    private async Task CargarUsuariosAsync()
+    {
+        todosLosUsuarios = await UserService.GetAllAsync();
+        AplicarFiltro();
+    }
+
+    private void OnSearch(string text)
+    {
+        searchString = text;
+        AplicarFiltro();
+    }
+
+    private void AplicarFiltro()
+    {
+        if (string.IsNullOrWhiteSpace(searchString))
+        {
+            usuariosFiltrados = todosLosUsuarios.ToList();
+        }
+        else
+        {
+            usuariosFiltrados = todosLosUsuarios.Where(u =>
+                (u.Username?.Contains(searchString, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                (u.FullName?.Contains(searchString, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                (u.Email?.Contains(searchString, StringComparison.OrdinalIgnoreCase) ?? false)
+            ).ToList();
+        }
+        StateHasChanged();
+    }
+
+    private void EditUsuario(UserDto selected)
+    {
+        editingUserId = selected.Id;
+        model = new UserViewModel
+        {
+            Username = selected.Username,
+            FullName = selected.FullName,
+            Email = selected.Email,
+            PhoneNumber = selected.PhoneNumber,
+            Role = selected.Role,
+            BranchId = selected.BranchId,
+            Password = "" // En blanco al editar
+        };
+        isEditing = true;
+        StateHasChanged();
+    }
+
+    private void CancelEdit()
+    {
+        model = new UserViewModel { Role = "User", BranchId = null };
+        isEditing = false;
+        editingUserId = string.Empty;
+        StateHasChanged();
+    }
+
+    private async Task GuardarUsuario()
+    {
+        try
+        {
+            if (model.Role != "Admin" && (!model.BranchId.HasValue || model.BranchId.Value <= 0))
+            {
+                Snackbar.Add("La sucursal es requerida para usuarios que no son administradores", Severity.Warning);
+                return;
+            }
+
+            var finalBranchId = model.Role == "Admin" ? null : model.BranchId;
+
+            if (isEditing)
+            {
+                var dto = new UpdateUserDto
+                {
+                    Id = editingUserId,
+                    FullName = model.FullName,
+                    Email = model.Email,
+                    PhoneNumber = model.PhoneNumber,
+                    Password = string.IsNullOrWhiteSpace(model.Password) ? null : model.Password,
+                    Role = model.Role,
+                    BranchId = finalBranchId
+                };
+
+                var success = await UserService.UpdateAsync(dto);
+                if (success)
+                {
+                    Snackbar.Add("Usuario actualizado exitosamente", Severity.Success);
+                }
+                else
+                {
+                    Snackbar.Add("Error al actualizar el usuario", Severity.Error);
+                    return;
+                }
+            }
+            else
+            {
+                // Validación para creación
+                if (string.IsNullOrWhiteSpace(model.Password))
+                {
+                    Snackbar.Add("La contraseña es requerida para un usuario nuevo", Severity.Error);
+                    return;
+                }
+
+                var dto = new CreateUserDto
+                {
+                    Username = model.Username,
+                    FullName = model.FullName,
+                    Email = model.Email,
+                    PhoneNumber = model.PhoneNumber,
+                    Password = model.Password,
+                    Role = model.Role,
+                    BranchId = finalBranchId
+                };
+
+                var success = await UserService.CreateAsync(dto);
+                if (success)
+                {
+                    Snackbar.Add("Usuario registrado exitosamente", Severity.Success);
+                }
+                else
+                {
+                    Snackbar.Add("Error al registrar el usuario", Severity.Error);
+                    return;
+                }
+            }
+
+            await CargarUsuariosAsync();
+            CancelEdit();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error saving user");
+            Snackbar.Add($"Error: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task EliminarUsuario(UserDto user)
+    {
+        try
+        {
+            if (user.Username == currentUsername)
+            {
+                Snackbar.Add("No puedes eliminar tu propio usuario con la sesión activa", Severity.Error);
+                return;
+            }
+
+            bool? result = await DialogService.ShowMessageBox(
+                "Confirmar Eliminación",
+                $"¿Está seguro de que desea eliminar permanentemente al usuario '{user.Username}'?",
+                yesText: "Eliminar", 
+                cancelText: "Cancelar"
+            );
+
+            if (result == true)
+            {
+                var success = await UserService.DeleteAsync(user.Id);
+                if (success)
+                {
+                    Snackbar.Add("Usuario eliminado exitosamente", Severity.Success);
+                    await CargarUsuariosAsync();
+                }
+                else
+                {
+                    Snackbar.Add("Error al eliminar el usuario", Severity.Error);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error deleting user");
+            Snackbar.Add("Error al eliminar el usuario", Severity.Error);
+        }
+    }
+
+    public class UserViewModel
+    {
+        [Required(ErrorMessage = "El nombre de usuario es requerido")]
+        [StringLength(50, MinimumLength = 3, ErrorMessage = "El usuario debe tener entre 3 y 50 caracteres")]
+        public string Username { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "El nombre completo es requerido")]
+        [StringLength(100, ErrorMessage = "El nombre completo no puede exceder los 100 caracteres")]
+        public string FullName { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "El correo electrónico es requerido")]
+        [EmailAddress(ErrorMessage = "El correo electrónico no es válido")]
+        public string Email { get; set; } = string.Empty;
+
+        [RegularExpression(@"^\d{10}$", ErrorMessage = "El número de teléfono debe tener exactamente 10 dígitos (ej. 3312345678).")]
+        public string? PhoneNumber { get; set; }
+
+        public string Password { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "El rol es requerido")]
+        public string Role { get; set; } = "User";
+
+        public int? BranchId { get; set; }
+    }
+}
