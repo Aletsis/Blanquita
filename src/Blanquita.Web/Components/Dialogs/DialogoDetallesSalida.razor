@@ -1,0 +1,232 @@
+@using Blanquita.Application.DTOs
+@using Blanquita.Application.Interfaces
+@inject ICommercialApiService CommercialApiService
+@inject IJSRuntime JS
+@inject ISnackbar Snackbar
+@inject ILogger<DialogoDetallesSalida> Logger
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h5" Class="font-weight-bold" Style="background: linear-gradient(135deg, #1e88e5, #00c853); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+            <MudIcon Icon="@Icons.Material.Filled.Receipt" Class="mr-2" Color="Color.Primary" />
+            Detalle de Salida: @(string.IsNullOrEmpty(Serie) ? "" : Serie + " - ")@Folio
+        </MudText>
+    </TitleContent>
+    <DialogContent>
+        <!-- Datos de Cabecera -->
+        <MudCard Elevation="0" Outlined="true" Class="pa-4 mb-4 rounded-lg bg-light-gradient">
+            <MudGrid Spacing="2">
+                <MudItem xs="6" sm="3">
+                    <MudText Typo="Typo.caption" Class="text-muted font-weight-bold">CONCEPTO</MudText>
+                    <MudText Typo="Typo.body2" Class="font-weight-bold text-indigo">@(CodigoConcepto ?? "N/A")</MudText>
+                </MudItem>
+                <MudItem xs="6" sm="3">
+                    <MudText Typo="Typo.caption" Class="text-muted font-weight-bold">FECHA</MudText>
+                    <MudText Typo="Typo.body2">@Fecha?.ToString("dd/MM/yyyy")</MudText>
+                </MudItem>
+                <MudItem xs="6" sm="3">
+                    <MudText Typo="Typo.caption" Class="text-muted font-weight-bold">SERIE / FOLIO</MudText>
+                    <MudText Typo="Typo.body2" Class="font-weight-bold">@(string.IsNullOrEmpty(Serie) ? "" : Serie + " - ")@Folio</MudText>
+                </MudItem>
+                <MudItem xs="6" sm="3">
+                    <MudText Typo="Typo.caption" Class="text-muted font-weight-bold">REFERENCIA</MudText>
+                    <MudText Typo="Typo.body2">@(string.IsNullOrWhiteSpace(Referencia) ? "N/A" : Referencia)</MudText>
+                </MudItem>
+                @if (!string.IsNullOrWhiteSpace(RazonSocial))
+                {
+                    <MudItem xs="12">
+                        <MudText Typo="Typo.caption" Class="text-muted font-weight-bold">RAZÓN SOCIAL (ASOCIADA)</MudText>
+                        <MudText Typo="Typo.body2" Class="font-weight-bold">@RazonSocial</MudText>
+                    </MudItem>
+                }
+            </MudGrid>
+        </MudCard>
+
+        @if (_loading)
+        {
+            <div class="d-flex flex-column align-center justify-center pa-8">
+                <MudProgressCircular Color="Color.Primary" Size="Size.Large" Indeterminate="true" />
+                <MudText Typo="Typo.body1" Class="mt-4 text-muted">Cargando partidas del documento...</MudText>
+            </div>
+        }
+        else
+        {
+            @if (_movimientos == null || !_movimientos.Any())
+            {
+                <MudAlert Severity="Severity.Warning">No se encontraron partidas para este documento.</MudAlert>
+            }
+            else
+            {
+                <MudTable Items="@_movimientos" Hover="true" Dense="true" Striped="true" Elevation="0" Outlined="true" Class="rounded-lg">
+                    <HeaderContent>
+                        <MudTh>Código</MudTh>
+                        <MudTh>Producto</MudTh>
+                        <MudTh Style="text-align: right;">Cantidad</MudTh>
+                        <MudTh Style="text-align: right;">Precio Unitario</MudTh>
+                        <MudTh Style="text-align: right;">Neto</MudTh>
+                        <MudTh Style="text-align: right;">Impuesto</MudTh>
+                        <MudTh Style="text-align: right;">Total</MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd DataLabel="Código">
+                            <MudChip T="string" Color="Color.Info" Size="Size.Small" Variant="Variant.Text" Class="font-weight-bold">
+                                @GetProductCode(context.CIDPRODUCTO)
+                            </MudChip>
+                        </MudTd>
+                        <MudTd DataLabel="Producto">@GetProductName(context.CIDPRODUCTO)</MudTd>
+                        <MudTd DataLabel="Cantidad" Style="text-align: right;">@context.CUNIDADES.ToString("N2")</MudTd>
+                        <MudTd DataLabel="Precio Unitario" Style="text-align: right;">@context.CPRECIO.ToString("C2")</MudTd>
+                        <MudTd DataLabel="Neto" Style="text-align: right;">@context.CNETO.ToString("C2")</MudTd>
+                        <MudTd DataLabel="Impuesto" Style="text-align: right;">@context.CIMPUESTO1.ToString("C2")</MudTd>
+                        <MudTd DataLabel="Total" Style="text-align: right;" Class="font-weight-bold text-indigo">@context.CTOTAL.ToString("C2")</MudTd>
+                    </RowTemplate>
+                </MudTable>
+
+                <div class="d-flex justify-end mt-4 pa-2 border-t">
+                    <MudText Typo="Typo.h6" Class="font-weight-bold text-indigo">
+                        Gran Total: @Total.ToString("C2")
+                    </MudText>
+                </div>
+            }
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton Color="Color.Error" 
+                   Variant="Variant.Outlined" 
+                   StartIcon="@Icons.Material.Filled.PictureAsPdf" 
+                   OnClick="DescargarPDF" 
+                   Disabled="@(_loading || _descargandoPdf)" 
+                   Class="mr-2">
+            @if (_descargandoPdf)
+            {
+                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                <text>Descargando...</text>
+            }
+            else
+            {
+                <text>Descargar PDF</text>
+            }
+        </MudButton>
+        <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="Cerrar">Cerrar</MudButton>
+    </DialogActions>
+</MudDialog>
+
+<style>
+    .text-indigo {
+        color: #3f51b5 !important;
+    }
+    .rounded-lg {
+        border-radius: 12px !important;
+    }
+    .border-t {
+        border-top: 1px solid rgba(226, 232, 240, 0.8);
+    }
+    .bg-light-gradient {
+        background: linear-gradient(180deg, #f8fafc 0%, #ffffff 100%) !important;
+    }
+    .text-muted {
+        color: #64748b !important;
+    }
+</style>
+
+@code {
+    [CascadingParameter]
+    IMudDialogInstance MudDialog { get; set; } = null!;
+
+    [Parameter]
+    public int DocumentoId { get; set; }
+
+    [Parameter]
+    public string Username { get; set; } = string.Empty;
+
+    [Parameter]
+    public string? Serie { get; set; }
+
+    [Parameter]
+    public double Folio { get; set; }
+
+    [Parameter]
+    public double Total { get; set; }
+
+    [Parameter]
+    public string? CodigoConcepto { get; set; }
+
+    [Parameter]
+    public DateTime? Fecha { get; set; }
+
+    [Parameter]
+    public string? RazonSocial { get; set; }
+
+    [Parameter]
+    public string? Referencia { get; set; }
+
+    private bool _loading = true;
+    private bool _descargandoPdf = false;
+    private IEnumerable<CommercialMovimientoDto> _movimientos = Enumerable.Empty<CommercialMovimientoDto>();
+    private Dictionary<int, (string Code, string Name)> _productCache = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _loading = true;
+            
+            // 1. Obtener movimientos
+            _movimientos = await CommercialApiService.GetMovimientosAsync(DocumentoId, Username);
+            
+            // 2. Obtener catálogo de productos (tanto activos como inactivos) para mapear nombres y códigos
+            var products = await CommercialApiService.GetProductosAsync("", Username, onlyActive: false);
+            foreach (var p in products)
+            {
+                _productCache[p.Id] = (p.Codigo, p.Nombre);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error al cargar partidas para el documento de salida {DocumentoId}", DocumentoId);
+            Snackbar.Add("Error al cargar las partidas del documento", Severity.Error);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private string GetProductCode(int productId)
+    {
+        return _productCache.TryGetValue(productId, out var prod) ? prod.Code : $"ID: {productId}";
+    }
+
+    private string GetProductName(int productId)
+    {
+        return _productCache.TryGetValue(productId, out var prod) ? prod.Name : "Producto no encontrado en catálogo";
+    }
+
+    private void Cerrar() => MudDialog.Close();
+
+    private async Task DescargarPDF()
+    {
+        _descargandoPdf = true;
+        StateHasChanged();
+        try
+        {
+            var pdfBytes = await CommercialApiService.GetSalidaPdfAsync(CodigoConcepto, Serie, Folio, Username);
+            var nombreArchivo = $"Salida_{(string.IsNullOrEmpty(Serie) ? "" : Serie + "_")}{Folio}.pdf";
+            
+            var base64 = Convert.ToBase64String(pdfBytes);
+            await JS.InvokeVoidAsync("fileDownloadHelper.downloadFile", nombreArchivo, "application/pdf", base64);
+            
+            Snackbar.Add("PDF de salida descargado exitosamente", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error al descargar el PDF de salida");
+            Snackbar.Add($"Error al descargar PDF: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _descargandoPdf = false;
+            StateHasChanged();
+        }
+    }
+}

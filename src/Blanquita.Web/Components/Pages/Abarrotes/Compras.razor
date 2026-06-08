@@ -1,0 +1,368 @@
+@page "/abarrotes/compras"
+@using Blanquita.Application.DTOs
+@using Blanquita.Application.Interfaces
+@using Blanquita.Web.Components.Dialogs
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Roles = "Admin,Abarrotes,User")]
+@inject ICommercialApiService CommercialApiService
+@inject AuthenticationStateProvider AuthStateProvider
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+@inject ILogger<Compras> Logger
+
+<PageTitle>Compras - API Comercial</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4 animate-fade-in">
+    <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-6">
+        <MudText Typo="Typo.h4" Class="font-weight-bold" Style="background: linear-gradient(45deg, #4f46e5, #06b6d4); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+            <MudIcon Icon="@Icons.Material.Filled.Receipt" Class="mr-2" Size="Size.Large" Color="Color.Primary" />
+            Compras (API Comercial)
+        </MudText>
+        <MudButton Variant="Variant.Filled" 
+                  StartIcon="@Icons.Material.Filled.Search" 
+                  Color="Color.Primary" 
+                  OnClick="CargarCompras" 
+                  Disabled="@_buscando"
+                  Class="px-6">
+            @if (_buscando) 
+            { 
+                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" /> 
+                <text>Buscando...</text> 
+            } 
+            else 
+            { 
+                <text>Buscar</text> 
+            }
+        </MudButton>
+    </MudStack>
+
+    <!-- Panel de Filtros -->
+    <MudCard Elevation="4" Class="pa-4 rounded-lg mb-6">
+        <MudCardContent>
+            <MudGrid>
+                <!-- Proveedor (Autocomplete por Código o Razón Social) -->
+                <MudItem xs="12" md="6" lg="4">
+                    <MudAutocomplete T="CommercialProveedorDto" 
+                                     Label="Proveedor (Código o Nombre)" 
+                                     @bind-Value="_selectedProveedor" 
+                                     SearchFunc="@BuscarProveedores"
+                                     ToStringFunc="@proveedorToString"
+                                     Variant="Variant.Outlined" 
+                                     Margin="Margin.Dense"
+                                     Clearable="true"
+                                     Adornment="Adornment.Start"
+                                     AdornmentIcon="@Icons.Material.Filled.People"
+                                     Placeholder="Escriba código o nombre de proveedor..." />
+                </MudItem>
+
+                <!-- Serie -->
+                <MudItem xs="12" sm="6" md="3" lg="2">
+                    <MudTextField @bind-Value="_serieFilter" 
+                                  Label="Serie" 
+                                  Variant="Variant.Outlined" 
+                                  Margin="Margin.Dense"
+                                  Clearable="true"
+                                  OnKeyUp="HandleKeyUp" />
+                </MudItem>
+
+                <!-- Folio -->
+                <MudItem xs="12" sm="6" md="3" lg="2">
+                    <MudNumericField @bind-Value="_folioFilter" 
+                                     Label="Folio" 
+                                     Variant="Variant.Outlined" 
+                                     Margin="Margin.Dense"
+                                     Clearable="true"
+                                     HideSpinButtons="true"
+                                     OnKeyUp="HandleKeyUp" />
+                </MudItem>
+
+                <!-- Rango de Fechas -->
+                <MudItem xs="12" sm="12" md="6" lg="4">
+                    <MudDateRangePicker Label="Rango de Fechas" 
+                                        @bind-DateRange="_dateRange" 
+                                        Variant="Variant.Outlined" 
+                                        Margin="Margin.Dense" 
+                                        Clearable="true" />
+                </MudItem>
+            </MudGrid>
+        </MudCardContent>
+    </MudCard>
+
+    <!-- Tabla de Resultados -->
+    <MudItem xs="12">
+        @if (_compras == null)
+        {
+            <div class="d-flex flex-column align-center justify-center pa-12">
+                <MudProgressCircular Color="Color.Primary" Size="Size.Large" Indeterminate="true" />
+                <MudText Typo="Typo.body1" Class="mt-4 text-muted">Cargando conexión con la API Comercial...</MudText>
+            </div>
+        }
+        else if (!_compras.Any())
+        {
+            <MudAlert Severity="Severity.Info" Class="mt-4 rounded-lg">
+                No se encontraron compras con los filtros especificados. Presione "Buscar" para actualizar la lista.
+            </MudAlert>
+        }
+        else
+        {
+            <MudTable Items="@_compras" 
+                      Hover="true" 
+                      Dense="true" 
+                      Striped="true" 
+                      Elevation="4" 
+                      Class="rounded-lg animate-slide-up"
+                      OnRowClick="RowClickEvent"
+                      T="CommercialCompraDto">
+                <HeaderContent>
+                    <MudTh>Fecha</MudTh>
+                    <MudTh>Serie</MudTh>
+                    <MudTh>Folio</MudTh>
+                    <MudTh>Cód. Prov.</MudTh>
+                    <MudTh>Razón Social</MudTh>
+                    <MudTh Style="text-align: right;">Impuesto</MudTh>
+                    <MudTh Style="text-align: right;">Total</MudTh>
+                    <MudTh Style="text-align: right;">Pendiente</MudTh>
+                    <MudTh>Asociado</MudTh>
+                    <MudTh>Referencia</MudTh>
+                    <MudTh>Edo</MudTh>
+                    <MudTh>Vence</MudTh>
+                    <MudTh>Entrega</MudTh>
+                    <MudTh>UUID CFDi Relacionado</MudTh>
+                    <MudTh Style="text-align: center;">Acciones</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="Fecha">@context.CFECHA?.ToString("dd/MM/yyyy")</MudTd>
+                    <MudTd DataLabel="Serie">@context.CSERIEDOCUMENTO</MudTd>
+                    <MudTd DataLabel="Folio" Class="font-weight-bold">@context.CFOLIO</MudTd>
+                    <MudTd DataLabel="Cód. Prov.">
+                        <MudChip T="string" Color="Color.Default" Size="Size.Small" Variant="Variant.Text" Class="font-weight-bold">
+                            @GetSupplierCode(context.CIDCLIENTEPROVEEDOR)
+                        </MudChip>
+                    </MudTd>
+                    <MudTd DataLabel="Razón Social">@context.CRAZONSOCIAL</MudTd>
+                    <MudTd DataLabel="Impuesto" Style="text-align: right;">@context.CIMPUESTO1.ToString("C2")</MudTd>
+                    <MudTd DataLabel="Total" Style="text-align: right;" Class="font-weight-bold text-indigo">@context.CTOTAL.ToString("C2")</MudTd>
+                    <MudTd DataLabel="Pendiente" Style="text-align: right;" Class="@(context.CPENDIENTE > 0 ? "text-error font-weight-bold" : "text-success")">
+                        @context.CPENDIENTE.ToString("C2")
+                    </MudTd>
+                    <MudTd DataLabel="Asociado">@context.CTEXTOEXTRA1</MudTd>
+                    <MudTd DataLabel="Referencia">@context.CREFERENCIA</MudTd>
+                    <MudTd DataLabel="Edo">
+                        @if (context.CCANCELADO == 1)
+                        {
+                            <MudChip T="string" Color="Color.Error" Size="Size.Small" Variant="Variant.Filled">Cancelado</MudChip>
+                        }
+                        else
+                        {
+                            <MudChip T="string" Color="Color.Success" Size="Size.Small" Variant="Variant.Filled">Vigente</MudChip>
+                        }
+                    </MudTd>
+                    <MudTd DataLabel="Vence">@context.CFECHAVENCIMIENTO?.ToString("dd/MM/yyyy")</MudTd>
+                    <MudTd DataLabel="Entrega">@context.CFECHAENTREGARECEPCION?.ToString("dd/MM/yyyy")</MudTd>
+                    <MudTd DataLabel="UUID CFDi" Style="font-size: 0.75rem; font-family: monospace;">
+                        @if (!string.IsNullOrEmpty(context.CGUIDDOCUMENTO))
+                        {
+                            <MudTooltip Text="@context.CGUIDDOCUMENTO">
+                                <span class="d-inline-block text-truncate" style="max-width: 120px;">@context.CGUIDDOCUMENTO</span>
+                            </MudTooltip>
+                        }
+                    </MudTd>
+                    <MudTd DataLabel="Acciones" Style="text-align: center;">
+                        <MudButton Variant="Variant.Filled" 
+                                   Color="Color.Info" 
+                                   Size="Size.Small" 
+                                   StartIcon="@Icons.Material.Filled.Visibility"
+                                   OnClick="@(() => VerDetalles(context))">
+                            Detalles
+                        </MudButton>
+                    </MudTd>
+                </RowTemplate>
+                <PagerContent>
+                    <MudTablePager />
+                </PagerContent>
+            </MudTable>
+        }
+    </MudItem>
+</MudContainer>
+
+<style>
+    .animate-fade-in {
+        animation: fadeIn 0.5s ease-out;
+    }
+    .animate-slide-up {
+        animation: slideUp 0.5s ease-out;
+    }
+    @@keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+    @@keyframes slideUp {
+        from { transform: translateY(20px); opacity: 0; }
+        to { transform: translateY(0); opacity: 1; }
+    }
+    .rounded-lg {
+        border-radius: 12px !important;
+    }
+    .font-weight-bold {
+        font-weight: 700 !important;
+    }
+    .text-indigo {
+        color: #3f51b5 !important;
+    }
+    .text-error {
+        color: #f44336 !important;
+    }
+    .text-success {
+        color: #4caf50 !important;
+    }
+</style>
+
+@code {
+    private bool _buscando = false;
+    private string _username = string.Empty;
+    
+    // Filtros
+    private CommercialProveedorDto? _selectedProveedor;
+    private string? _serieFilter;
+    private double? _folioFilter;
+    private DateRange _dateRange = new DateRange(DateTime.Now.AddMonths(-1), DateTime.Now);
+
+    private IEnumerable<CommercialCompraDto>? _compras;
+    private Dictionary<int, string> _supplierCodes = new();
+
+    // Gestión del doble clic en MudTable
+    private DateTime _lastClickTime = DateTime.MinValue;
+    private int _lastClickedDocId = -1;
+
+    private Func<CommercialProveedorDto, string> proveedorToString = p => p == null ? "" : $"{p.Codigo} - {p.RazonSocial}";
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            _username = authState.User.Identity?.Name ?? string.Empty;
+
+            if (string.IsNullOrEmpty(_username))
+            {
+                Snackbar.Add("Error de sesión: No se pudo identificar al usuario actual.", Severity.Error);
+                return;
+            }
+
+            // Inicializar catálogo básico de proveedores para mostrar códigos
+            await CargarCatalogoProveedores();
+            
+            // Carga inicial de compras
+            await CargarCompras();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error al inicializar la página de compras");
+            Snackbar.Add($"Error de conexión: {ex.Message}", Severity.Error);
+            _compras = Enumerable.Empty<CommercialCompraDto>();
+        }
+    }
+
+    private async Task CargarCatalogoProveedores()
+    {
+        try
+        {
+            var providers = await CommercialApiService.SearchProveedoresAsync("", _username, pageSize: 10000);
+            foreach (var p in providers)
+            {
+                _supplierCodes[p.Id] = p.Codigo;
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "No se pudo cargar la caché completa de proveedores. Se cargarán bajo demanda.");
+        }
+    }
+
+    private string GetSupplierCode(int supplierId)
+    {
+        return _supplierCodes.TryGetValue(supplierId, out var code) ? code : $"ID: {supplierId}";
+    }
+
+    private async Task<IEnumerable<CommercialProveedorDto>> BuscarProveedores(string value, CancellationToken token)
+    {
+        try
+        {
+            return await CommercialApiService.SearchProveedoresAsync(value, _username);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error al autocompletar proveedores");
+            return Enumerable.Empty<CommercialProveedorDto>();
+        }
+    }
+
+    private async Task CargarCompras()
+    {
+        if (string.IsNullOrEmpty(_username)) return;
+
+        _buscando = true;
+        StateHasChanged();
+
+        try
+        {
+            DateTime? fechaDesde = _dateRange?.Start;
+            DateTime? fechaHasta = _dateRange?.End;
+
+            _compras = await CommercialApiService.GetComprasAsync(
+                _serieFilter, 
+                _folioFilter, 
+                _selectedProveedor?.Id, 
+                fechaDesde, 
+                fechaHasta, 
+                _username);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error al consultar compras de la API");
+            Snackbar.Add($"Error al consultar compras: {ex.Message}", Severity.Error);
+            _compras = Enumerable.Empty<CommercialCompraDto>();
+        }
+        finally
+        {
+            _buscando = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task HandleKeyUp(KeyboardEventArgs args)
+    {
+        if (args.Key == "Enter")
+        {
+            await CargarCompras();
+        }
+    }
+
+    private void RowClickEvent(TableRowClickEventArgs<CommercialCompraDto> args)
+    {
+        var doc = args.Item;
+        var now = DateTime.Now;
+        if (doc.CIDDOCUMENTO == _lastClickedDocId && (now - _lastClickTime).TotalMilliseconds < 300)
+        {
+            // Ejecutar doble clic
+            VerDetalles(doc);
+        }
+        _lastClickTime = now;
+        _lastClickedDocId = doc.CIDDOCUMENTO;
+    }
+
+    private void VerDetalles(CommercialCompraDto compra)
+    {
+        var parameters = new DialogParameters
+        {
+            { nameof(DialogoDetallesCompra.DocumentoId), compra.CIDDOCUMENTO },
+            { nameof(DialogoDetallesCompra.Username), _username },
+            { nameof(DialogoDetallesCompra.Serie), compra.CSERIEDOCUMENTO },
+            { nameof(DialogoDetallesCompra.Folio), compra.CFOLIO },
+            { nameof(DialogoDetallesCompra.Total), compra.CTOTAL }
+        };
+
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium, FullWidth = true };
+        DialogService.Show<DialogoDetallesCompra>("Partidas de Compra", parameters, options);
+    }
+}

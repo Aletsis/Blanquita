@@ -1,0 +1,207 @@
+@using Blanquita.Application.DTOs
+@using Blanquita.Application.Interfaces
+@inject ICommercialApiService CommercialApiService
+@inject IExportService ExportService
+@inject IJSRuntime JS
+@inject ISnackbar Snackbar
+@inject ILogger<DialogoDetallesCompra> Logger
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h5" Class="font-weight-bold" Style="background: linear-gradient(135deg, #1e88e5, #00c853); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+            <MudIcon Icon="@Icons.Material.Filled.Receipt" Class="mr-2" Color="Color.Primary" />
+            Detalle de Compra: @(string.IsNullOrEmpty(Serie) ? "" : Serie + " - ")@Folio
+        </MudText>
+    </TitleContent>
+    <DialogContent>
+        @if (_loading)
+        {
+            <div class="d-flex flex-column align-center justify-center pa-8">
+                <MudProgressCircular Color="Color.Primary" Size="Size.Large" Indeterminate="true" />
+                <MudText Typo="Typo.body1" Class="mt-4 text-muted">Cargando partidas del documento...</MudText>
+            </div>
+        }
+        else
+        {
+            @if (_movimientos == null || !_movimientos.Any())
+            {
+                <MudAlert Severity="Severity.Warning">No se encontraron partidas para este documento.</MudAlert>
+            }
+            else
+            {
+                <MudTable Items="@_movimientos" Hover="true" Dense="true" Striped="true" Elevation="0" Outlined="true" Class="rounded-lg">
+                    <HeaderContent>
+                        <MudTh>Código</MudTh>
+                        <MudTh>Producto</MudTh>
+                        <MudTh Style="text-align: right;">Cantidad</MudTh>
+                        <MudTh Style="text-align: right;">Precio Unitario</MudTh>
+                        <MudTh Style="text-align: right;">Neto</MudTh>
+                        <MudTh Style="text-align: right;">Impuesto</MudTh>
+                        <MudTh Style="text-align: right;">Total</MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd DataLabel="Código">
+                            <MudChip T="string" Color="Color.Info" Size="Size.Small" Variant="Variant.Text" Class="font-weight-bold">
+                                @GetProductCode(context.CIDPRODUCTO)
+                            </MudChip>
+                        </MudTd>
+                        <MudTd DataLabel="Producto">@GetProductName(context.CIDPRODUCTO)</MudTd>
+                        <MudTd DataLabel="Cantidad" Style="text-align: right;">@context.CUNIDADES.ToString("N2")</MudTd>
+                        <MudTd DataLabel="Precio Unitario" Style="text-align: right;">@context.CPRECIO.ToString("C2")</MudTd>
+                        <MudTd DataLabel="Neto" Style="text-align: right;">@context.CNETO.ToString("C2")</MudTd>
+                        <MudTd DataLabel="Impuesto" Style="text-align: right;">@context.CIMPUESTO1.ToString("C2")</MudTd>
+                        <MudTd DataLabel="Total" Style="text-align: right;" Class="font-weight-bold text-indigo">@context.CTOTAL.ToString("C2")</MudTd>
+                    </RowTemplate>
+                </MudTable>
+
+                <div class="d-flex justify-end mt-4 pa-2 border-t">
+                    <MudText Typo="Typo.h6" Class="font-weight-bold text-indigo">
+                        Gran Total: @Total.ToString("C2")
+                    </MudText>
+                </div>
+            }
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton Color="Color.Success" 
+                   Variant="Variant.Outlined" 
+                   StartIcon="@Icons.Material.Filled.Download" 
+                   OnClick="ExportarExcel" 
+                   Disabled="@(_loading || _movimientos == null || !_movimientos.Any())" 
+                   Class="mr-2">
+            Exportar Excel
+        </MudButton>
+        <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="Cerrar">Cerrar</MudButton>
+    </DialogActions>
+</MudDialog>
+
+<style>
+    .text-indigo {
+        color: #3f51b5 !important;
+    }
+    .rounded-lg {
+        border-radius: 12px !important;
+    }
+    .border-t {
+        border-top: 1px solid rgba(226, 232, 240, 0.8);
+    }
+</style>
+
+@code {
+    [CascadingParameter]
+    IMudDialogInstance MudDialog { get; set; } = null!;
+
+    [Parameter]
+    public int DocumentoId { get; set; }
+
+    [Parameter]
+    public string Username { get; set; } = string.Empty;
+
+    [Parameter]
+    public string? Serie { get; set; }
+
+    [Parameter]
+    public double Folio { get; set; }
+
+    [Parameter]
+    public double Total { get; set; }
+
+    private bool _loading = true;
+    private IEnumerable<CommercialMovimientoDto> _movimientos = Enumerable.Empty<CommercialMovimientoDto>();
+    private Dictionary<int, (string Code, string Name)> _productCache = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _loading = true;
+            
+            // 1. Obtener movimientos
+            _movimientos = await CommercialApiService.GetMovimientosAsync(DocumentoId, Username);
+            
+            // 2. Obtener catálogo de productos (tanto activos como inactivos) para mapear nombres y códigos
+            var products = await CommercialApiService.GetProductosAsync("", Username, onlyActive: false);
+            foreach (var p in products)
+            {
+                _productCache[p.Id] = (p.Codigo, p.Nombre);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error al cargar partidas para el documento {DocumentoId}", DocumentoId);
+            Snackbar.Add("Error al cargar las partidas del documento", Severity.Error);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private string GetProductCode(int productId)
+    {
+        return _productCache.TryGetValue(productId, out var prod) ? prod.Code : $"ID: {productId}";
+    }
+
+    private string GetProductName(int productId)
+    {
+        return _productCache.TryGetValue(productId, out var prod) ? prod.Name : "Producto no encontrado en catálogo";
+    }
+
+    private void Cerrar() => MudDialog.Close();
+
+    private async Task ExportarExcel()
+    {
+        if (_movimientos == null || !_movimientos.Any()) return;
+
+        try
+        {
+            var datosAExportar = _movimientos.Select(m => new DetalleCompraExcelDto
+            {
+                Codigo = GetProductCode(m.CIDPRODUCTO),
+                Producto = GetProductName(m.CIDPRODUCTO),
+                Cantidad = m.CUNIDADES,
+                PrecioUnitario = m.CPRECIO,
+                Neto = m.CNETO,
+                Impuesto1 = m.CIMPUESTO1,
+                Total = m.CTOTAL
+            }).ToList();
+
+            var contenido = await ExportService.ExportToExcelAsync(datosAExportar, "Detalle Compra");
+            var nombreArchivo = $"Detalle_Compra_{(string.IsNullOrEmpty(Serie) ? "" : Serie + "_")}{Folio}.xlsx";
+            
+            var base64 = Convert.ToBase64String(contenido);
+            await JS.InvokeVoidAsync("fileDownloadHelper.downloadFile", nombreArchivo, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", base64);
+            
+            Snackbar.Add("Detalles de compra exportados a Excel", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error al exportar partidas de compra a Excel");
+            Snackbar.Add($"Error al exportar a Excel: {ex.Message}", Severity.Error);
+        }
+    }
+
+    public class DetalleCompraExcelDto
+    {
+        [System.ComponentModel.DisplayName("Código")]
+        public string Codigo { get; set; } = string.Empty;
+
+        [System.ComponentModel.DisplayName("Producto")]
+        public string Producto { get; set; } = string.Empty;
+
+        [System.ComponentModel.DisplayName("Cantidad")]
+        public double Cantidad { get; set; }
+
+        [System.ComponentModel.DisplayName("Precio Unitario")]
+        public double PrecioUnitario { get; set; }
+
+        [System.ComponentModel.DisplayName("Neto")]
+        public double Neto { get; set; }
+
+        [System.ComponentModel.DisplayName("Impuesto")]
+        public double Impuesto1 { get; set; }
+
+        [System.ComponentModel.DisplayName("Total")]
+        public double Total { get; set; }
+    }
+}

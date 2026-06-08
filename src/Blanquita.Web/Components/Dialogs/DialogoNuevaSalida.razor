@@ -1,0 +1,428 @@
+@using Blanquita.Application.DTOs
+@using Blanquita.Application.Interfaces
+@inject ICommercialApiService CommercialApiService
+@inject ISnackbar Snackbar
+@inject ILogger<DialogoNuevaSalida> Logger
+@inject IJSRuntime JS
+
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h5" Class="font-weight-bold" Style="background: linear-gradient(135deg, #4f46e5, #06b6d4); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+            <MudIcon Icon="@Icons.Material.Filled.AddShoppingCart" Class="mr-2" Color="Color.Primary" />
+            Nueva Salida de Almacén
+        </MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudForm @ref="_form" @bind-IsValid="_isValid">
+            <MudGrid Spacing="2">
+                <!-- Concepto -->
+                <MudItem xs="12" sm="6">
+                    <MudSelect T="string" 
+                               Label="Concepto" 
+                               @bind-Value="_selectedConceptoCodigo" 
+                               Required="true"
+                               RequiredError="El concepto es requerido."
+                               Variant="Variant.Outlined" 
+                               Margin="Margin.Dense">
+                        @if (_conceptosFiltrados != null)
+                        {
+                            @foreach (var c in _conceptosFiltrados)
+                            {
+                                <MudSelectItem Value="@c.CCODIGOCONCEPTO">@($"{c.CCODIGOCONCEPTO} - {c.CNOMBRECONCEPTO}")</MudSelectItem>
+                            }
+                        }
+                    </MudSelect>
+                </MudItem>
+
+                <!-- Referencia -->
+                <MudItem xs="12" sm="6">
+                    <MudTextField @bind-Value="_referencia" 
+                                  Label="Referencia" 
+                                  Variant="Variant.Outlined" 
+                                  Margin="Margin.Dense"
+                                  MaxLength="100" />
+                </MudItem>
+
+                <!-- Observaciones -->
+                <MudItem xs="12">
+                    <MudTextField @bind-Value="_observaciones" 
+                                  Label="Observaciones" 
+                                  Variant="Variant.Outlined" 
+                                  Margin="Margin.Dense"
+                                  Lines="2"
+                                  MaxLength="250" />
+                </MudItem>
+            </MudGrid>
+        </MudForm>
+
+        <!-- Sección de Partidas -->
+        <MudText Typo="Typo.subtitle1" Class="font-weight-bold mt-6 mb-2 text-indigo">
+            <MudIcon Icon="@Icons.Material.Filled.List" Class="mr-1" Size="Size.Small" />
+            Partidas (Productos)
+        </MudText>
+
+        <MudCard Outlined="true" Class="pa-4 mb-4 rounded-lg bg-light-gradient">
+            <MudGrid Spacing="2">
+                <!-- Buscador de Producto -->
+                <MudItem xs="12" sm="8">
+                    <MudAutocomplete T="CommercialProductoDto" 
+                                     Label="Producto (Código o Nombre)" 
+                                     @bind-Value="_nuevoProducto" 
+                                     SearchFunc="@BuscarProductos"
+                                     ToStringFunc="@ProductToString"
+                                     Variant="Variant.Outlined" 
+                                     Margin="Margin.Dense"
+                                     Clearable="true"
+                                     Placeholder="Escriba para buscar producto..." />
+                </MudItem>
+
+                <!-- Cantidad -->
+                <MudItem xs="12" sm="2">
+                    <MudNumericField @bind-Value="_nuevaCantidad" 
+                                     Label="Cantidad" 
+                                     Variant="Variant.Outlined" 
+                                     Margin="Margin.Dense"
+                                     Min="0.001"
+                                     HideSpinButtons="true" />
+                </MudItem>
+
+                <!-- Botón Agregar -->
+                <MudItem xs="12" sm="2" Class="d-flex justify-end">
+                    <MudButton Variant="Variant.Filled" 
+                               Color="Color.Primary" 
+                               StartIcon="@Icons.Material.Filled.Add"
+                               OnClick="AgregarPartida"
+                               FullWidth="true"
+                               Class="py-2">
+                        Agregar
+                    </MudButton>
+                </MudItem>
+            </MudGrid>
+        </MudCard>
+
+        <!-- Tabla de Partidas Agregadas -->
+        @if (_partidas.Count == 0)
+        {
+            <MudAlert Severity="Severity.Normal" Class="rounded-lg">
+                No se han agregado partidas. Busque un producto e ingrese la cantidad para comenzar.
+            </MudAlert>
+        }
+        else
+        {
+            <MudTable Items="@_partidas" Hover="true" Dense="true" Striped="true" Elevation="0" Outlined="true" Class="rounded-lg max-h-table">
+                <HeaderContent>
+                    <MudTh>Código</MudTh>
+                    <MudTh>Producto</MudTh>
+                    <MudTh Style="text-align: right; width: 120px;">Cantidad</MudTh>
+                    <MudTh Style="text-align: center; width: 80px;">Acciones</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="Código">
+                        <MudChip T="string" Color="Color.Info" Size="Size.Small" Variant="Variant.Text" Class="font-weight-bold">
+                            @context.Producto.Codigo
+                        </MudChip>
+                    </MudTd>
+                    <MudTd DataLabel="Producto">@context.Producto.Nombre</MudTd>
+                    <MudTd DataLabel="Cantidad" Style="text-align: right;" Class="font-weight-bold">@context.Cantidad.ToString("N2")</MudTd>
+                    <MudTd DataLabel="Acciones" Style="text-align: center;">
+                        <MudIconButton Icon="@Icons.Material.Filled.Delete" 
+                                       Color="Color.Error" 
+                                       Size="Size.Small"
+                                       OnClick="@(() => EliminarPartida(context))" />
+                    </MudTd>
+                </RowTemplate>
+            </MudTable>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton Color="Color.Secondary" Variant="Variant.Outlined" OnClick="Cancelar" Disabled="_guardando">Cancelar</MudButton>
+        <MudButton Color="Color.Primary" 
+                   Variant="Variant.Filled" 
+                   OnClick="Guardar" 
+                   Disabled="@(_guardando || !_isValid || _partidas.Count == 0)"
+                   StartIcon="@Icons.Material.Filled.Save">
+            @if (_guardando)
+            {
+                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                <text>Guardando...</text>
+            }
+            else
+            {
+                <text>Guardar Salida</text>
+            }
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+<style>
+    .font-weight-bold {
+        font-weight: 700 !important;
+    }
+    .text-indigo {
+        color: #3f51b5 !important;
+    }
+    .rounded-lg {
+        border-radius: 12px !important;
+    }
+    .bg-light-gradient {
+        background: linear-gradient(180deg, #f8fafc 0%, #ffffff 100%) !important;
+    }
+    .max-h-table {
+        max-height: 250px;
+        overflow-y: auto;
+    }
+</style>
+
+@code {
+    [CascadingParameter]
+    IMudDialogInstance MudDialog { get; set; } = null!;
+
+    [Parameter]
+    public string Username { get; set; } = string.Empty;
+
+    [Parameter]
+    public List<string>? AllowedConcepts { get; set; }
+
+    private MudForm _form = null!;
+    private bool _isValid;
+    private bool _guardando = false;
+
+    // Campos del formulario
+    private string? _selectedConceptoCodigo;
+    private string? _referencia;
+    private string? _observaciones;
+
+    // Campos para agregar partida
+    private CommercialProductoDto? _nuevoProducto;
+    private double _nuevaCantidad = 1;
+
+    // Listado de conceptos y partidas
+    private IEnumerable<CommercialConceptoDto>? _conceptosFiltrados;
+    private List<PartidaModel> _partidas = new();
+    private List<CommercialProductoDto> _productosDisponibles = new();
+
+    private class PartidaModel
+    {
+        public CommercialProductoDto Producto { get; set; } = null!;
+        public double Cantidad { get; set; }
+    }
+
+    private Func<CommercialProductoDto, string> ProductToString = p => p == null ? "" : $"{p.Codigo} - {p.Nombre}";
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var todosConceptos = await CommercialApiService.GetConceptosAsync(33, Username);
+            if (AllowedConcepts != null)
+            {
+                _conceptosFiltrados = todosConceptos.Where(c => AllowedConcepts.Contains(c.CCODIGOCONCEPTO)).ToList();
+            }
+            else
+            {
+                _conceptosFiltrados = todosConceptos.ToList();
+            }
+
+            // Seleccionar por omisión el primer concepto si hay disponibles
+            if (_conceptosFiltrados.Any())
+            {
+                _selectedConceptoCodigo = _conceptosFiltrados.First().CCODIGOCONCEPTO;
+            }
+
+            // Cargar productos en memoria para búsqueda rápida por código o nombre
+            var productos = await CommercialApiService.GetProductosAsync("", Username, onlyActive: true);
+            _productosDisponibles = productos.ToList();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error al inicializar diálogo de nueva salida");
+            Snackbar.Add("Error al cargar los conceptos o productos de almacén.", Severity.Error);
+        }
+    }
+
+    private async Task<IEnumerable<CommercialProductoDto>> BuscarProductos(string value, CancellationToken token)
+    {
+        await Task.CompletedTask; // para mantener la firma async requerida
+        if (string.IsNullOrEmpty(value))
+        {
+            return _productosDisponibles.Take(50);
+        }
+
+        return _productosDisponibles
+            .Where(p => p.Nombre.Contains(value, StringComparison.OrdinalIgnoreCase) || 
+                        p.Codigo.Contains(value, StringComparison.OrdinalIgnoreCase))
+            .Take(100);
+    }
+
+
+    private void AgregarPartida()
+    {
+        if (_nuevoProducto == null)
+        {
+            Snackbar.Add("Debe seleccionar un producto.", Severity.Warning);
+            return;
+        }
+
+        if (_nuevaCantidad <= 0)
+        {
+            Snackbar.Add("La cantidad debe ser mayor a cero.", Severity.Warning);
+            return;
+        }
+
+        // Validar si el producto ya existe en la lista para sumarle la cantidad
+        var existente = _partidas.FirstOrDefault(p => p.Producto.Codigo == _nuevoProducto.Codigo);
+        if (existente != null)
+        {
+            existente.Cantidad += _nuevaCantidad;
+            Snackbar.Add($"Se actualizó la cantidad del producto: {_nuevoProducto.Nombre}", Severity.Info);
+        }
+        else
+        {
+            _partidas.Add(new PartidaModel
+            {
+                Producto = _nuevoProducto,
+                Cantidad = _nuevaCantidad
+            });
+            Snackbar.Add($"Producto agregado: {_nuevoProducto.Nombre}", Severity.Success);
+        }
+
+        // Limpiar campos de partida
+        _nuevoProducto = null;
+        _nuevaCantidad = 1;
+    }
+
+    private void EliminarPartida(PartidaModel partida)
+    {
+        _partidas.Remove(partida);
+        Snackbar.Add("Partida eliminada.", Severity.Info);
+    }
+
+    private async Task Guardar()
+    {
+        await _form.Validate();
+        if (!_isValid) return;
+
+        if (string.IsNullOrEmpty(_selectedConceptoCodigo))
+        {
+            Snackbar.Add("Debe seleccionar un concepto.", Severity.Warning);
+            return;
+        }
+
+        if (_partidas.Count == 0)
+        {
+            Snackbar.Add("Debe agregar al menos una partida para guardar la salida.", Severity.Warning);
+            return;
+        }
+
+        var conceptoSeleccionado = _conceptosFiltrados?.FirstOrDefault(c => c.CCODIGOCONCEPTO == _selectedConceptoCodigo);
+        var codigoAlmacen = "";
+        if (conceptoSeleccionado != null)
+        {
+            codigoAlmacen = !string.IsNullOrEmpty(conceptoSeleccionado.CCODIGOALMACEN) 
+                ? conceptoSeleccionado.CCODIGOALMACEN 
+                : (!string.IsNullOrEmpty(conceptoSeleccionado.CodigoAlmacen) 
+                    ? conceptoSeleccionado.CodigoAlmacen 
+                    : (conceptoSeleccionado.CIDALMACEN > 0 ? conceptoSeleccionado.CIDALMACEN.ToString() : ""));
+        }
+
+        _guardando = true;
+        StateHasChanged();
+
+        try
+        {
+            var dto = new CreateCommercialSalidaDto
+            {
+                CodigoConcepto = _selectedConceptoCodigo ?? string.Empty,
+                ConceptoCodigo = _selectedConceptoCodigo ?? string.Empty,
+                Referencia = _referencia,
+                Observaciones = _observaciones,
+                Partidas = _partidas.Select(p => new CreateCommercialSalidaMovimientoDto
+                {
+                    ProductoCodigo = p.Producto.Codigo,
+                    CodigoProducto = p.Producto.Codigo,
+                    Unidades = p.Cantidad,
+                    Cantidad = p.Cantidad,
+                    Precio = 0,
+                    CodigoAlmacen = codigoAlmacen
+                }).ToList()
+            };
+            dto.Movimientos = dto.Partidas;
+
+
+
+            var result = await CommercialApiService.CreateSalidaAsync(dto, Username);
+
+            if (result != null)
+            {
+                Snackbar.Add("Salida de almacén creada exitosamente. Iniciando descarga de PDF...", Severity.Success);
+
+                try
+                {
+                    double.TryParse(result.Folio, out var folioDouble);
+                    
+                    byte[]? pdfBytes = null;
+                    int maxRetries = 3;
+                    int delayMs = 1500;
+                    
+                    for (int attempt = 1; attempt <= maxRetries; attempt++)
+                    {
+                        try
+                        {
+                            // Esperar antes de intentar (especialmente en el primer intento para dar tiempo de consolidación)
+                            await Task.Delay(delayMs * attempt);
+                            
+                            pdfBytes = await CommercialApiService.GetSalidaPdfAsync(
+                                result.CodigoConcepto, 
+                                result.Serie, 
+                                folioDouble, 
+                                Username);
+                                
+                            break; // éxito
+                        }
+                        catch (Exception ex) when (attempt < maxRetries)
+                        {
+                            Logger.LogWarning(ex, "Intento {Attempt} fallido al descargar PDF por latencia del SDK. Reintentando...", attempt);
+                        }
+                    }
+
+                    if (pdfBytes != null)
+                    {
+                        var nombreArchivo = $"Salida_{(string.IsNullOrEmpty(result.Serie) ? "" : result.Serie + "_")}{result.Folio}.pdf";
+                        var base64 = Convert.ToBase64String(pdfBytes);
+                        await JS.InvokeVoidAsync("fileDownloadHelper.downloadFile", nombreArchivo, "application/pdf", base64);
+                        
+                        Snackbar.Add("PDF de salida descargado exitosamente.", Severity.Success);
+                    }
+                    else
+                    {
+                        throw new Exception("No se pudo obtener el PDF tras varios intentos.");
+                    }
+                }
+                catch (Exception pdfEx)
+                {
+                    Logger.LogError(pdfEx, "Error al descargar PDF automático de la nueva salida");
+                    Snackbar.Add("Salida creada, pero falló la descarga automática del PDF.", Severity.Warning);
+                }
+
+                MudDialog.Close(DialogResult.Ok(true));
+            }
+            else
+            {
+                Snackbar.Add("No se pudo crear la salida de almacén.", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error al guardar la nueva salida de almacén");
+            Snackbar.Add($"Error al crear salida: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _guardando = false;
+            StateHasChanged();
+        }
+    }
+
+    private void Cancelar() => MudDialog.Cancel();
+}
