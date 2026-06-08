@@ -1,12 +1,12 @@
-﻿@page "/etiquetas"
+@page "/etiquetas"
 @using Blanquita.Application.Interfaces
 @using Blanquita.Application.DTOs
 @using Blanquita.Application.Queries.FoxPro.GetProductByCode
+@using Blanquita.Application.Commands.Printing
 @using MediatR
 @inject IPrinterService PrinterService
 @inject IMediator Mediator
 @inject ISnackbar Snackbar
-@inject IPrintingService PrintingService
 @inject IDialogService DialogService
 @inject ILogger<ImprimirEtiquetas> Logger
 
@@ -302,37 +302,31 @@
             return;
         }
 
-        var printer = printers.FirstOrDefault(p => p.Id == selectedPrinterId);
-        if (printer == null)
+        if (selectedPrinterId <= 0)
         {
             Snackbar.Add("Seleccione una impresora válida", Severity.Warning);
             return;
         }
 
-        Logger.LogInformation("Iniciando impresión de {Cantidad} etiquetas para producto {CodigoProducto}", 
-            cantidadEtiquetas, barcodeText);
+        var printerName = printers.FirstOrDefault(p => p.Id == selectedPrinterId)?.Name ?? "la impresora";
+
+        Logger.LogInformation("Iniciando impresión de {Cantidad} etiquetas para producto {CodigoProducto} en Impresora ID {PrinterId}", 
+            cantidadEtiquetas, barcodeText, selectedPrinterId);
         
         try
         {
-            var label = new ZebraLabelDto
-            {
-                ProductCode = barcodeText,
-                ProductName = producto?.Name ?? "",
-                Price = producto?.PriceWithTax ?? 0,
-                PrinterIp = printer.IpAddress,
-                PrinterPort = printer.Port,
-                PrinterDpi = printer.Dpi,
-                Quantity = cantidadEtiquetas
-            };
+            var command = new PrintProductLabelCommand(
+                ProductCode: producto?.Code ?? barcodeText,
+                ProductName: producto?.Name ?? "",
+                Price: producto?.PriceWithTax ?? 0,
+                PrinterId: selectedPrinterId,
+                Quantity: cantidadEtiquetas
+            );
 
-            await PrintingService.PrintZebraLabelAsync(label);
+            await Mediator.Send(command);
             
-            Snackbar.Add($"{cantidadEtiquetas} etiquetas enviadas a {printer.Name}", Severity.Success);
+            Snackbar.Add($"{cantidadEtiquetas} etiquetas enviadas a {printerName}", Severity.Success);
             
-            // Optional: Reset after print or keep for reprint?
-            // Usually keep for reprint, or clear if user flow is rapid scanning.
-            // Let's keep it but focus back on quantity or barcode?
-            // User might want to scan next item immediately.
             LimpiarBusqueda();
         }
         catch (Exception ex)

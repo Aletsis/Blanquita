@@ -16,6 +16,12 @@ public class PrinterCommandBuilder
     public byte[] AlignLeft() => new byte[] { 0x1B, 0x61, 0 };
     public byte[] AlignCenter() => new byte[] { 0x1B, 0x61, 1 };
     public byte[] AlignRight() => new byte[] { 0x1B, 0x61, 2 };
+    public byte[] FontA() => new byte[] { 0x1B, 0x4D, 0x00 };
+    public byte[] FontB() => new byte[] { 0x1B, 0x4D, 0x01 };
+    public byte[] NormalSize() => new byte[] { 0x1B, 0x21, 0x00 };
+    public byte[] DoubleHeight() => new byte[] { 0x1B, 0x21, 0x10 };
+    public byte[] DoubleWidth() => new byte[] { 0x1B, 0x21, 0x20 };
+    public byte[] LargeSize() => new byte[] { 0x1B, 0x21, 0x30 };
 
     private string FormatMoney(decimal value) =>
         value.ToString("C", _culturaMX);
@@ -157,6 +163,95 @@ public class PrinterCommandBuilder
 
         return cmds;
     }
+    public List<byte> BuildPedidoTicket(PedidoDto pedidoDto)
+    {
+        var cmds = new List<byte>();
+
+        cmds.AddRange(InitializePrinter());
+        cmds.AddRange(AlignCenter());
+        cmds.AddRange(BoldOn());
+        cmds.AddRange(Text("CARNICERIAS LA BLANQUITA\n"));
+        cmds.AddRange(BoldOff());
+        cmds.AddRange(FontB());
+        cmds.AddRange(BoldOn());
+        cmds.AddRange(AlignCenter());
+        cmds.AddRange(Text("Maria Irene Meade Garfias\n"));
+        cmds.AddRange(Text("RFC: MEGI520203G2A\n"));
+        cmds.AddRange(BoldOff());
+        cmds.AddRange(Text("Negrete #108,Zona Centro\n"));
+        cmds.AddRange(Text("Soledad de Graciano Sanchez, CP: 78433\n"));
+        cmds.AddRange(Text("mail: blanquita8soledad@outlook.com\n"));
+        cmds.AddRange(Text("Tel: 4448310535-4448316184-4448310193\n")); 
+        cmds.AddRange(Text("\n"));
+
+        cmds.AddRange(Text($"Fecha: {pedidoDto.Fecha.ToShortDateString()}\n"));
+        cmds.AddRange(Text("\n"));
+        cmds.AddRange(AlignLeft());
+        cmds.AddRange(FontA());
+        cmds.AddRange(BoldOn());
+        cmds.AddRange(Text($"Pedido No: {pedidoDto.Folio}\n"));
+        cmds.AddRange(Text($"Codigo: {pedidoDto.ClienteCodigo}\n"));
+        cmds.AddRange(Text($"Nombre: {pedidoDto.Cliente}\n"));
+        cmds.AddRange(Text($"Domicilio: {pedidoDto.Domicilio}\n"));
+        cmds.AddRange(Text($"Colonia: {pedidoDto.Colonia}\n"));
+        cmds.AddRange(Text("\n"));
+
+        cmds.AddRange(FontB());
+        cmds.AddRange(Text("Producto                 Kilos   Precio       Importe\n"));
+        cmds.AddRange(BoldOff());
+        cmds.AddRange(Text("-------------------------------------------------------\n"));
+        
+
+        if (pedidoDto.Items != null)
+        {
+            foreach (var detail in pedidoDto.Items)
+            {
+                string desc = string.IsNullOrEmpty(detail.Descripcion) ? detail.Codigo : detail.Descripcion;
+                if (desc.Length > 20) desc = desc.Substring(0, 20);
+
+                var Price = detail.Cantidad > 0 ? (detail.Total / (decimal)detail.Cantidad) : detail.Precio;
+                cmds.AddRange(Text($"{desc,-20} {detail.Cantidad,5:0.##} {FormatMoney(Price),10} {FormatMoney(detail.Total),14}\n"));
+            }
+        }
+
+        cmds.AddRange(Text("-----------------------------------------------------\n"));
+        cmds.AddRange(AlignRight());
+        cmds.AddRange(BoldOn());
+        cmds.AddRange(Text($"SUBTOTAL:              {FormatMoney(pedidoDto.NetAmount),11}\n"));
+        cmds.AddRange(Text($"IVA:                   {FormatMoney(pedidoDto.TaxAmount),11}\n"));
+        cmds.AddRange(Text($"TOTAL:                 {FormatMoney(pedidoDto.Total),11}\n"));
+        cmds.AddRange(BoldOff());
+        cmds.AddRange(Text("\n\n\n"));
+        cmds.AddRange(AlignLeft());
+        cmds.AddRange(FontA());
+        cmds.AddRange(Text("    Salida           Firma Cliente\n"));
+        cmds.AddRange(Text("\n\n"));
+        cmds.AddRange(Text("----------------------------------------\n"));
+        cmds.AddRange(FontB());
+        cmds.AddRange(Text($"Hora: {pedidoDto.Fecha.ToShortTimeString()}\n"));
+        cmds.AddRange(Text($"Repartidor: Vendedor de Piso PV\n"));
+        cmds.AddRange(Text("\n\n\n"));
+        cmds.AddRange(AlignCenter());
+        cmds.AddRange(BoldOn());
+        cmds.AddRange(Text("***MANTENGASE EN REFRIGERACION***\n"));
+        cmds.AddRange(Text("\n"));
+        cmds.AddRange(BoldOff());
+        cmds.AddRange(Text("Favor de revisar su mercancia antes de que se retire\n"));
+        cmds.AddRange(Text("el repartidor, no se aceptan devoluciones de\n"));
+        cmds.AddRange(Text("producto una vez que se ha recibido de\n"));
+        cmds.AddRange(Text("conformidad su mercancia.\n"));
+        cmds.AddRange(Text("\n"));
+        cmds.AddRange(BoldOn());
+        cmds.AddRange(Text("RECUERDE QUE NUESTROS PRODUCTOS SON\n"));
+        cmds.AddRange(Text("PEDECEDEROS Y REQUIEREN REFRIGERACION\n"));
+        cmds.AddRange(Text("Y MANEJO ADECUADO.\n"));
+
+
+        cmds.AddRange(Text("\n\n\n\n"));
+        cmds.AddRange(CutPaper());
+
+        return cmds;
+    }
     public List<byte> BuildReturnTicket(ReturnDto returnDto)
     {
         var cmds = new List<byte>();
@@ -166,33 +261,80 @@ public class PrinterCommandBuilder
         cmds.AddRange(BoldOn());
         cmds.AddRange(Text("CARNICERIAS LA BLANQUITA\n"));
         cmds.AddRange(BoldOff());
-        cmds.AddRange(Text("TICKET DE DEVOLUCION\n\n"));
+        cmds.AddRange(FontB());
+        cmds.AddRange(BoldOn());
+        cmds.AddRange(AlignCenter());
+        cmds.AddRange(Text("Maria Irene Meade Garfias\n"));
+        cmds.AddRange(Text("RFC: MEGI520203G2A\n"));
+        cmds.AddRange(BoldOff());
+        cmds.AddRange(Text("Negrete #108,Zona Centro\n"));
+        cmds.AddRange(Text("Soledad de Graciano Sanchez, CP: 78433\n"));
+        cmds.AddRange(Text("mail: blanquita8soledad@outlook.com\n"));
+        cmds.AddRange(Text("Tel: 4448310535-4448316184-4448310193\n"));
+        //cmds.AddRange(Text("TICKET DE DEVOLUCION\n\n"));
+        //cmds.AddRange(AlignLeft());
+
+        cmds.AddRange(Text($"Fecha: {returnDto.Date.ToShortDateString()}\n"));
+        //cmds.AddRange(Text($"Serie: {returnDto.Series}   Folio: {returnDto.Folio}\n"));
         cmds.AddRange(AlignLeft());
-        
-        cmds.AddRange(Text($"Serie: {returnDto.Series}   Folio: {returnDto.Folio}\n"));
-        cmds.AddRange(Text($"Fecha: {returnDto.Date.ToShortDateString()}   Hora: {returnDto.FormattedTime}\n\n"));
-        
-        cmds.AddRange(Text("CANT  DESCRIPCION                IMPORTE\n"));
-        cmds.AddRange(Text("----------------------------------------\n"));
+        cmds.AddRange(FontA());
+        cmds.AddRange(BoldOn());
+        cmds.AddRange(Text($"Devolucion No: {returnDto.Series}{returnDto.Folio}\n"));
+        //cmds.AddRange(Text($"Fecha: {returnDto.Date.ToShortDateString()}   Hora: {returnDto.FormattedTime}\n\n"));
+
+        //cmds.AddRange(Text("CANT  DESCRIPCION                IMPORTE\n"));
+        cmds.AddRange(FontB());
+        cmds.AddRange(Text("Producto                   Kilos      Precio    Importe\n"));
+        cmds.AddRange(BoldOff());
+        cmds.AddRange(Text("-----------------------------------------------------\n"));
+
 
         foreach (var detail in returnDto.Details)
         {
             string desc = string.IsNullOrEmpty(detail.ProductName) ? detail.ProductId : detail.ProductName;
             if (desc.Length > 20) desc = desc.Substring(0, 20);
-            
+
             // Format: Qty (5 chars) + Desc (22 chars) + Total (13 chars)
             // Example: 1.00  COCA COLA 600ML        $25.00
-            
-            cmds.AddRange(Text($"{detail.Units,-5:0.##} {desc,-20} {FormatMoney(detail.Total),11}\n"));
+
+            //cmds.AddRange(Text($"{detail.Units,-5:0.##} {desc,-20} {FormatMoney(detail.Total),11}\n"));
+            var Price = detail.Total / (decimal)detail.Units;
+            cmds.AddRange(Text($"{desc,-20} {detail.Units,3:0.##} {FormatMoney(Price),12} {FormatMoney(detail.Total),16}\n"));
         }
 
-        cmds.AddRange(Text("----------------------------------------\n"));
+        cmds.AddRange(Text("-----------------------------------------------------\n"));
+        cmds.AddRange(AlignRight());
         cmds.AddRange(BoldOn());
-        cmds.AddRange(Text($"      SUBTOTAL:              {FormatMoney(returnDto.Net),11}\n"));
-        cmds.AddRange(Text($"      IVA:                   {FormatMoney(returnDto.Tax),11}\n"));
-        cmds.AddRange(Text($"      TOTAL:                 {FormatMoney(returnDto.Total),11}\n"));
+        cmds.AddRange(Text($"SUBTOTAL:              {FormatMoney(returnDto.Net),11}\n"));
+        cmds.AddRange(Text($"IVA:                   {FormatMoney(returnDto.Tax),11}\n"));
+        cmds.AddRange(Text($"TOTAL:                 {FormatMoney(returnDto.Total),11}\n"));
         cmds.AddRange(BoldOff());
-        
+        cmds.AddRange(Text("\n\n\n"));
+        cmds.AddRange(AlignLeft());
+        cmds.AddRange(FontA());
+        cmds.AddRange(Text("    Salida           Firma Cliente\n"));
+        cmds.AddRange(Text("\n\n"));
+        cmds.AddRange(Text("----------------------------------------\n"));
+        cmds.AddRange(FontB());
+        cmds.AddRange(Text($"Hora: {returnDto.FormattedTime}\n"));
+        cmds.AddRange(Text($"Repartidor: Vendedor de Piso PV\n"));
+        cmds.AddRange(Text("\n\n\n"));
+        cmds.AddRange(AlignCenter());
+        cmds.AddRange(BoldOn());
+        cmds.AddRange(Text("***MANTENGASE EN REFRIGERACION***\n"));
+        cmds.AddRange(Text("\n"));
+        cmds.AddRange(BoldOff());
+        cmds.AddRange(Text("Favor de revisar su mercancia antes de que se retire\n"));
+        cmds.AddRange(Text("el repartidor, no se aceptan devoluciones de\n"));
+        cmds.AddRange(Text("producto una vez que se ha recibido de\n"));
+        cmds.AddRange(Text("conformidad su mercancia.\n"));
+        cmds.AddRange(Text("\n"));
+        cmds.AddRange(BoldOn());
+        cmds.AddRange(Text("RECUERDE QUE NUESTROS PRODUCTOS SON\n"));
+        cmds.AddRange(Text("PEDECEDEROS Y REQUIEREN REFRIGERACION\n"));
+        cmds.AddRange(Text("Y MANEJO ADECUADO.\n"));
+
+
         cmds.AddRange(Text("\n\n\n\n"));
         cmds.AddRange(CutPaper());
 

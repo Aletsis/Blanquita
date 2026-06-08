@@ -167,6 +167,27 @@ public class PrintingService : IPrintingService
         }
     }
 
+    public async Task PrintPedidoTicketAsync(PedidoDto pedidoDto, string printerIp, int printerPort, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            _logger.LogInformation("Printing pedido ticket: {Folio} to {PrinterIp}:{Port}", pedidoDto.Folio, printerIp, printerPort);
+
+            // Build print commands
+            var commands = _commandBuilder.BuildPedidoTicket(pedidoDto);
+
+            // Send to printer
+            await SendToPrinterAsync(printerIp, printerPort, commands.ToArray(), cancellationToken);
+
+            _logger.LogInformation("Pedido ticket printed successfully");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error printing pedido ticket {Folio}", pedidoDto.Folio);
+            throw;
+        }
+    }
+
     private async Task SendToPrinterAsync(string ipAddress, int port, byte[] data, CancellationToken cancellationToken = default)
     {
         _logger.LogDebug("Sending {DataSize} bytes to printer {IpAddress}:{Port}", data.Length, ipAddress, port);
