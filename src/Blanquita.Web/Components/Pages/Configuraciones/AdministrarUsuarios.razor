@@ -52,6 +52,16 @@
                                      Adornment="Adornment.Start"
                                      AdornmentIcon="@Icons.Material.Filled.Badge"
                                      Class="mb-3"></MudTextField>
+
+                        <MudNumericField @bind-Value="model.EmployeeNumber" 
+                                         Label="Número de Empleado" 
+                                         Variant="Variant.Outlined" 
+                                         Margin="Margin.Dense"
+                                         For="@(() => model.EmployeeNumber)"
+                                         Adornment="Adornment.Start"
+                                         AdornmentIcon="@Icons.Material.Filled.Numbers"
+                                         Class="mb-3"
+                                         HideSpinButtons="true"></MudNumericField>
                         
                         <MudTextField @bind-Value="model.Email" 
                                      Label="Correo Electrónico" 
@@ -133,10 +143,11 @@
         <!-- Tabla con Listado de Usuarios -->
         <MudItem xs="12" md="8">
             <MudCard Elevation="4" Class="rounded-lg animate-slide-up">
-                <MudTable Items="usuariosFiltrados" 
+                <MudTable ServerData="ServerReload" 
                           Dense="true" 
                           Hover="true" 
                           Striped="true"
+                          @ref="table"
                           Elevation="0">
                     <ToolBarContent>
                         <MudText Typo="Typo.h6" Color="Color.Primary">
@@ -157,17 +168,24 @@
                                      Immediate="true"></MudTextField>
                     </ToolBarContent>
                     <HeaderContent>
-                        <MudTh>Usuario</MudTh>
-                        <MudTh>Nombre Completo</MudTh>
-                        <MudTh>Correo Electrónico</MudTh>
-                        <MudTh>Teléfono</MudTh>
-                        <MudTh>Rol</MudTh>
-                        <MudTh>Sucursal</MudTh>
+                        <MudTh><MudTableSortLabel SortLabel="Username" T="UserDto">Usuario</MudTableSortLabel></MudTh>
+                        <MudTh><MudTableSortLabel SortLabel="EmployeeNumber" T="UserDto">No. Empleado</MudTableSortLabel></MudTh>
+                        <MudTh><MudTableSortLabel SortLabel="FullName" T="UserDto">Nombre Completo</MudTableSortLabel></MudTh>
+                        <MudTh><MudTableSortLabel SortLabel="Email" T="UserDto">Correo Electrónico</MudTableSortLabel></MudTh>
+                        <MudTh><MudTableSortLabel SortLabel="PhoneNumber" T="UserDto">Teléfono</MudTableSortLabel></MudTh>
+                        <MudTh><MudTableSortLabel SortLabel="Role" T="UserDto">Rol</MudTableSortLabel></MudTh>
+                        <MudTh><MudTableSortLabel SortLabel="BranchId" T="UserDto">Sucursal</MudTableSortLabel></MudTh>
                         <MudTh Style="text-align:center">Acciones</MudTh>
                     </HeaderContent>
                     <RowTemplate>
                         <MudTd DataLabel="Usuario">
                             <MudChip T="string" Color="Color.Default" Size="Size.Small" Variant="Variant.Outlined">@context.Username</MudChip>
+                        </MudTd>
+                        <MudTd DataLabel="No. Empleado">
+                            <div class="d-flex align-center">
+                                <MudIcon Icon="@Icons.Material.Filled.Numbers" Size="Size.Small" Class="mr-2" Color="Color.Default" />
+                                <MudText Typo="Typo.body2">@context.EmployeeNumber</MudText>
+                            </div>
                         </MudTd>
                         <MudTd DataLabel="Nombre Completo">
                             <div class="d-flex align-center">
@@ -239,6 +257,9 @@
                             <MudText Typo="Typo.body1" Class="mt-2 text-muted">No se encontraron usuarios</MudText>
                         </MudPaper>
                     </NoRecordsContent>
+                    <PagerContent>
+                        <MudTablePager />
+                    </PagerContent>
                 </MudTable>
             </MudCard>
         </MudItem>
@@ -266,12 +287,11 @@
 </style>
 
 @code {
+    private MudTable<UserDto>? table;
     private UserViewModel model = new() { Role = "User" };
     private bool isEditing = false;
     private string editingUserId = string.Empty;
     
-    private List<UserDto> todosLosUsuarios = new();
-    private List<UserDto> usuariosFiltrados = new();
     private List<string> rolesDisponibles = new();
     private List<BranchDto> sucursalesDisponibles = new();
     
@@ -288,7 +308,6 @@
             rolesDisponibles = await UserService.GetRolesAsync();
             var branches = await BranchService.GetAllAsync();
             sucursalesDisponibles = branches.ToList();
-            await CargarUsuariosAsync();
         }
         catch (Exception ex)
         {
@@ -297,33 +316,33 @@
         }
     }
 
-    private async Task CargarUsuariosAsync()
+    private async Task<TableData<UserDto>> ServerReload(TableState state, CancellationToken token)
     {
-        todosLosUsuarios = await UserService.GetAllAsync();
-        AplicarFiltro();
+        try
+        {
+            var request = new SearchUserRequest
+            {
+                SearchTerm = searchString,
+                Page = state.Page + 1,
+                PageSize = state.PageSize,
+                SortColumn = state.SortLabel,
+                SortAscending = state.SortDirection != SortDirection.Descending
+            };
+
+            var result = await UserService.GetPagedAsync(request);
+            return new TableData<UserDto>() { TotalItems = result.TotalCount, Items = result.Items };
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error al cargar usuarios paginados en el servidor");
+            return new TableData<UserDto>() { TotalItems = 0, Items = Array.Empty<UserDto>() };
+        }
     }
 
     private void OnSearch(string text)
     {
         searchString = text;
-        AplicarFiltro();
-    }
-
-    private void AplicarFiltro()
-    {
-        if (string.IsNullOrWhiteSpace(searchString))
-        {
-            usuariosFiltrados = todosLosUsuarios.ToList();
-        }
-        else
-        {
-            usuariosFiltrados = todosLosUsuarios.Where(u =>
-                (u.Username?.Contains(searchString, StringComparison.OrdinalIgnoreCase) ?? false) ||
-                (u.FullName?.Contains(searchString, StringComparison.OrdinalIgnoreCase) ?? false) ||
-                (u.Email?.Contains(searchString, StringComparison.OrdinalIgnoreCase) ?? false)
-            ).ToList();
-        }
-        StateHasChanged();
+        table?.ReloadServerData();
     }
 
     private void EditUsuario(UserDto selected)
@@ -337,6 +356,7 @@
             PhoneNumber = selected.PhoneNumber,
             Role = selected.Role,
             BranchId = selected.BranchId,
+            EmployeeNumber = selected.EmployeeNumber,
             Password = "" // En blanco al editar
         };
         isEditing = true;
@@ -345,7 +365,7 @@
 
     private void CancelEdit()
     {
-        model = new UserViewModel { Role = "User", BranchId = null };
+        model = new UserViewModel { Role = "User", BranchId = null, EmployeeNumber = null };
         isEditing = false;
         editingUserId = string.Empty;
         StateHasChanged();
@@ -373,7 +393,8 @@
                     PhoneNumber = model.PhoneNumber,
                     Password = string.IsNullOrWhiteSpace(model.Password) ? null : model.Password,
                     Role = model.Role,
-                    BranchId = finalBranchId
+                    BranchId = finalBranchId,
+                    EmployeeNumber = model.EmployeeNumber
                 };
 
                 var success = await UserService.UpdateAsync(dto);
@@ -404,7 +425,8 @@
                     PhoneNumber = model.PhoneNumber,
                     Password = model.Password,
                     Role = model.Role,
-                    BranchId = finalBranchId
+                    BranchId = finalBranchId,
+                    EmployeeNumber = model.EmployeeNumber
                 };
 
                 var success = await UserService.CreateAsync(dto);
@@ -419,7 +441,10 @@
                 }
             }
 
-            await CargarUsuariosAsync();
+            if (table != null)
+            {
+                await table.ReloadServerData();
+            }
             CancelEdit();
         }
         catch (Exception ex)
@@ -452,7 +477,10 @@
                 if (success)
                 {
                     Snackbar.Add("Usuario eliminado exitosamente", Severity.Success);
-                    await CargarUsuariosAsync();
+                    if (table != null)
+                    {
+                        await table.ReloadServerData();
+                    }
                 }
                 else
                 {
@@ -488,6 +516,10 @@
 
         [Required(ErrorMessage = "El rol es requerido")]
         public string Role { get; set; } = "User";
+
+        [Required(ErrorMessage = "El número de empleado es requerido")]
+        [Range(1, int.MaxValue, ErrorMessage = "El número de empleado debe ser mayor a 0")]
+        public int? EmployeeNumber { get; set; }
 
         public int? BranchId { get; set; }
     }

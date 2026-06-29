@@ -52,14 +52,31 @@ public class InvoiceJobService : IInvoiceJobService
                 return;
             }
 
-            // 1. Obtener todos los clientes (de FoxPro)
+            // 1. Obtener todas las facturas recientes de los últimos 7 días en una sola pasada reversa
+            var limitDate = DateTime.Today.AddDays(-7);
+            var recentInvoices = await _documentRepository.GetRecentInvoicesAsync(limitDate);
+            var recentInvoicesByClient = recentInvoices
+                .GroupBy(i => i.ClientId)
+                .ToDictionary(g => g.Key, g => g.ToList());
+
+            _logger.LogInformation("Se encontraron facturas recientes para {Count} clientes", recentInvoicesByClient.Count);
+
+            // 2. Obtener todos los clientes para cruzar información
             var allClients = await _clientRepository.GetAllAsync();
-            var clientsToProcess = allClients.ToList();
+            var clientMap = allClients.ToDictionary(c => c.Id, c => c);
 
-            _logger.LogInformation("Se encontraron {Count} clientes totales para procesar", clientsToProcess.Count);
-
-            foreach (var client in clientsToProcess)
+            // 3. Procesar clientes con facturas recientes
+            foreach (var group in recentInvoicesByClient)
             {
+                var clientId = group.Key;
+                var clientInvoices = group.Value;
+
+                if (!clientMap.TryGetValue(clientId, out var client))
+                {
+                    _logger.LogWarning("Se encontró factura para el ClientId {ClientId} pero no existe en el catálogo de clientes", clientId);
+                    continue;
+                }
+
                 // Caso A: Cliente sin correo
                 if (string.IsNullOrEmpty(client.Email))
                 {
@@ -69,24 +86,16 @@ public class InvoiceJobService : IInvoiceJobService
 
                 try
                 {
-                    // 2. Obtener facturas del cliente desde FoxPro
-                    var invoices = await _documentRepository.GetInvoicesByClientIdAsync(client.Id);
-                    
-                    // Solo procesar facturas recientes (últimos 7 días)
-                    var recentInvoices = invoices.Where(i => i.Fecha >= DateTime.Today.AddDays(-7)).ToList();
-
-                    if (!recentInvoices.Any()) continue;
-
                     var clientFolder = Path.Combine(config.FacturasPath, client.Code);
                     
-                    foreach (var invoice in recentInvoices)
+                    foreach (var invoice in clientInvoices)
                     {
-                        // 3. Verificar si ya fue enviada
+                        // 4. Verificar si ya fue enviada
                         var alreadySent = await _logRepository.ExistsAsync(client.Code, invoice.FileName);
 
                         if (alreadySent) continue;
 
-                        // 4. Verificar existencia de archivos físicos
+                        // 5. Verificar existencia de archivos físicos
                         if (!_fileSystemService.DirectoryExists(clientFolder))
                         {
                             invoicesMissingFiles.Add((client.Code, $"Carpeta no encontrada: {client.Code} (Factura {invoice.Serie}{invoice.Folio})"));
@@ -107,7 +116,7 @@ public class InvoiceJobService : IInvoiceJobService
                             continue;
                         }
 
-                        // 5. Enviar correo al cliente
+                        // 6. Enviar correo al cliente
                         var subject = $"Factura {invoice.Serie}{invoice.Folio} - {config.SmtpFromName}";
                         var body = $@"
                             <div style='font-family: Arial, sans-serif; color: #333;'>
@@ -125,7 +134,7 @@ public class InvoiceJobService : IInvoiceJobService
 
                         await _emailService.SendEmailAsync(client.Email, subject, body, attachments);
 
-                        // 6. Registrar envío en la BD
+                        // 7. Registrar envío en la BD
                         await _logRepository.AddAsync(new SentInvoiceLog
                         {
                             ClientCode = client.Code,

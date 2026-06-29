@@ -77,4 +77,7 @@ public class SystemConfiguration : BaseEntity
 
     [MaxLength(500)]
     public string WhatsAppServiceUrl { get; set; } = string.Empty;
+
+    [MaxLength(500)]
+    public string WhatsAppApiKey { get; set; } = string.Empty;
 }

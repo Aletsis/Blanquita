@@ -17,7 +17,8 @@ public interface IConfiguracionService
     /// Guarda la configuración del sistema
     /// </summary>
     /// <param name="configuracion">Configuración a guardar</param>
-    Task GuardarConfiguracionAsync(ConfiguracionDto configuracion);
+    /// <param name="changedBy">Usuario que realiza el cambio</param>
+    Task GuardarConfiguracionAsync(ConfiguracionDto configuracion, string changedBy = "System");
 
     /// <summary>
     /// Valida la configuración del sistema

@@ -30,7 +30,7 @@
     </MudNavGroup>
     
     <!-- Comercial -->
-    <AuthorizeView Roles="Admin,Abarrotes,User, Supervisor" Context="comercialContext">
+    <AuthorizeView Roles="Admin,Abarrotes,User,Supervisor" Context="comercialContext">
         <Authorized>
             <MudNavGroup Title="Comercial" Expanded="false" Icon="@Icons.Material.Filled.Store" Class="nav-group-pill">
                 <MudNavLink Href="/abarrotes/compras" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Receipt" Class="nav-item-pill sub-item">
@@ -45,18 +45,27 @@
 
     
     <!-- Reportes (Solo Admin) -->
-    <AuthorizeView Roles="Admin" Context="reportesContext">
-        <Authorized>
+    
             <MudNavGroup Title="Reportes" Expanded="false" Icon="@Icons.Material.Filled.FilePresent" Class="nav-group-pill">
+                <AuthorizeView Roles="Admin,Security" Context="reportesContext">
+        <Authorized>
                 <MudNavLink Href="/reportes" Icon="@Icons.Material.Filled.Receipt" Class="nav-item-pill sub-item">
                     Reportes de facturación
                 </MudNavLink>
                 <MudNavLink Href="/historico" Icon="@Icons.Material.Filled.History" Class="nav-item-pill sub-item">
                     Histórico de reportes
                 </MudNavLink>
+            </Authorized>
+        </AuthorizeView>
+                <AuthorizeView Roles="Admin,Security" Context="reportesContext">
+        <Authorized>
                 <MudNavLink Href="/reimprimir" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Print" Class="nav-item-pill sub-item">
                     Reimprimir Recoleccion o Corte
                 </MudNavLink>
+            </Authorized>
+        </AuthorizeView>
+        <AuthorizeView Roles="Admin" Context="reportesContext">
+            <Authorized>
                 <MudNavLink Href="/reimpresion-devoluciones" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.AssignmentReturn" Class="nav-item-pill sub-item">
                     Reimpresión de Devoluciones
                 </MudNavLink>
@@ -69,9 +78,13 @@
                 <MudNavLink Href="/reportes/ventas" Icon="@Icons.Material.Filled.AccessTime" Class="nav-item-pill sub-item">
                     Ventas por Rango y Hora
                 </MudNavLink>
-            </MudNavGroup>
-        </Authorized>
+                <MudNavLink Href="/reportes/ventas-producto" Icon="@Icons.Material.Filled.ShoppingBag" Class="nav-item-pill sub-item">
+                    Ventas por Producto
+                </MudNavLink>
+                 </Authorized>
     </AuthorizeView>
+            </MudNavGroup>
+       
     
     <!-- Cajas -->
     <MudNavGroup Title="Cajas" Expanded="false" Icon="@Icons.Material.Filled.Money" Class="nav-group-pill">

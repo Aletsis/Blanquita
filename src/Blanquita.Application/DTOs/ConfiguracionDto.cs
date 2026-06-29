@@ -147,4 +147,9 @@ public class ConfiguracionDto
     /// URL del microservicio de WhatsApp
     /// </summary>
     public string WhatsAppServiceUrl { get; set; } = string.Empty;
+
+    /// <summary>
+    /// API Key para autenticar las peticiones al microservicio de WhatsApp
+    /// </summary>
+    public string WhatsAppApiKey { get; set; } = string.Empty;
 }

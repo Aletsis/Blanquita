@@ -268,7 +268,7 @@
         catch (Exception ex)
         {
             Logger.LogError(ex, "Error al consultar pedidos");
-            Snackbar.Add("Error al consultar pedidos. Verifique la configuración de rutas.", Severity.Error);
+            Snackbar.Add($"Error al consultar pedidos: {Blanquita.Web.Helpers.ExceptionHelper.GetLocalizedExceptionMessage(ex)}", Severity.Error);
         }
         finally
         {

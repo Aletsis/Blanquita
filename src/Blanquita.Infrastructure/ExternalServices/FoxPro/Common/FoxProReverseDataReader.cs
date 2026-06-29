@@ -33,12 +33,19 @@ public class FoxProReverseDataReader : IFoxProDataReader
         while (_currentIndex > 0)
         {
             _currentIndex--;
-            _table.Stream.Seek(_table.Header.HeaderLength + (_currentIndex * _table.Header.RecordLength), SeekOrigin.Begin);
-            _table.Read(_record);
-
-            if (!_record.IsDeleted)
+            try
             {
-                return true;
+                _table.Stream.Seek(_table.Header.HeaderLength + (_currentIndex * _table.Header.RecordLength), SeekOrigin.Begin);
+                _table.Read(_record);
+
+                if (!_record.IsDeleted)
+                {
+                    return true;
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Trace.TraceWarning($"FoxProReverseDataReader: Error reading record at index {_currentIndex}: {ex.Message}");
             }
         }
         return false;

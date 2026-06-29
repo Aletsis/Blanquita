@@ -307,7 +307,7 @@
         catch (Exception ex)
         {
             Logger.LogError(ex, "Error al consultar rutas");
-            Snackbar.Add("Error al consultar rutas en el servidor", Severity.Error);
+            Snackbar.Add($"Error al consultar rutas: {Blanquita.Web.Helpers.ExceptionHelper.GetLocalizedExceptionMessage(ex)}", Severity.Error);
         }
         finally
         {

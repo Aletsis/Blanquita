@@ -1,15 +1,36 @@
 @using System.IO
 @using System.IO.Compression
 @using Blanquita.Application.DTOs
+@using Blanquita.Application.Interfaces
 @using Blanquita.Application.Interfaces.Repositories
 @inject ISnackbar Snackbar
 @inject IFoxProDocumentRepository DocumentRepository
+@inject IWhatsAppService WhatsAppService
+@inject IClientCatalogRepository ClientCatalogRepository
+@inject ILogger<ClientInvoicesDialog> Logger
 @inject IJSRuntime JS
 
 <MudDialog>
     <DialogContent>
         <MudText Typo="Typo.h6" Class="mb-2">Facturas de @ClientName</MudText>
         <MudText Typo="Typo.caption" Class="mb-4 d-block">Ruta: @InvoicePath</MudText>
+
+        <MudCard Outlined="true" Class="pa-4 mb-4">
+            <MudStack Row="true" AlignItems="AlignItems.Center">
+                <MudTextField @bind-Value="DestinationPhone" 
+                              Label="Enviar por WhatsApp (Número Celular)" 
+                              Placeholder="Ej. 3312345678" 
+                              Adornment="Adornment.Start" 
+                              AdornmentIcon="@Icons.Custom.Brands.WhatsApp" 
+                              HelperText="Ingrese el número de 10 dígitos del cliente para habilitar el envío."
+                              Variant="Variant.Outlined" 
+                              Margin="Margin.Dense" />
+                @if (isSendingWhatsApp)
+                {
+                    <MudProgressCircular Size="Size.Small" Indeterminate="true" Color="Color.Success" />
+                }
+            </MudStack>
+        </MudCard>
         
         @if (isLoading)
         {
@@ -35,7 +56,7 @@
                     <MudTd DataLabel="Folio">@context.Folio</MudTd>
                     <MudTd DataLabel="Fecha">@context.Fecha.ToShortDateString()</MudTd>
                     <MudTd DataLabel="Archivos">
-                        <MudStack Row="true" Spacing="2">
+                        <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
                             @{
                                 var xmlExists = File.Exists(Path.Combine(InvoicePath, context.FileName + ".xml"));
                                 var pdfExists = File.Exists(Path.Combine(InvoicePath, context.FileName + ".pdf"));
@@ -43,26 +64,46 @@
                             
                             <MudTooltip Text="@(xmlExists ? "Descargar XML" : "XML no encontrado")">
                                 <MudIconButton Icon="@Icons.Material.Filled.Code" 
-                                             Color="@(xmlExists ? Color.Primary : Color.Default)" 
-                                             Size="Size.Small" 
-                                             Disabled="@(!xmlExists)"
-                                             OnClick="@(() => DownloadFile(context.FileName + ".xml"))" />
+                                              Color="@(xmlExists ? Color.Primary : Color.Default)" 
+                                              Size="Size.Small" 
+                                              Disabled="@(!xmlExists)"
+                                              OnClick="@(() => DownloadFile(context.FileName + ".xml"))" />
                             </MudTooltip>
+
+                            <MudTooltip Text="@(xmlExists && !string.IsNullOrWhiteSpace(DestinationPhone) ? "Enviar XML por WhatsApp" : "XML no disponible o sin número")">
+                                <MudIconButton Icon="@Icons.Custom.Brands.WhatsApp" 
+                                              Color="@(xmlExists && !string.IsNullOrWhiteSpace(DestinationPhone) ? Color.Success : Color.Default)" 
+                                              Size="Size.Small" 
+                                              Disabled="@(!xmlExists || string.IsNullOrWhiteSpace(DestinationPhone) || isSendingWhatsApp)"
+                                              OnClick="@(() => SendWhatsApp(context.FileName + ".xml", "text/xml"))" />
+                            </MudTooltip>
+                            
+                            <MudDivider Vertical="true" FlexItem="true" Style="height: 20px;" />
                             
                             <MudTooltip Text="@(pdfExists ? "Descargar PDF" : "PDF no encontrado")">
                                 <MudIconButton Icon="@Icons.Custom.FileFormats.FilePdf" 
-                                             Color="@(pdfExists ? Color.Error : Color.Default)" 
-                                             Size="Size.Small" 
-                                             Disabled="@(!pdfExists)"
-                                             OnClick="@(() => DownloadFile(context.FileName + ".pdf"))" />
+                                              Color="@(pdfExists ? Color.Error : Color.Default)" 
+                                              Size="Size.Small" 
+                                              Disabled="@(!pdfExists)"
+                                              OnClick="@(() => DownloadFile(context.FileName + ".pdf"))" />
                             </MudTooltip>
+
+                            <MudTooltip Text="@(pdfExists && !string.IsNullOrWhiteSpace(DestinationPhone) ? "Enviar PDF por WhatsApp" : "PDF no disponible o sin número")">
+                                <MudIconButton Icon="@Icons.Custom.Brands.WhatsApp" 
+                                              Color="@(pdfExists && !string.IsNullOrWhiteSpace(DestinationPhone) ? Color.Success : Color.Default)" 
+                                              Size="Size.Small" 
+                                              Disabled="@(!pdfExists || string.IsNullOrWhiteSpace(DestinationPhone) || isSendingWhatsApp)"
+                                              OnClick="@(() => SendWhatsApp(context.FileName + ".pdf", "application/pdf"))" />
+                            </MudTooltip>
+
+                            <MudDivider Vertical="true" FlexItem="true" Style="height: 20px;" />
 
                             <MudTooltip Text="@(xmlExists || pdfExists ? "Descargar ZIP" : "Archivos no encontrados")">
                                 <MudIconButton Icon="@Icons.Material.Filled.FolderZip" 
-                                             Color="@(xmlExists || pdfExists ? Color.Warning : Color.Default)" 
-                                             Size="Size.Small" 
-                                             Disabled="@(!xmlExists && !pdfExists)"
-                                             OnClick="@(() => DownloadZip(context))" />
+                                              Color="@(xmlExists || pdfExists ? Color.Warning : Color.Default)" 
+                                              Size="Size.Small" 
+                                              Disabled="@(!xmlExists && !pdfExists)"
+                                              OnClick="@(() => DownloadZip(context))" />
                             </MudTooltip>
                         </MudStack>
                     </MudTd>
@@ -95,10 +136,13 @@
 
     private List<InvoiceDto> Invoices = new();
     private bool isLoading = true;
+    private string DestinationPhone { get; set; } = string.Empty;
+    private bool isSendingWhatsApp = false;
 
     protected override async Task OnInitializedAsync()
     {
         await LoadInvoices();
+        await LoadClientPhone();
     }
 
     private async Task LoadInvoices()
@@ -118,9 +162,36 @@
         }
     }
 
+    private async Task LoadClientPhone()
+    {
+        try
+        {
+            var client = await ClientCatalogRepository.GetByIdAsync(ClientId);
+            if (client != null && client.Addresses != null)
+            {
+                var phone = client.Addresses
+                    .Select(a => a.Phone)
+                    .FirstOrDefault(p => !string.IsNullOrWhiteSpace(p));
+
+                if (!string.IsNullOrWhiteSpace(phone))
+                {
+                    // Clean phone number to get 10 digits
+                    var cleaned = System.Text.RegularExpressions.Regex.Replace(phone, @"\s+|-|\(|\)", "");
+                    if (cleaned.StartsWith("+52")) cleaned = cleaned.Substring(3);
+                    else if (cleaned.StartsWith("52") && cleaned.Length > 10) cleaned = cleaned.Substring(2);
+                    
+                    if (cleaned.Length > 10) cleaned = cleaned.Substring(cleaned.Length - 10);
+                    DestinationPhone = cleaned;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "No se pudo obtener el teléfono del cliente {ClientId}", ClientId);
+        }
+    }
+
     private void Cancel() => MudDialog.Cancel();
-
-
 
     private async Task DownloadFile(string fileName)
     {
@@ -140,6 +211,53 @@
         catch (Exception ex)
         {
             Snackbar.Add($"Error al descargar archivo: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task SendWhatsApp(string fileName, string mimeType)
+    {
+        if (string.IsNullOrWhiteSpace(DestinationPhone))
+        {
+            Snackbar.Add("Por favor ingrese un número de WhatsApp de destino.", Severity.Warning);
+            return;
+        }
+
+        isSendingWhatsApp = true;
+        StateHasChanged();
+
+        try
+        {
+            var fullPath = Path.Combine(InvoicePath, fileName);
+            if (!File.Exists(fullPath))
+            {
+                Snackbar.Add("El archivo no existe.", Severity.Warning);
+                return;
+            }
+
+            var bytes = await File.ReadAllBytesAsync(fullPath);
+            var fileBase64 = Convert.ToBase64String(bytes);
+
+            var caption = $"Hola, le compartimos su archivo {fileName} de su facturación en Blanquita.";
+
+            var success = await WhatsAppService.SendDocumentAsync(DestinationPhone, fileBase64, fileName, mimeType, caption);
+
+            if (success)
+            {
+                Snackbar.Add($"¡Archivo {fileName} enviado exitosamente por WhatsApp!", Severity.Success);
+            }
+            else
+            {
+                Snackbar.Add("Error al enviar el archivo por WhatsApp. Verifique la conexión del servicio.", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            isSendingWhatsApp = false;
+            StateHasChanged();
         }
     }
 

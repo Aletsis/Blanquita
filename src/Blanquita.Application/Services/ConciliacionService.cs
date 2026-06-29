@@ -14,6 +14,7 @@ public class ConciliacionService : IConciliacionService
     private readonly ICashCollectionRepository _cashCollectionRepository;
     private readonly IBranchRepository _branchRepository;
     private readonly IConciliacionCorteRepository _conciliacionCorteRepository;
+    private readonly IConfiguracionService _configuracionService;
     private readonly ILogger<ConciliacionService> _logger;
 
     public ConciliacionService(
@@ -23,6 +24,7 @@ public class ConciliacionService : IConciliacionService
         ICashCollectionRepository cashCollectionRepository,
         IBranchRepository branchRepository,
         IConciliacionCorteRepository conciliacionCorteRepository,
+        IConfiguracionService configuracionService,
         ILogger<ConciliacionService> logger)
     {
         _foxProShiftRepository = foxProShiftRepository;
@@ -31,6 +33,7 @@ public class ConciliacionService : IConciliacionService
         _cashCollectionRepository = cashCollectionRepository;
         _branchRepository = branchRepository;
         _conciliacionCorteRepository = conciliacionCorteRepository;
+        _configuracionService = configuracionService;
         _logger = logger;
     }
 
@@ -138,10 +141,32 @@ public class ConciliacionService : IConciliacionService
             _logger.LogInformation("Se encontraron {Count} turnos en FoxPro", shifts.Count());
             
             // 2. Obtener las cajas configuradas internamente (filtrando por sucursal si corresponde)
-            IEnumerable<Domain.Entities.CashRegister> allBoxes;
-            if (branchId.HasValue && branchId.Value > 0)
+            int? targetBranchId = branchId;
+            if (!targetBranchId.HasValue || targetBranchId.Value <= 0)
             {
-                allBoxes = await _cashRegisterRepository.GetByBranchAsync(branchId.Value, cancellationToken);
+                var config = await _configuracionService.ObtenerConfiguracionAsync();
+                var path = config.Pos10042Path;
+                if (!string.IsNullOrEmpty(path))
+                {
+                    var branches = await _branchRepository.GetAllAsync(cancellationToken);
+                    string pathLower = path.ToLowerInvariant();
+                    var matchedBranch = branches.FirstOrDefault(b => 
+                        (!string.IsNullOrEmpty(b.Code) && pathLower.Contains(b.Code.ToLowerInvariant())) ||
+                        (!string.IsNullOrEmpty(b.Name) && pathLower.Contains(b.Name.Replace(" ", "").ToLowerInvariant())) ||
+                        (!string.IsNullOrEmpty(b.Name) && pathLower.Contains(b.Name.Replace(" ", "_").ToLowerInvariant()))
+                    );
+                    if (matchedBranch != null)
+                    {
+                        targetBranchId = matchedBranch.Id;
+                        _logger.LogInformation("Sucursal detectada automáticamente a partir del path DBF: {BranchName} (ID: {BranchId})", matchedBranch.Name, matchedBranch.Id);
+                    }
+                }
+            }
+
+            IEnumerable<Domain.Entities.CashRegister> allBoxes;
+            if (targetBranchId.HasValue && targetBranchId.Value > 0)
+            {
+                allBoxes = await _cashRegisterRepository.GetByBranchAsync(targetBranchId.Value, cancellationToken);
             }
             else
             {

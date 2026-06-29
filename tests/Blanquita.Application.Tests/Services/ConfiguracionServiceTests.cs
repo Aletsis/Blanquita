@@ -15,6 +15,7 @@ public class ConfiguracionServiceTests
     private readonly Mock<ISystemConfigurationRepository> _repositoryMock;
     private readonly Mock<IFileSystemService> _fileSystemServiceMock;
     private readonly Mock<IAppConfigurationManager> _configManagerMock;
+    private readonly Mock<IEncryptionService> _encryptionServiceMock;
     private readonly Mock<ILogger<ConfiguracionService>> _loggerMock;
     private readonly ConfiguracionService _service;
 
@@ -23,14 +24,20 @@ public class ConfiguracionServiceTests
         _repositoryMock = new Mock<ISystemConfigurationRepository>();
         _fileSystemServiceMock = new Mock<IFileSystemService>();
         _configManagerMock = new Mock<IAppConfigurationManager>();
+        _encryptionServiceMock = new Mock<IEncryptionService>();
         _loggerMock = new Mock<ILogger<ConfiguracionService>>();
         
+        // Mock default behavior for encryption/decryption as pass-through
+        _encryptionServiceMock.Setup(x => x.Encrypt(It.IsAny<string>())).Returns<string>(s => s);
+        _encryptionServiceMock.Setup(x => x.Decrypt(It.IsAny<string>())).Returns<string>(s => s);
+
         ConfiguracionService.ClearCache();
 
         _service = new ConfiguracionService(
             _repositoryMock.Object, 
             _fileSystemServiceMock.Object,
             _configManagerMock.Object, 
+            _encryptionServiceMock.Object,
             _loggerMock.Object);
     }
 
@@ -164,5 +171,61 @@ public class ConfiguracionServiceTests
         await _service.RestablecerConfiguracionAsync();
 
         _repositoryMock.Verify(x => x.UpdateAsync(It.IsAny<SystemConfiguration>(), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task GuardarConfiguracionAsync_ShouldAuditChanges_WhenExistingConfigModified()
+    {
+        // Arrange
+        var existing = new SystemConfiguration
+        {
+            Pos10041Path = "valid/old-path",
+            PrinterName = "OldPrinter",
+            SmtpPassword = "old-password"
+        };
+
+        var dto = new ConfiguracionDto
+        {
+            Pos10041Path = "valid/new-path", // Changed
+            Pos10042Path = "valid/path",
+            Mgw10008Path = "valid/path",
+            Mgw10005Path = "valid/path",
+            Mgw10045Path = "valid/path",
+            Mgw10002Path = "valid/path",
+            Mgw10011Path = "valid/path",
+            Pos10008Path = "valid/path",
+            Pos10010Path = "valid/path",
+            PrinterName = "OldPrinter", // Unchanged
+            SmtpPassword = "new-password" // Changed (sensitive)
+        };
+
+        _fileSystemServiceMock.Setup(x => x.FileExists(It.IsAny<string>())).Returns(true);
+        _repositoryMock.Setup(x => x.GetAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(existing);
+
+        var auditLogs = new List<SystemConfigurationAuditLog>();
+        _repositoryMock.Setup(x => x.AddAuditLogAsync(It.IsAny<SystemConfigurationAuditLog>(), It.IsAny<CancellationToken>()))
+            .Callback<SystemConfigurationAuditLog, CancellationToken>((log, token) => auditLogs.Add(log))
+            .Returns(Task.CompletedTask);
+
+        // Act
+        await _service.GuardarConfiguracionAsync(dto, "AdminUser");
+
+        // Assert
+        _repositoryMock.Verify(x => x.UpdateAsync(It.IsAny<SystemConfiguration>(), It.IsAny<CancellationToken>()), Times.Once);
+        Assert.NotEmpty(auditLogs);
+        
+        var pathLog = auditLogs.FirstOrDefault(l => l.PropertyName == nameof(ConfiguracionDto.Pos10041Path));
+        Assert.NotNull(pathLog);
+        Assert.Equal("valid/old-path", pathLog.OldValue);
+        Assert.Equal("valid/new-path", pathLog.NewValue);
+        Assert.Equal("AdminUser", pathLog.ChangedBy);
+
+        var passLog = auditLogs.FirstOrDefault(l => l.PropertyName == nameof(ConfiguracionDto.SmtpPassword));
+        Assert.NotNull(passLog);
+        // SmtpPassword is sensitive, should be redacted
+        Assert.Equal("[REDACTED]", passLog.OldValue);
+        Assert.Equal("[REDACTED]", passLog.NewValue);
+        Assert.Equal("AdminUser", passLog.ChangedBy);
     }
 }

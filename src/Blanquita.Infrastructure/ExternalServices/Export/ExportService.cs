@@ -697,17 +697,17 @@ public class ExportService : IExportService
                 {
                     container.Page(page =>
                     {
-                        page.Size(PageSizes.Letter.Landscape());
-                        page.Margin(12);
+                        page.Size(PageSizes.Letter.Portrait());
+                        page.Margin(18);
                         page.PageColor(Colors.White);
-                        page.DefaultTextStyle(x => x.FontSize(7.5f).FontFamily("Arial"));
+                        page.DefaultTextStyle(x => x.FontSize(9f).FontFamily("Arial"));
 
                         // Header
                         page.Header().Column(column =>
                         {
                             column.Spacing(1);
                             column.Item().Text("MARIA IRENE MEADE GARFIAS")
-                                .FontSize(11)
+                                .FontSize(13)
                                 .Bold()
                                 .FontColor(Colors.Blue.Darken4)
                                 .AlignCenter();
@@ -719,7 +719,7 @@ public class ExportService : IExportService
                             }
 
                             column.Item().Text(subHeader)
-                                .FontSize(8.5f)
+                                .FontSize(10)
                                 .Bold()
                                 .FontColor(Colors.Grey.Darken3)
                                 .AlignCenter();
@@ -732,7 +732,7 @@ public class ExportService : IExportService
                             }
 
                             column.Item().Text(fechaFormateada)
-                                .FontSize(8.5f)
+                                .FontSize(10)
                                 .Italic()
                                 .FontColor(Colors.Grey.Darken2)
                                 .AlignCenter();
@@ -748,12 +748,13 @@ public class ExportService : IExportService
                             // Grid of cards using Table
                             column.Item().Table(table =>
                             {
-                                int colsCount = 3;
+                                int colsCount = dataList.Count <= 4 ? 2 : 3;
                                 table.ColumnsDefinition(columns =>
                                 {
-                                    columns.RelativeColumn();
-                                    columns.RelativeColumn();
-                                    columns.RelativeColumn();
+                                    for (int col = 0; col < colsCount; col++)
+                                    {
+                                        columns.RelativeColumn();
+                                    }
                                 });
 
                                 // Populate the cards
@@ -770,8 +771,8 @@ public class ExportService : IExportService
                                         // Card Title (Caja / Cajero)
                                         cardCol.Item().Background(Colors.Blue.Darken2).Padding(2).Row(titleRow =>
                                         {
-                                            titleRow.RelativeItem().Text(card.Caja).Bold().FontSize(7.5f).FontColor(Colors.White);
-                                            titleRow.RelativeItem().AlignRight().Text(card.Cajero).FontSize(6.5f).FontColor(Colors.White);
+                                            titleRow.RelativeItem().Text(card.Caja).Bold().FontSize(9.5f).FontColor(Colors.White);
+                                            titleRow.RelativeItem().AlignRight().Text(card.Cajero).FontSize(8f).FontColor(Colors.White);
                                         });
 
                                         cardCol.Item().PaddingHorizontal(3).PaddingVertical(1).Column(cardContent =>
@@ -779,41 +780,41 @@ public class ExportService : IExportService
                                             cardContent.Spacing(0.5f);
 
                                             // Efectivo
-                                            cardContent.Item().Text("Valores en Efectivo").Bold().FontSize(6.5f).FontColor(Colors.Green.Darken4);
+                                            cardContent.Item().Text("Valores en Efectivo").Bold().FontSize(8.5f).FontColor(Colors.Green.Darken4);
                                             cardContent.Item().Row(r =>
                                             {
-                                                r.RelativeItem().Text("Recolecciones (Sis):").FontSize(6.2f).FontColor(Colors.Grey.Darken3);
-                                                r.RelativeItem().AlignRight().Text(card.TotalRecolecciones.ToString("C2", _culturaMX)).FontSize(6.2f);
+                                                r.RelativeItem().Text("Recolecciones (Sis):").FontSize(8f).FontColor(Colors.Grey.Darken3);
+                                                r.RelativeItem().AlignRight().Text(card.TotalRecolecciones.ToString("C2", _culturaMX)).FontSize(8f);
                                             });
                                             cardContent.Item().Row(r =>
                                             {
-                                                r.RelativeItem().Text("Efectivo Entregado (Fís):").FontSize(6.2f).FontColor(Colors.Grey.Darken3);
-                                                r.RelativeItem().AlignRight().Text(card.EfectivoEntregado.ToString("C2", _culturaMX)).FontSize(6.2f);
+                                                r.RelativeItem().Text("Efectivo Entregado (Fís):").FontSize(8f).FontColor(Colors.Grey.Darken3);
+                                                r.RelativeItem().AlignRight().Text(card.EfectivoEntregado.ToString("C2", _culturaMX)).FontSize(8f);
                                             });
                                             cardContent.Item().Row(r =>
                                             {
-                                                r.RelativeItem().Text("Total Efectivo:").Bold().FontSize(6.2f);
-                                                r.RelativeItem().AlignRight().Text(card.TotalEfectivo.ToString("C2", _culturaMX)).Bold().FontSize(6.2f);
+                                                r.RelativeItem().Text("Total Efectivo:").Bold().FontSize(8f);
+                                                r.RelativeItem().AlignRight().Text(card.TotalEfectivo.ToString("C2", _culturaMX)).Bold().FontSize(8f);
                                             });
 
                                             cardContent.Item().PaddingVertical(0.5f).LineHorizontal(0.3f).LineColor(Colors.Grey.Lighten2);
 
                                             // Tarjetas
-                                            cardContent.Item().Text("Valores en Tarjeta").Bold().FontSize(6.5f).FontColor(Colors.LightBlue.Darken4);
+                                            cardContent.Item().Text("Valores en Tarjeta").Bold().FontSize(8.5f).FontColor(Colors.LightBlue.Darken4);
                                             cardContent.Item().Row(r =>
                                             {
-                                                r.RelativeItem().Text("Terminal BanRegio:").FontSize(6.2f).FontColor(Colors.Grey.Darken3);
-                                                r.RelativeItem().AlignRight().Text(card.Banregio.ToString("C2", _culturaMX)).FontSize(6.2f);
+                                                r.RelativeItem().Text("Terminal BanRegio:").FontSize(8f).FontColor(Colors.Grey.Darken3);
+                                                r.RelativeItem().AlignRight().Text(card.Banregio.ToString("C2", _culturaMX)).FontSize(8f);
                                             });
                                             cardContent.Item().Row(r =>
                                             {
-                                                r.RelativeItem().Text("Terminal Banbajio:").FontSize(6.2f).FontColor(Colors.Grey.Darken3);
-                                                r.RelativeItem().AlignRight().Text(card.Banbajio.ToString("C2", _culturaMX)).FontSize(6.2f);
+                                                r.RelativeItem().Text("Terminal Banbajio:").FontSize(8f).FontColor(Colors.Grey.Darken3);
+                                                r.RelativeItem().AlignRight().Text(card.Banbajio.ToString("C2", _culturaMX)).FontSize(8f);
                                             });
                                             cardContent.Item().Row(r =>
                                             {
-                                                r.RelativeItem().Text("Total Tarjetas:").Bold().FontSize(6.2f);
-                                                r.RelativeItem().AlignRight().Text(card.TotalTarjetas.ToString("C2", _culturaMX)).Bold().FontSize(6.2f);
+                                                r.RelativeItem().Text("Total Tarjetas:").Bold().FontSize(8f);
+                                                r.RelativeItem().AlignRight().Text(card.TotalTarjetas.ToString("C2", _culturaMX)).Bold().FontSize(8f);
                                             });
 
                                             cardContent.Item().PaddingVertical(0.5f).LineHorizontal(0.3f).LineColor(Colors.Grey.Lighten2);
@@ -821,26 +822,26 @@ public class ExportService : IExportService
                                             // Devoluciones y Totales Finales
                                             cardContent.Item().Row(r =>
                                             {
-                                                r.RelativeItem().Text("Devoluciones (Sis):").FontSize(6.2f).FontColor(Colors.Red.Darken2);
-                                                r.RelativeItem().AlignRight().Text($"-{card.Devoluciones.ToString("C2", _culturaMX)}").FontSize(6.2f).FontColor(Colors.Red.Darken2);
+                                                r.RelativeItem().Text("Devoluciones (Sis):").FontSize(8f).FontColor(Colors.Red.Darken2);
+                                                r.RelativeItem().AlignRight().Text($"-{card.Devoluciones.ToString("C2", _culturaMX)}").FontSize(8f).FontColor(Colors.Red.Darken2);
                                             });
                                             cardContent.Item().Row(r =>
                                             {
-                                                r.RelativeItem().Text("Sistema (Total Vendido):").FontSize(6.2f).FontColor(Colors.Grey.Darken3);
-                                                r.RelativeItem().AlignRight().Text(card.TotalEsperado.ToString("C2", _culturaMX)).FontSize(6.2f);
+                                                r.RelativeItem().Text("Sistema (Total Vendido):").FontSize(8f).FontColor(Colors.Grey.Darken3);
+                                                r.RelativeItem().AlignRight().Text(card.TotalEsperado.ToString("C2", _culturaMX)).FontSize(8f);
                                             });
                                             cardContent.Item().Row(r =>
                                             {
-                                                r.RelativeItem().Text("TOTAL ENTREGADO:").Bold().FontSize(6.8f).FontColor(Colors.Blue.Darken3);
-                                                r.RelativeItem().AlignRight().Text(card.TotalEntregado.ToString("C2", _culturaMX)).Bold().FontSize(6.8f).FontColor(Colors.Blue.Darken3);
+                                                r.RelativeItem().Text("TOTAL ENTREGADO:").Bold().FontSize(9f).FontColor(Colors.Blue.Darken3);
+                                                r.RelativeItem().AlignRight().Text(card.TotalEntregado.ToString("C2", _culturaMX)).Bold().FontSize(9f).FontColor(Colors.Blue.Darken3);
                                             });
 
                                             // Diferencia
                                             var diffColor = card.Diferencia == 0 ? Colors.Green.Darken3 : (card.Diferencia > 0 ? Colors.Orange.Darken4 : Colors.Red.Darken3);
                                             cardContent.Item().Background(Colors.Grey.Lighten3).Padding(1).Row(r =>
                                             {
-                                                r.RelativeItem().PaddingLeft(2).Text("DIFERENCIA:").Bold().FontSize(6.5f).FontColor(diffColor);
-                                                r.RelativeItem().PaddingRight(2).AlignRight().Text(card.Diferencia.ToString("C2", _culturaMX)).Bold().FontSize(6.5f).FontColor(diffColor);
+                                                r.RelativeItem().PaddingLeft(2).Text("DIFERENCIA:").Bold().FontSize(8.5f).FontColor(diffColor);
+                                                r.RelativeItem().PaddingRight(2).AlignRight().Text(card.Diferencia.ToString("C2", _culturaMX)).Bold().FontSize(8.5f).FontColor(diffColor);
                                             });
                                         });
                                     });
@@ -858,7 +859,7 @@ public class ExportService : IExportService
                             column.Item().Background(Colors.Blue.Lighten5).Border(1f).BorderColor(Colors.Blue.Darken3).Padding(4).Column(totCol =>
                             {
                                 totCol.Spacing(1);
-                                totCol.Item().Text("RESUMEN DE TOTALES DE LA SUCURSAL").Bold().FontSize(7.5f).FontColor(Colors.Blue.Darken3).AlignCenter();
+                                totCol.Item().Text("RESUMEN DE TOTALES DE LA SUCURSAL").Bold().FontSize(9.5f).FontColor(Colors.Blue.Darken3).AlignCenter();
                                 
                                 totCol.Item().Row(r =>
                                 {
@@ -866,13 +867,13 @@ public class ExportService : IExportService
                                     {
                                         c1.Item().Row(row =>
                                         {
-                                            row.RelativeItem().Text("Efectivo (Total Cajas):").FontSize(7f).FontColor(Colors.Grey.Darken4);
-                                            row.RelativeItem().AlignRight().Text(totalEfectivoSum.ToString("C2", _culturaMX)).Bold().FontSize(7f);
+                                            row.RelativeItem().Text("Efectivo (Total Cajas):").FontSize(8.5f).FontColor(Colors.Grey.Darken4);
+                                            row.RelativeItem().AlignRight().Text(totalEfectivoSum.ToString("C2", _culturaMX)).Bold().FontSize(8.5f);
                                         });
                                         c1.Item().Row(row =>
                                         {
-                                            row.RelativeItem().Text("Devolución (Total Cajas):").FontSize(7f).FontColor(Colors.Red.Darken3);
-                                            row.RelativeItem().AlignRight().Text($"-{totalDevolucionesSum.ToString("C2", _culturaMX)}").Bold().FontSize(7f).FontColor(Colors.Red.Darken3);
+                                            row.RelativeItem().Text("Devolución (Total Cajas):").FontSize(8.5f).FontColor(Colors.Red.Darken3);
+                                            row.RelativeItem().AlignRight().Text($"-{totalDevolucionesSum.ToString("C2", _culturaMX)}").Bold().FontSize(8.5f).FontColor(Colors.Red.Darken3);
                                         });
                                     });
                                     
@@ -882,13 +883,13 @@ public class ExportService : IExportService
                                     {
                                         c2.Item().Row(row =>
                                         {
-                                            row.RelativeItem().Text("Tarjeta Banregio:").FontSize(7f).FontColor(Colors.Grey.Darken4);
-                                            row.RelativeItem().AlignRight().Text(totalBanregioSum.ToString("C2", _culturaMX)).Bold().FontSize(7f);
+                                            row.RelativeItem().Text("Tarjeta Banregio:").FontSize(8.5f).FontColor(Colors.Grey.Darken4);
+                                            row.RelativeItem().AlignRight().Text(totalBanregioSum.ToString("C2", _culturaMX)).Bold().FontSize(8.5f);
                                         });
                                         c2.Item().Row(row =>
                                         {
-                                            row.RelativeItem().Text("Tarjeta Banbajio:").FontSize(7f).FontColor(Colors.Grey.Darken4);
-                                            row.RelativeItem().AlignRight().Text(totalBanbajioSum.ToString("C2", _culturaMX)).Bold().FontSize(7f);
+                                            row.RelativeItem().Text("Tarjeta Banbajio:").FontSize(8.5f).FontColor(Colors.Grey.Darken4);
+                                            row.RelativeItem().AlignRight().Text(totalBanbajioSum.ToString("C2", _culturaMX)).Bold().FontSize(8.5f);
                                         });
                                     });
 
@@ -898,13 +899,13 @@ public class ExportService : IExportService
                                     {
                                         c3.Item().Row(row =>
                                         {
-                                            row.RelativeItem().Text("Total Tarjetas:").FontSize(7f).FontColor(Colors.Grey.Darken4);
-                                            row.RelativeItem().AlignRight().Text(totalTarjetasSum.ToString("C2", _culturaMX)).Bold().FontSize(7f);
+                                            row.RelativeItem().Text("Total Tarjetas:").FontSize(8.5f).FontColor(Colors.Grey.Darken4);
+                                            row.RelativeItem().AlignRight().Text(totalTarjetasSum.ToString("C2", _culturaMX)).Bold().FontSize(8.5f);
                                         });
                                         c3.Item().Background(Colors.Blue.Darken2).Padding(2).Row(row =>
                                         {
-                                            row.RelativeItem().PaddingLeft(3).Text("VENTA TOTAL:").Bold().FontSize(7.5f).FontColor(Colors.White);
-                                            row.RelativeItem().PaddingRight(3).AlignRight().Text(ventaTotalSum.ToString("C2", _culturaMX)).Bold().FontSize(7.5f).FontColor(Colors.White);
+                                            row.RelativeItem().PaddingLeft(3).Text("VENTA TOTAL:").Bold().FontSize(9.5f).FontColor(Colors.White);
+                                            row.RelativeItem().PaddingRight(3).AlignRight().Text(ventaTotalSum.ToString("C2", _culturaMX)).Bold().FontSize(9.5f).FontColor(Colors.White);
                                         });
                                     });
                                 });
@@ -914,10 +915,10 @@ public class ExportService : IExportService
                         // Footer
                         page.Footer().AlignCenter().Text(x =>
                         {
-                            x.Span("Página ").FontSize(7);
-                            x.CurrentPageNumber().FontSize(7);
-                            x.Span(" de ").FontSize(7);
-                            x.TotalPages().FontSize(7);
+                            x.Span("Página ").FontSize(8.5f);
+                            x.CurrentPageNumber().FontSize(8.5f);
+                            x.Span(" de ").FontSize(8.5f);
+                            x.TotalPages().FontSize(8.5f);
                         });
                     });
                 });

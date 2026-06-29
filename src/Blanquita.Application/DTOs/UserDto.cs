@@ -10,4 +10,5 @@ public class UserDto
     public string Role { get; set; } = string.Empty;
     public int? BranchId { get; set; }
     public string? BranchName { get; set; }
+    public int? EmployeeNumber { get; set; }
 }

@@ -836,6 +836,11 @@ namespace Blanquita.Infrastructure.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
 
+                    b.Property<string>("WhatsAppApiKey")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
                     b.Property<string>("WhatsAppServiceUrl")
                         .IsRequired()
                         .HasMaxLength(500)
@@ -844,6 +849,45 @@ namespace Blanquita.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("Configuracion", (string)null);
+                });
+
+            modelBuilder.Entity("Blanquita.Domain.Entities.SystemConfigurationAuditLog", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("ChangedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("FechaHora");
+
+                    b.Property<string>("ChangedBy")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("Usuario");
+
+                    b.Property<string>("NewValue")
+                        .HasColumnType("text")
+                        .HasColumnName("ValorNuevo");
+
+                    b.Property<string>("OldValue")
+                        .HasColumnType("text")
+                        .HasColumnName("ValorAnterior");
+
+                    b.Property<string>("PropertyName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("Propiedad");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ChangedAt");
+
+                    b.ToTable("ConfiguracionAuditoria", (string)null);
                 });
 
             modelBuilder.Entity("Blanquita.Infrastructure.Persistence.Identity.ApplicationUser", b =>
@@ -867,6 +911,10 @@ namespace Blanquita.Infrastructure.Migrations
 
                     b.Property<bool>("EmailConfirmed")
                         .HasColumnType("boolean");
+
+                    b.Property<int?>("EmployeeNumber")
+                        .HasColumnType("integer")
+                        .HasColumnName("NumNomina");
 
                     b.Property<string>("FullName")
                         .HasColumnType("text");

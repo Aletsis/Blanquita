@@ -605,7 +605,7 @@ else
         catch (Exception ex)
         {
             Logger.LogError(ex, "Error al consultar conciliaciones de corte");
-            Snackbar.Add($"Error al buscar: {ex.Message}", Severity.Error);
+            Snackbar.Add(Blanquita.Web.Helpers.ExceptionHelper.GetLocalizedExceptionMessage(ex), Severity.Error);
         }
         finally
         {
@@ -657,7 +657,7 @@ else
         catch (Exception ex)
         {
             Logger.LogError(ex, "Error al generar el PDF de conciliaciones");
-            Snackbar.Add($"Error al generar el PDF: {ex.Message}", Severity.Error);
+            Snackbar.Add(Blanquita.Web.Helpers.ExceptionHelper.GetLocalizedExceptionMessage(ex), Severity.Error);
         }
         finally
         {

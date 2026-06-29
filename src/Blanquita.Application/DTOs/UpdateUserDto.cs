@@ -9,4 +9,5 @@ public class UpdateUserDto
     public string? Password { get; set; }
     public string Role { get; set; } = string.Empty;
     public int? BranchId { get; set; }
+    public int? EmployeeNumber { get; set; }
 }

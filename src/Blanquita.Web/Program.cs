@@ -83,7 +83,10 @@ Env.Load();
     await app.MigrateDatabaseAsync();
 
     // Configurar Hangfire
-    app.UseHangfireDashboard("/hangfire"); // Accesible en /hangfire
+    app.UseHangfireDashboard("/hangfire", new DashboardOptions
+    {
+        Authorization = new[] { new Blanquita.Web.Extensions.HangfireDashboardAuthorizationFilter() }
+    }); // Accesible en /hangfire y restringido a Admin
     await app.ConfigureRecurringJobsAsync();
 
     // Configure the HTTP request pipeline

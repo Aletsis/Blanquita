@@ -34,6 +34,11 @@ public interface IFoxProDocumentRepository
     Task<IEnumerable<InvoiceDto>> GetInvoicesByClientIdAsync(int clientId, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Obtiene todas las facturas recientes a partir de una fecha especificada usando lectura reversa.
+    /// </summary>
+    Task<IEnumerable<InvoiceDto>> GetRecentInvoicesAsync(DateTime sinceDate, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Obtiene las devoluciones de una sucursal específica desde MGW10008
     /// </summary>
     Task<IEnumerable<ReturnReportItemDto>> GetReturnsReportAsync(

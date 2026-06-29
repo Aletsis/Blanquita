@@ -31,7 +31,8 @@ public class FoxProShiftRepository : IFoxProShiftRepository
 
         try
         {
-            using var reader = _readerFactory.CreateReader(filePath);
+            // Usar lector reverso ya que los turnos más recientes (con IDs mayores) están al final del archivo
+            using var reader = _readerFactory.CreateReverseReader(filePath);
             while (reader.Read())
             {
                 var currentInternalId = reader.HasColumn("CIDPOS01") ? reader.GetInt32Safe("CIDPOS01") : reader.GetInt32Safe("CIDAPERTUR");
@@ -64,6 +65,14 @@ public class FoxProShiftRepository : IFoxProShiftRepository
                         ReturnsTotal = reader.GetDecimalSafe("CAPIMPORT2")
                     };
                 }
+
+                // Optimización: si el ID en la fila actual es menor que el buscado, podemos detener la búsqueda
+                // porque los IDs están ordenados secuencialmente y al leer hacia atrás los IDs decrecen.
+                if (currentInternalId > 0 && currentInternalId < internalId)
+                {
+                    _logger.LogInformation("Deteniendo búsqueda reversa de turno: ID actual {CurrentId} es menor que el buscado {InternalId}", currentInternalId, internalId);
+                    break;
+                }
             }
             return null;
         }
@@ -87,8 +96,12 @@ public class FoxProShiftRepository : IFoxProShiftRepository
 
         try
         {
-            using var reader = _readerFactory.CreateReader(filePath);
+            // Usar lector reverso y salir de forma anticipada cuando pasemos la fecha requerida
+            using var reader = _readerFactory.CreateReverseReader(filePath);
             var results = new List<ShiftConciliationDataDto>();
+
+            int consecutiveOlderCount = 0;
+            const int maxConsecutiveOlderToStop = 15; // 15 registros seguidos de fechas anteriores nos indican que podemos parar
 
             while (reader.Read())
             {
@@ -99,18 +112,20 @@ public class FoxProShiftRepository : IFoxProShiftRepository
                 if (shiftDate == DateTime.MinValue) shiftDate = reader.GetDateTimeSafe("CFECHA");
                 if (shiftDate == DateTime.MinValue) shiftDate = reader.GetDateTimeSafe("CFECHACOR");
 
-                    if (shiftDate.Date == date.Date)
-                    {
-                        // Intentar obtener la hora de apertura desde CHORAAPER o CHORA
-                        var hora = reader.HasColumn("CHORAAPER") ? reader.GetStringSafe("CHORAAPER") : string.Empty;
-                        if (string.IsNullOrEmpty(hora) && reader.HasColumn("CHORA")) hora = reader.GetStringSafe("CHORA");
-                        
-                        var openingTime = CombineDateAndStringTime(shiftDate, hora);
+                if (shiftDate.Date == date.Date)
+                {
+                    consecutiveOlderCount = 0; // Reiniciar contador de viejos
 
-                        var horaCor = reader.HasColumn("CHORACOR") ? reader.GetStringSafe("CHORACOR") : string.Empty;
-                        if (string.IsNullOrEmpty(horaCor) && reader.HasColumn("CHORA")) horaCor = reader.GetStringSafe("CHORA");
-                        
-                        var closingTime = string.IsNullOrEmpty(horaCor) ? (DateTime?)null : CombineDateAndStringTime(shiftDate, horaCor);
+                    // Intentar obtener la hora de apertura desde CHORAAPER o CHORA
+                    var hora = reader.HasColumn("CHORAAPER") ? reader.GetStringSafe("CHORAAPER") : string.Empty;
+                    if (string.IsNullOrEmpty(hora) && reader.HasColumn("CHORA")) hora = reader.GetStringSafe("CHORA");
+                    
+                    var openingTime = CombineDateAndStringTime(shiftDate, hora);
+
+                    var horaCor = reader.HasColumn("CHORACOR") ? reader.GetStringSafe("CHORACOR") : string.Empty;
+                    if (string.IsNullOrEmpty(horaCor) && reader.HasColumn("CHORA")) horaCor = reader.GetStringSafe("CHORA");
+                    
+                    var closingTime = string.IsNullOrEmpty(horaCor) ? (DateTime?)null : CombineDateAndStringTime(shiftDate, horaCor);
 
                     results.Add(new ShiftConciliationDataDto
                     {
@@ -124,6 +139,15 @@ public class FoxProShiftRepository : IFoxProShiftRepository
                         CardCollected = reader.GetDecimalSafe("CVTATARJE"),
                         ReturnsTotal = reader.GetDecimalSafe("CAPIMPORT2")
                     });
+                }
+                else if (shiftDate.Date < date.Date && shiftDate != DateTime.MinValue)
+                {
+                    consecutiveOlderCount++;
+                    if (consecutiveOlderCount >= maxConsecutiveOlderToStop)
+                    {
+                        _logger.LogInformation("Deteniendo lectura reversa de POS10042 al encontrar {Count} registros consecutivos anteriores a {Date}", consecutiveOlderCount, date.Date);
+                        break;
+                    }
                 }
             }
 

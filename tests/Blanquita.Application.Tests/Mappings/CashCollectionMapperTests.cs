@@ -21,6 +21,6 @@ public class CashCollectionMapperTests
         Assert.Equal(entity.CashierName, dto.CashierName);
         Assert.Equal(entity.SupervisorName, dto.SupervisorName);
         Assert.Equal(entity.Folio, dto.Folio);
-        Assert.Equal(entity.CollectionDateTime, dto.CollectionDateTime);
+        Assert.Equal(entity.CollectionDateTime.ToLocalTime(), dto.CollectionDateTime);
     }
 }

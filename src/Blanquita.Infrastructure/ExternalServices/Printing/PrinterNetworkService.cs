@@ -19,8 +19,18 @@ public class PrinterNetworkService : IDisposable
     public async Task ConnectAsync(CancellationToken cancellationToken = default)
     {
         _client = new TcpClient();
-        await _client.ConnectAsync(_ipAddress, _port, cancellationToken);
-        _stream = _client.GetStream();
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        cts.CancelAfter(3000);
+
+        try
+        {
+            await _client.ConnectAsync(_ipAddress, _port, cts.Token);
+            _stream = _client.GetStream();
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            throw new TimeoutException($"No se pudo conectar a la impresora {_ipAddress}:{_port} dentro del límite de 3 segundos.");
+        }
     }
 
     public async Task SendRawDataAsync(byte[] data, CancellationToken cancellationToken = default)

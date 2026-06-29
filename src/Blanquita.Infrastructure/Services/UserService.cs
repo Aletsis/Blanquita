@@ -57,7 +57,8 @@ public class UserService : IUserService
                     PhoneNumber = u.PhoneNumber ?? string.Empty,
                     Role = roles.FirstOrDefault() ?? "Ninguno",
                     BranchId = u.BranchId,
-                    BranchName = u.BranchId.HasValue && branchDict.TryGetValue(u.BranchId.Value, out var name) ? name : "Ninguna"
+                    BranchName = u.BranchId.HasValue && branchDict.TryGetValue(u.BranchId.Value, out var name) ? name : "Ninguna",
+                    EmployeeNumber = u.EmployeeNumber
                 });
             }
 
@@ -95,7 +96,8 @@ public class UserService : IUserService
                 PhoneNumber = u.PhoneNumber ?? string.Empty,
                 Role = roles.FirstOrDefault() ?? "Ninguno",
                 BranchId = u.BranchId,
-                BranchName = branchName ?? "Ninguna"
+                BranchName = branchName ?? "Ninguna",
+                EmployeeNumber = u.EmployeeNumber
             };
         }
         catch (Exception ex)
@@ -130,7 +132,8 @@ public class UserService : IUserService
                 PhoneNumber = u.PhoneNumber ?? string.Empty,
                 Role = roles.FirstOrDefault() ?? "Ninguno",
                 BranchId = u.BranchId,
-                BranchName = branchName ?? "Ninguna"
+                BranchName = branchName ?? "Ninguna",
+                EmployeeNumber = u.EmployeeNumber
             };
         }
         catch (Exception ex)
@@ -164,7 +167,8 @@ public class UserService : IUserService
                 Email = dto.Email,
                 PhoneNumber = dto.PhoneNumber,
                 EmailConfirmed = true,
-                BranchId = dto.Role == "Admin" ? null : dto.BranchId
+                BranchId = dto.Role == "Admin" ? null : dto.BranchId,
+                EmployeeNumber = dto.EmployeeNumber
             };
 
             var result = await _userManager.CreateAsync(user, dto.Password);
@@ -218,6 +222,7 @@ public class UserService : IUserService
             user.Email = dto.Email;
             user.PhoneNumber = dto.PhoneNumber;
             user.BranchId = dto.Role == "Admin" ? null : dto.BranchId;
+            user.EmployeeNumber = dto.EmployeeNumber;
 
             var result = await _userManager.UpdateAsync(user);
             if (!result.Succeeded)
@@ -303,6 +308,88 @@ public class UserService : IUserService
         {
             _logger.LogError(ex, "Error al obtener la lista de roles del sistema.");
             return new List<string>();
+        }
+    }
+
+    /// <inheritdoc/>
+    public async Task<PagedResult<UserDto>> GetPagedAsync(SearchUserRequest request)
+    {
+        try
+        {
+            request.Validate();
+
+            var query = _userManager.Users.AsQueryable();
+
+            if (!string.IsNullOrWhiteSpace(request.SearchTerm))
+            {
+                var term = request.SearchTerm.ToLower();
+                query = query.Where(u =>
+                    (u.UserName != null && u.UserName.ToLower().Contains(term)) ||
+                    (u.FullName != null && u.FullName.ToLower().Contains(term)) ||
+                    (u.Email != null && u.Email.ToLower().Contains(term)) ||
+                    (u.EmployeeNumber.HasValue && u.EmployeeNumber.Value.ToString().Contains(term))
+                );
+            }
+
+            var totalCount = await query.CountAsync();
+
+            if (!string.IsNullOrWhiteSpace(request.SortColumn))
+            {
+                query = request.SortColumn.ToLower() switch
+                {
+                    "username" => request.SortAscending ? query.OrderBy(u => u.UserName) : query.OrderByDescending(u => u.UserName),
+                    "fullname" => request.SortAscending ? query.OrderBy(u => u.FullName) : query.OrderByDescending(u => u.FullName),
+                    "email" => request.SortAscending ? query.OrderBy(u => u.Email) : query.OrderByDescending(u => u.Email),
+                    "phonenumber" => request.SortAscending ? query.OrderBy(u => u.PhoneNumber) : query.OrderByDescending(u => u.PhoneNumber),
+                    "branchid" => request.SortAscending ? query.OrderBy(u => u.BranchId) : query.OrderByDescending(u => u.BranchId),
+                    "employeenumber" => request.SortAscending ? query.OrderBy(u => u.EmployeeNumber) : query.OrderByDescending(u => u.EmployeeNumber),
+                    _ => request.SortAscending ? query.OrderBy(u => u.Id) : query.OrderByDescending(u => u.Id)
+                };
+            }
+            else
+            {
+                query = query.OrderBy(u => u.UserName);
+            }
+
+            var pagedUsers = await query
+                .Skip(request.GetSkip())
+                .Take(request.PageSize)
+                .ToListAsync();
+
+            var list = new List<UserDto>();
+            var branches = await _branchRepository.GetAllAsync();
+            var branchDict = branches.ToDictionary(b => b.Id, b => b.Name);
+
+            foreach (var u in pagedUsers)
+            {
+                var roles = await _userManager.GetRolesAsync(u);
+                list.Add(new UserDto
+                {
+                    Id = u.Id,
+                    Username = u.UserName ?? string.Empty,
+                    FullName = u.FullName ?? string.Empty,
+                    Email = u.Email ?? string.Empty,
+                    PhoneNumber = u.PhoneNumber ?? string.Empty,
+                    Role = roles.FirstOrDefault() ?? "Ninguno",
+                    BranchId = u.BranchId,
+                    BranchName = u.BranchId.HasValue && branchDict.TryGetValue(u.BranchId.Value, out var name) ? name : "Ninguna",
+                    EmployeeNumber = u.EmployeeNumber
+                });
+            }
+
+            if (!string.IsNullOrWhiteSpace(request.SortColumn) && request.SortColumn.ToLower() == "role")
+            {
+                list = request.SortAscending 
+                    ? list.OrderBy(u => u.Role).ToList() 
+                    : list.OrderByDescending(u => u.Role).ToList();
+            }
+
+            return PagedResult<UserDto>.Create(list, totalCount, request.Page, request.PageSize);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error al obtener usuarios paginados.");
+            return PagedResult<UserDto>.Empty(request.Page, request.PageSize);
         }
     }
 }

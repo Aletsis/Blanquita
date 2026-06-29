@@ -70,4 +70,62 @@ public class FoxProCashRegisterRepository : IFoxProCashRegisterRepository
             return string.Empty; // Retornar vacío en lugar de lanzar excepción para no romper el flujo
         }
     }
+
+    public async Task<IEnumerable<string>> GetSeriesByBranchCodeAsync(string branchCode, CancellationToken cancellationToken = default)
+    {
+        var config = await _configService.ObtenerConfiguracionAsync();
+        var filePath = config.Pos10041Path;
+
+        if (string.IsNullOrEmpty(filePath) || !File.Exists(filePath))
+        {
+            _logger.LogWarning("Archivo POS10041 no disponible: {FilePath}", filePath);
+            return Enumerable.Empty<string>();
+        }
+
+        var seriesList = new List<string>();
+        var upperCode = (branchCode ?? string.Empty).Trim().ToUpper();
+
+        if (string.IsNullOrEmpty(upperCode))
+        {
+            return Enumerable.Empty<string>();
+        }
+
+        try
+        {
+            using var reader = _readerFactory.CreateReader(filePath);
+            while (reader.Read())
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                var name = reader.GetStringSafe("CNOMBREC01")?.Trim().ToUpper() ?? string.Empty;
+                var serie = reader.GetStringSafe("CSERIENOTA")?.Trim() ?? string.Empty;
+
+                if (string.IsNullOrEmpty(serie))
+                    continue;
+
+                bool isMatch = name.StartsWith(upperCode) || name.Contains(upperCode);
+                if (!isMatch && upperCode == "B10" && name.StartsWith("BX"))
+                {
+                    isMatch = true;
+                }
+
+                if (isMatch)
+                {
+                    seriesList.Add(serie);
+                }
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            _logger.LogInformation("Búsqueda de series por sucursal cancelada");
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error al obtener series de POS10041 para sucursal {Code}", branchCode);
+        }
+
+        return seriesList.Distinct();
+    }
 }
+

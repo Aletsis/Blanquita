@@ -15,6 +15,7 @@ public class ConfiguracionService : IConfiguracionService
     private readonly ISystemConfigurationRepository _repository;
     private readonly IFileSystemService _fileSystemService;
     private readonly IAppConfigurationManager _legacyConfigManager; // For migration
+    private readonly IEncryptionService _encryptionService;
     private readonly ILogger<ConfiguracionService> _logger;
 
     private static DTOs.ConfiguracionDto? _staticCachedConfig;
@@ -37,11 +38,13 @@ public class ConfiguracionService : IConfiguracionService
         ISystemConfigurationRepository repository,
         IFileSystemService fileSystemService,
         IAppConfigurationManager legacyConfigManager,
+        IEncryptionService encryptionService,
         ILogger<ConfiguracionService> logger)
     {
         _repository = repository;
         _fileSystemService = fileSystemService;
         _legacyConfigManager = legacyConfigManager;
+        _encryptionService = encryptionService;
         _logger = logger;
     }
 
@@ -115,11 +118,11 @@ public class ConfiguracionService : IConfiguracionService
     }
 
     /// <inheritdoc/>
-    public async Task GuardarConfiguracionAsync(ConfiguracionDto configuracion)
+    public async Task GuardarConfiguracionAsync(ConfiguracionDto configuracion, string changedBy = "System")
     {
         try
         {
-            _logger.LogInformation("Guardando configuración del sistema");
+            _logger.LogInformation("Guardando configuración del sistema por {ChangedBy}", changedBy);
 
             // Validar antes de guardar
             var validacion = await ValidarConfiguracionAsync(configuracion);
@@ -133,16 +136,61 @@ public class ConfiguracionService : IConfiguracionService
             try
             {
                 var configEntity = await _repository.GetAsync();
+                var auditLogs = new List<SystemConfigurationAuditLog>();
+                var now = DateTime.UtcNow;
+
                 if (configEntity == null)
                 {
                     configEntity = new SystemConfiguration();
                     ActualizarEntidad(configEntity, configuracion);
                     await _repository.AddAsync(configEntity);
+
+                    // Registrar auditoría de creación inicial
+                    foreach (var prop in typeof(ConfiguracionDto).GetProperties())
+                    {
+                        var newVal = prop.GetValue(configuracion);
+                        var newStr = newVal?.ToString();
+                        if (!string.IsNullOrWhiteSpace(newStr))
+                        {
+                            auditLogs.Add(new SystemConfigurationAuditLog(now, changedBy, prop.Name, null, newStr));
+                        }
+                    }
                 }
                 else
                 {
+                    // Obtener DTO anterior
+                    var oldDto = MapearADto(configEntity);
+
                     ActualizarEntidad(configEntity, configuracion);
                     await _repository.UpdateAsync(configEntity);
+
+                    // Detectar cambios en el DTO
+                    foreach (var prop in typeof(ConfiguracionDto).GetProperties())
+                    {
+                        var oldVal = prop.GetValue(oldDto);
+                        var newVal = prop.GetValue(configuracion);
+
+                        var oldStr = oldVal?.ToString();
+                        var newStr = newVal?.ToString();
+
+                        if (oldStr != newStr)
+                        {
+                            auditLogs.Add(new SystemConfigurationAuditLog(now, changedBy, prop.Name, oldStr, newStr));
+                        }
+                    }
+                }
+
+                // Guardar los registros de auditoría
+                foreach (var log in auditLogs)
+                {
+                    try
+                    {
+                        await _repository.AddAuditLogAsync(log);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Error al guardar registro de auditoría para la propiedad {PropertyName}", log.PropertyName);
+                    }
                 }
 
                 // Invalidad caché
@@ -321,7 +369,7 @@ public class ConfiguracionService : IConfiguracionService
             SmtpServer = entity.SmtpServer,
             SmtpPort = entity.SmtpPort,
             SmtpUser = entity.SmtpUser,
-            SmtpPassword = entity.SmtpPassword,
+            SmtpPassword = _encryptionService.Decrypt(entity.SmtpPassword),
             SmtpEnableSsl = entity.SmtpEnableSsl,
             SmtpFromEmail = entity.SmtpFromEmail,
             SmtpFromName = entity.SmtpFromName,
@@ -329,7 +377,8 @@ public class ConfiguracionService : IConfiguracionService
             AlertEmails = entity.AlertEmails,
             CommercialApiUrl = entity.CommercialApiUrl,
             CommercialApiKey = entity.CommercialApiKey,
-            WhatsAppServiceUrl = entity.WhatsAppServiceUrl
+            WhatsAppServiceUrl = entity.WhatsAppServiceUrl,
+            WhatsAppApiKey = entity.WhatsAppApiKey
         };
     }
  
@@ -354,7 +403,7 @@ public class ConfiguracionService : IConfiguracionService
         entity.SmtpServer = dto.SmtpServer;
         entity.SmtpPort = dto.SmtpPort;
         entity.SmtpUser = dto.SmtpUser;
-        entity.SmtpPassword = dto.SmtpPassword;
+        entity.SmtpPassword = _encryptionService.Encrypt(dto.SmtpPassword);
         entity.SmtpEnableSsl = dto.SmtpEnableSsl;
         entity.SmtpFromEmail = dto.SmtpFromEmail;
         entity.SmtpFromName = dto.SmtpFromName;
@@ -363,5 +412,6 @@ public class ConfiguracionService : IConfiguracionService
         entity.CommercialApiUrl = dto.CommercialApiUrl;
         entity.CommercialApiKey = dto.CommercialApiKey;
         entity.WhatsAppServiceUrl = dto.WhatsAppServiceUrl;
+        entity.WhatsAppApiKey = dto.WhatsAppApiKey;
     }
 }

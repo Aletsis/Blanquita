@@ -35,4 +35,10 @@ public class SystemConfigurationRepository : ISystemConfigurationRepository
         _context.SystemConfigurations.Update(configuration);
         await _context.SaveChangesAsync(cancellationToken);
     }
+
+    public async Task AddAuditLogAsync(SystemConfigurationAuditLog auditLog, CancellationToken cancellationToken = default)
+    {
+        await _context.SystemConfigurationAuditLogs.AddAsync(auditLog, cancellationToken);
+        await _context.SaveChangesAsync(cancellationToken);
+    }
 }

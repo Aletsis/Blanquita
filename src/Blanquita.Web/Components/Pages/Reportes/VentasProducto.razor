@@ -1,0 +1,680 @@
+@page "/reportes/ventas-producto"
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Roles = "Admin")]
+@using Blanquita.Application.DTOs
+@using Blanquita.Application.Queries.FoxPro.GetProductSalesReport
+@using MediatR
+@using Blanquita.Application.Interfaces
+@inject IMediator Mediator
+@inject IBranchService BranchService
+@inject ISnackbar Snackbar
+@inject IJSRuntime JS
+@inject ILogger<VentasProducto> Logger
+@inject IExportService ExportService
+
+<PageTitle>Reporte de Ventas por Producto - Sistema de Reportes</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4 animate-fade-in">
+    <MudText Typo="Typo.h4" Class="mb-6 font-weight-bold" Style="background: linear-gradient(45deg, #4f46e5, #0ea5e9); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+        <MudIcon Icon="@Icons.Material.Filled.ShoppingBag" Class="mr-2" Size="Size.Large" Color="Color.Primary" />
+        Reporte de Ventas por Producto
+    </MudText>
+
+    <MudGrid>
+        <!-- Formulario de parámetros -->
+        <MudItem xs="12" md="4">
+            <MudCard Elevation="4" Class="rounded-lg">
+                <MudCardContent Class="pa-4">
+                    <MudText Typo="Typo.h6" Class="mb-4" Color="Color.Primary">
+                        <MudIcon Icon="@Icons.Material.Filled.FilterAlt" Size="Size.Small" Class="mr-2" />
+                        Filtros del Reporte
+                    </MudText>
+
+                    <MudSelect T="BranchDto" @bind-Value="sucursalSeleccionada"
+                               Label="Sucursal"
+                               Variant="Variant.Outlined"
+                               Required="true"
+                               Class="mb-3"
+                               ToStringFunc="@(b => b?.Name)"
+                               AnchorOrigin="Origin.BottomCenter">
+                        @if (sucursales != null)
+                        {
+                            @foreach (var suc in sucursales)
+                            {
+                                <MudSelectItem Value="@suc">@suc.Name</MudSelectItem>
+                            }
+                        }
+                    </MudSelect>
+
+                    <MudDatePicker @bind-Date="fechaInicio"
+                                   Label="Fecha Inicio"
+                                   Variant="Variant.Outlined"
+                                   Required="true"
+                                   MaxDate="DateTime.Today"
+                                   Class="mb-3" />
+
+                    <MudDatePicker @bind-Date="fechaFin"
+                                   Label="Fecha Fin"
+                                   Variant="Variant.Outlined"
+                                   Required="true"
+                                   MaxDate="DateTime.Today"
+                                   Class="mb-3" />
+
+                    <MudDivider Class="my-3" />
+
+                    <MudText Typo="Typo.subtitle2" Class="mb-2 font-weight-bold">
+                        <MudIcon Icon="@Icons.Material.Filled.QrCode" Size="Size.Small" Class="mr-1" />
+                        Códigos de Producto
+                    </MudText>
+
+                    <MudTabs Elevation="0" Rounded="true" Class="mb-3 border rounded-lg overflow-hidden">
+                        <MudTabPanel Text="Manual">
+                            <div class="pa-3">
+                                <MudStack Row="true" AlignItems="AlignItems.Center">
+                                    <MudTextField @bind-Value="nuevoCodigo"
+                                                  Label="Código o Código Alterno"
+                                                  Variant="Variant.Outlined"
+                                                  Margin="Margin.Dense"
+                                                  OnKeyDown="OnKeyDownCodigoInput"
+                                                  Placeholder="Ej: AB01"
+                                                  Adornment="Adornment.End"
+                                                  AdornmentIcon="@Icons.Material.Filled.Add"
+                                                  OnAdornmentClick="AgregarCodigoManual" />
+                                </MudStack>
+
+                                @if (codigosManuales.Any())
+                                {
+                                    <div class="mt-2 d-flex flex-wrap gap-1" style="max-height: 120px; overflow-y: auto; padding: 4px; border: 1px dashed #e2e8f0; border-radius: 8px;">
+                                        @foreach (var cod in codigosManuales)
+                                        {
+                                            <MudChip T="string" Size="Size.Small" Color="Color.Primary" Variant="Variant.Filled" OnClose="(() => RemoverCodigoManual(cod))">@cod</MudChip>
+                                        }
+                                    </div>
+                                    <MudButton Variant="Variant.Text" Color="Color.Error" Size="Size.Small" OnClick="LimpiarCodigosManuales" Class="mt-1">Limpiar todos</MudButton>
+                                }
+                                else
+                                {
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary" Class="d-block mt-2">
+                                        Ingrese los códigos uno a uno.
+                                    </MudText>
+                                }
+                            </div>
+                        </MudTabPanel>
+                        <MudTabPanel Text="Carga Masiva">
+                            <div class="pa-3">
+                                <MudTextField @bind-Value="codigosMasivosRaw"
+                                              Label="Lista de Códigos"
+                                              Variant="Variant.Outlined"
+                                              Lines="5"
+                                              Placeholder="Pegue los códigos de producto separados por comas, espacios o saltos de línea..."
+                                              HelperText="Ej: 75010001, 75010002, 75010003" />
+                            </div>
+                        </MudTabPanel>
+                    </MudTabs>
+
+                    <MudDivider Class="my-3" />
+
+                    <MudButton Variant="Variant.Filled"
+                               Color="Color.Primary"
+                               FullWidth="true"
+                               StartIcon="@Icons.Material.Filled.Search"
+                               OnClick="GenerarReporte"
+                               Disabled="@(generando || sucursalSeleccionada == null || fechaInicio == null || fechaFin == null)"
+                               Size="Size.Large"
+                               Class="py-2">
+                        @if (generando)
+                        {
+                            <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                            <text>Buscando...</text>
+                        }
+                        else
+                        {
+                            <text>Buscar Ventas</text>
+                        }
+                    </MudButton>
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+
+        <!-- Resultados -->
+        <MudItem xs="12" md="8">
+            @if (generando)
+            {
+                <MudCard Elevation="4" Class="rounded-lg pa-8 text-center animate-fade-in">
+                    <MudCardContent>
+                        <MudProgressCircular Size="Size.Large" Indeterminate="true" Color="Color.Primary" />
+                        <MudText Typo="Typo.h6" Class="mt-4">Buscando productos y movimientos (MGW10005, POS10010, POS10008)...</MudText>
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">
+                            Procesando registros para sucursal @sucursalSeleccionada?.Name desde @fechaInicio?.ToString("dd/MM/yyyy") hasta @fechaFin?.ToString("dd/MM/yyyy")
+                        </MudText>
+                    </MudCardContent>
+                </MudCard>
+            }
+            else if (reporteGenerado && datosReporte != null)
+            {
+                <!-- KPI Indicators -->
+                <MudGrid Class="mb-4">
+                    <!-- Tarjeta Productos Consultados -->
+                    <MudItem xs="12" sm="3">
+                        <MudPaper Elevation="4" Class="pa-4 rounded-lg d-flex align-center justify-space-between bg-gradient-indigo text-white">
+                            <div>
+                                <MudText Typo="Typo.subtitle2" Class="opacity-75">Productos</MudText>
+                                <MudText Typo="Typo.h5" Class="font-weight-bold">
+                                    @datosReporte.Count(x => x.TotalUnits > 0) de @datosReporte.Count
+                                </MudText>
+                            </div>
+                            <MudIcon Icon="@Icons.Material.Filled.ShoppingBag" Size="Size.Large" Class="opacity-50" />
+                        </MudPaper>
+                    </MudItem>
+
+                    <!-- Tarjeta Unidades Vendidas -->
+                    <MudItem xs="12" sm="3">
+                        <MudPaper Elevation="4" Class="pa-4 rounded-lg d-flex align-center justify-space-between bg-gradient-teal text-white">
+                            <div>
+                                <MudText Typo="Typo.subtitle2" Class="opacity-75">Unidades Vendidas</MudText>
+                                <MudText Typo="Typo.h5" Class="font-weight-bold">
+                                    @datosReporte.Sum(x => x.TotalUnits).ToString("N2")
+                                </MudText>
+                            </div>
+                            <MudIcon Icon="@Icons.Material.Filled.ProductionQuantityLimits" Size="Size.Large" Class="opacity-50" />
+                        </MudPaper>
+                    </MudItem>
+
+                    <!-- Tarjeta Neto -->
+                    <MudItem xs="12" sm="3">
+                        <MudPaper Elevation="4" Class="pa-4 rounded-lg d-flex align-center justify-space-between bg-gradient-emerald text-white">
+                            <div>
+                                <MudText Typo="Typo.subtitle2" Class="opacity-75">Venta Neta</MudText>
+                                <MudText Typo="Typo.h5" Class="font-weight-bold">
+                                    @datosReporte.Sum(x => x.TotalNet).ToString("C2", new System.Globalization.CultureInfo("es-MX"))
+                                </MudText>
+                            </div>
+                            <MudIcon Icon="@Icons.Material.Filled.AttachMoney" Size="Size.Large" Class="opacity-50" />
+                        </MudPaper>
+                    </MudItem>
+
+                    <!-- Tarjeta Total General -->
+                    <MudItem xs="12" sm="3">
+                        <MudPaper Elevation="4" Class="pa-4 rounded-lg d-flex align-center justify-space-between bg-gradient-rose text-white">
+                            <div>
+                                <MudText Typo="Typo.subtitle2" Class="opacity-75">Total General</MudText>
+                                <MudText Typo="Typo.h5" Class="font-weight-bold">
+                                    @datosReporte.Sum(x => x.TotalAmount).ToString("C2", new System.Globalization.CultureInfo("es-MX"))
+                                </MudText>
+                            </div>
+                            <MudIcon Icon="@Icons.Material.Filled.TrendingUp" Size="Size.Large" Class="opacity-50" />
+                        </MudPaper>
+                    </MudItem>
+                </MudGrid>
+
+                <MudCard Elevation="4" Class="rounded-lg animate-slide-up">
+                    <MudCardContent Class="pa-4">
+                        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-3">
+                            <MudText Typo="Typo.h6" Color="Color.Primary">
+                                <MudIcon Icon="@Icons.Material.Filled.TableChart" Class="mr-2" />
+                                Resumen de Ventas por Producto
+                            </MudText>
+
+                            <MudMenu Label="Exportar" Variant="Variant.Outlined" EndIcon="@Icons.Material.Filled.KeyboardArrowDown" Color="Color.Success" Size="Size.Small">
+                                <MudMenuItem Icon="@Icons.Material.Filled.Download" OnClick="ExportarResumenExcel">Excel Resumen</MudMenuItem>
+                                <MudMenuItem Icon="@Icons.Material.Filled.Download" OnClick="ExportarDetallesExcel">Excel Detalle Completo</MudMenuItem>
+                                <MudDivider />
+                                <MudMenuItem Icon="@Icons.Material.Filled.PictureAsPdf" OnClick="ExportarResumenPDF">PDF Resumen</MudMenuItem>
+                                <MudMenuItem Icon="@Icons.Material.Filled.PictureAsPdf" OnClick="ExportarDetallesPDF">PDF Detalle Completo</MudMenuItem>
+                            </MudMenu>
+                        </MudStack>
+
+                        @if (datosReporte.Any())
+                        {
+                            <MudTable Items="@datosReporte"
+                                      T="ProductSalesReportDto"
+                                      Hover="true"
+                                      Striped="true"
+                                      Elevation="0"
+                                      Bordered="true"
+                                      Breakpoint="Breakpoint.None">
+                                <HeaderContent>
+                                    <MudTh Style="width: 50px;"></MudTh>
+                                    <MudTh Style="font-weight: bold;">Código</MudTh>
+                                    <MudTh Style="font-weight: bold;">Descripción</MudTh>
+                                    <MudTh Style="font-weight: bold; text-align: right;">Unidades</MudTh>
+                                    <MudTh Style="font-weight: bold; text-align: right;">Subtotal Neto</MudTh>
+                                    <MudTh Style="font-weight: bold; text-align: right;">Impuesto</MudTh>
+                                    <MudTh Style="font-weight: bold; text-align: right;">Total</MudTh>
+                                </HeaderContent>
+                                <RowTemplate>
+                                    <MudTd>
+                                        <MudIconButton Icon="@(context.Details.Any() ? (expandedRows.Contains(context.ProductCode) ? Icons.Material.Filled.ExpandLess : Icons.Material.Filled.ExpandMore) : Icons.Material.Filled.Block)"
+                                                       Disabled="@(!context.Details.Any())"
+                                                       OnClick="@(() => ToggleExpand(context.ProductCode))"
+                                                       Size="Size.Small"
+                                                       Color="@(context.Details.Any() ? Color.Primary : Color.Default)" />
+                                    </MudTd>
+                                    <MudTd DataLabel="Código"><strong>@context.ProductCode</strong></MudTd>
+                                    <MudTd DataLabel="Descripción">@context.ProductName</MudTd>
+                                    <MudTd DataLabel="Unidades" Style="text-align: right;">@context.TotalUnits.ToString("N2")</MudTd>
+                                    <MudTd DataLabel="Subtotal Neto" Style="text-align: right;">
+                                        @context.TotalNet.ToString("C2", new System.Globalization.CultureInfo("es-MX"))
+                                    </MudTd>
+                                    <MudTd DataLabel="Impuesto" Style="text-align: right;">
+                                        @context.TotalTax.ToString("C2", new System.Globalization.CultureInfo("es-MX"))
+                                    </MudTd>
+                                    <MudTd DataLabel="Total" Style="text-align: right;">
+                                        <strong>@context.TotalAmount.ToString("C2", new System.Globalization.CultureInfo("es-MX"))</strong>
+                                    </MudTd>
+                                </RowTemplate>
+                                <ChildRowContent>
+                                    @if (expandedRows.Contains(context.ProductCode))
+                                    {
+                                        <MudTr>
+                                            <MudTd colspan="7" Class="pa-4 bg-light-gray">
+                                                <div class="px-2 py-1 border-l-4 border-indigo rounded-r-lg bg-white shadow-sm">
+                                                    <MudText Typo="Typo.subtitle2" Class="font-weight-black text-indigo px-3 py-2">
+                                                        Detalle de Movimientos en Tickets - @context.ProductCode
+                                                    </MudText>
+                                                    <MudTable Items="@context.Details" Dense="true" Hover="true" Bordered="true" Elevation="0" Class="mx-2 mb-2">
+                                                        <HeaderContent>
+                                                            <MudTh Style="font-weight: bold; background-color: #f8fafc;">Folio</MudTh>
+                                                            <MudTh Style="font-weight: bold; background-color: #f8fafc;">Fecha</MudTh>
+                                                            <MudTh Style="font-weight: bold; background-color: #f8fafc;">Cliente</MudTh>
+                                                            <MudTh Style="font-weight: bold; background-color: #f8fafc; text-align: right;">Unidades</MudTh>
+                                                            <MudTh Style="font-weight: bold; background-color: #f8fafc; text-align: right;">Precio</MudTh>
+                                                            <MudTh Style="font-weight: bold; background-color: #f8fafc; text-align: right;">Subtotal Neto</MudTh>
+                                                            <MudTh Style="font-weight: bold; background-color: #f8fafc; text-align: right;">Impuesto</MudTh>
+                                                            <MudTh Style="font-weight: bold; background-color: #f8fafc; text-align: right;">Total</MudTh>
+                                                        </HeaderContent>
+                                                        <RowTemplate Context="detail">
+                                                            <MudTd DataLabel="Folio">@detail.Folio</MudTd>
+                                                            <MudTd DataLabel="Fecha">@detail.Fecha.ToString("dd/MM/yyyy")</MudTd>
+                                                            <MudTd DataLabel="Cliente">@detail.Cliente</MudTd>
+                                                            <MudTd DataLabel="Unidades" Style="text-align: right;">@detail.Units.ToString("N2")</MudTd>
+                                                            <MudTd DataLabel="Precio" Style="text-align: right;">@detail.Price.ToString("C2", new System.Globalization.CultureInfo("es-MX"))</MudTd>
+                                                            <MudTd DataLabel="Subtotal Neto" Style="text-align: right;">@detail.NetAmount.ToString("C2", new System.Globalization.CultureInfo("es-MX"))</MudTd>
+                                                            <MudTd DataLabel="Impuesto" Style="text-align: right;">@detail.TaxAmount.ToString("C2", new System.Globalization.CultureInfo("es-MX"))</MudTd>
+                                                            <MudTd DataLabel="Total" Style="text-align: right;"><strong>@detail.Total.ToString("C2", new System.Globalization.CultureInfo("es-MX"))</strong></MudTd>
+                                                        </RowTemplate>
+                                                    </MudTable>
+                                                </div>
+                                            </MudTd>
+                                        </MudTr>
+                                    }
+                                </ChildRowContent>
+                                <FooterContent>
+                                    <MudTh Style="font-weight: bold; background-color: #f8fafc;" colspan="3">TOTALES</MudTh>
+                                    <MudTh Style="font-weight: bold; text-align: right; background-color: #f8fafc;">
+                                        @datosReporte.Sum(x => x.TotalUnits).ToString("N2")
+                                    </MudTh>
+                                    <MudTh Style="font-weight: bold; text-align: right; background-color: #f8fafc;">
+                                        @datosReporte.Sum(x => x.TotalNet).ToString("C2", new System.Globalization.CultureInfo("es-MX"))
+                                    </MudTh>
+                                    <MudTh Style="font-weight: bold; text-align: right; background-color: #f8fafc;">
+                                        @datosReporte.Sum(x => x.TotalTax).ToString("C2", new System.Globalization.CultureInfo("es-MX"))
+                                    </MudTh>
+                                    <MudTh Style="font-weight: bold; text-align: right; background-color: #f8fafc;">
+                                        @datosReporte.Sum(x => x.TotalAmount).ToString("C2", new System.Globalization.CultureInfo("es-MX"))
+                                    </MudTh>
+                                </FooterContent>
+                            </MudTable>
+                        }
+                        else
+                        {
+                            <MudAlert Severity="Severity.Info" Class="mt-2 rounded-lg">
+                                No se encontraron ventas para los códigos de producto y filtros seleccionados.
+                            </MudAlert>
+                        }
+                    </MudCardContent>
+                </MudCard>
+            }
+            else
+            {
+                <MudCard Elevation="4" Class="rounded-lg pa-8 text-center animate-fade-in" Style="min-height: 480px; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+                    <MudCardContent>
+                        <MudIcon Icon="@Icons.Material.Filled.Assessment" Size="Size.Large" Color="Color.Secondary" Style="font-size: 5rem; opacity: 0.2;" />
+                        <MudText Typo="Typo.h5" Color="Color.Secondary" Class="mt-4 font-weight-bold">
+                            Consulta de Ventas por Producto
+                        </MudText>
+                        <MudText Typo="Typo.body1" Color="Color.Secondary" Class="mt-2">
+                            Seleccione la sucursal, el rango de fechas y proporcione uno o más códigos de producto para analizar el comportamiento comercial detallado.
+                        </MudText>
+                    </MudCardContent>
+                </MudCard>
+            }
+        </MudItem>
+    </MudGrid>
+</MudContainer>
+
+<style>
+    .animate-fade-in {
+        animation: fadeIn 0.4s ease-out;
+    }
+    .animate-slide-up {
+        animation: slideUp 0.4s ease-out;
+    }
+    @@keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+    @@keyframes slideUp {
+        from { transform: translateY(15px); opacity: 0; }
+        to { transform: translateY(0); opacity: 1; }
+    }
+    .rounded-lg {
+        border-radius: 12px !important;
+    }
+    .border-l-4 {
+        border-left-width: 4px !important;
+    }
+    .border-indigo {
+        border-left-color: #4f46e5 !important;
+    }
+    .text-indigo {
+        color: #4f46e5 !important;
+    }
+    .bg-light-gray {
+        background-color: #f8fafc !important;
+    }
+    .bg-gradient-indigo {
+        background: linear-gradient(135deg, #4f46e5 0%, #3730a3 100%) !important;
+    }
+    .bg-gradient-teal {
+        background: linear-gradient(135deg, #0d9488 0%, #115e59 100%) !important;
+    }
+    .bg-gradient-emerald {
+        background: linear-gradient(135deg, #10b981 0%, #047857 100%) !important;
+    }
+    .bg-gradient-rose {
+        background: linear-gradient(135deg, #f43f5e 0%, #be123c 100%) !important;
+    }
+    .gap-1 {
+        gap: 0.25rem !important;
+    }
+</style>
+
+@code {
+    private BranchDto? sucursalSeleccionada;
+    private IEnumerable<BranchDto> sucursales = new List<BranchDto>();
+    
+    private DateTime? fechaInicio = DateTime.Today.AddDays(-7);
+    private DateTime? fechaFin = DateTime.Today;
+
+    private string nuevoCodigo = string.Empty;
+    private List<string> codigosManuales = new();
+    private string codigosMasivosRaw = string.Empty;
+
+    private bool generando = false;
+    private bool reporteGenerado = false;
+    private List<ProductSalesReportDto>? datosReporte;
+    private HashSet<string> expandedRows = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var rawBranches = await BranchService.GetAllAsync();
+            var list = new List<BranchDto>
+            {
+                new BranchDto { Id = 0, Name = "Todas", Code = "TODAS" }
+            };
+            list.AddRange(rawBranches);
+            sucursales = list;
+
+            if (sucursales.Any())
+            {
+                sucursalSeleccionada = sucursales.FirstOrDefault(s => s.Name == "Himno") ?? sucursales.First();
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add("Error al cargar sucursales", Severity.Error);
+        }
+    }
+
+    private void OnKeyDownCodigoInput(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            AgregarCodigoManual();
+        }
+    }
+
+    private void AgregarCodigoManual()
+    {
+        if (string.IsNullOrWhiteSpace(nuevoCodigo)) return;
+        
+        var cod = nuevoCodigo.Trim().ToUpper();
+        if (!codigosManuales.Contains(cod))
+        {
+            codigosManuales.Add(cod);
+        }
+        nuevoCodigo = string.Empty;
+        StateHasChanged();
+    }
+
+    private void RemoverCodigoManual(string code)
+    {
+        codigosManuales.Remove(code);
+        StateHasChanged();
+    }
+
+    private void LimpiarCodigosManuales()
+    {
+        codigosManuales.Clear();
+        StateHasChanged();
+    }
+
+    private List<string> ObtenerCodigosUnificados()
+    {
+        var result = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        
+        foreach (var c in codigosManuales)
+        {
+            if (!string.IsNullOrWhiteSpace(c))
+                result.Add(c.Trim());
+        }
+
+        if (!string.IsNullOrWhiteSpace(codigosMasivosRaw))
+        {
+            var parsed = codigosMasivosRaw
+                .Split(new[] { ',', '\n', '\r', ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries)
+                .Select(c => c.Trim())
+                .Where(c => !string.IsNullOrEmpty(c));
+            
+            foreach (var c in parsed)
+            {
+                result.Add(c);
+            }
+        }
+
+        return result.ToList();
+    }
+
+    private void ToggleExpand(string productCode)
+    {
+        if (expandedRows.Contains(productCode))
+        {
+            expandedRows.Remove(productCode);
+        }
+        else
+        {
+            expandedRows.Add(productCode);
+        }
+    }
+
+    private async Task GenerarReporte()
+    {
+        var codigos = ObtenerCodigosUnificados();
+
+        if (sucursalSeleccionada == null || fechaInicio == null || fechaFin == null)
+        {
+            Snackbar.Add("Debe seleccionar la sucursal y el rango de fechas", Severity.Warning);
+            return;
+        }
+
+        if (fechaInicio > fechaFin)
+        {
+            Snackbar.Add("La fecha de inicio no puede ser posterior a la fecha fin", Severity.Warning);
+            return;
+        }
+
+        if (!codigos.Any())
+        {
+            Snackbar.Add("Debe ingresar al menos un código de producto", Severity.Warning);
+            return;
+        }
+
+        generando = true;
+        reporteGenerado = false;
+        datosReporte = null;
+        expandedRows.Clear();
+
+        try
+        {
+            var query = new GetProductSalesReportQuery(
+                fechaInicio.Value,
+                fechaFin.Value,
+                codigos,
+                sucursalSeleccionada.Id
+            );
+
+            var result = await Mediator.Send(query);
+            datosReporte = result.ToList();
+            
+            reporteGenerado = true;
+
+            if (datosReporte.Any())
+            {
+                var productosConVentas = datosReporte.Count(x => x.TotalUnits > 0);
+                Snackbar.Add($"Reporte generado: {productosConVentas} productos con ventas.", Severity.Success);
+            }
+            else
+            {
+                Snackbar.Add("No se encontraron registros de ventas para los productos y fechas seleccionadas.", Severity.Info);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error al generar reporte: {ex.Message}", Severity.Error);
+            Logger.LogError(ex, "Error al generar reporte de ventas por producto");
+        }
+        finally
+        {
+            generando = false;
+        }
+    }
+
+    private async Task ExportarResumenExcel()
+    {
+        if (datosReporte == null || !datosReporte.Any()) return;
+        try
+        {
+            var export = datosReporte.Select(r => new {
+                Codigo = r.ProductCode,
+                Producto = r.ProductName,
+                Unidades = r.TotalUnits,
+                SubtotalNeto = r.TotalNet,
+                Impuesto = r.TotalTax,
+                Total = r.TotalAmount
+            }).ToList();
+
+            var contenido = await ExportService.ExportToExcelAsync(export, "Resumen Productos");
+            var nombreArchivo = $"VentasProducto_Resumen_{sucursalSeleccionada?.Name}_{fechaInicio:yyyyMMdd}_a_{fechaFin:yyyyMMdd}.xlsx";
+            await DescargarArchivo(contenido, nombreArchivo, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+            Snackbar.Add("Resumen exportado exitosamente a Excel", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error al exportar a Excel: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task ExportarDetallesExcel()
+    {
+        if (datosReporte == null || !datosReporte.Any()) return;
+        try
+        {
+            var export = datosReporte.SelectMany(r => r.Details.Select(d => new {
+                CodigoProducto = r.ProductCode,
+                Producto = r.ProductName,
+                FolioTicket = d.Folio,
+                Fecha = d.Fecha.ToString("dd/MM/yyyy"),
+                Cliente = d.Cliente,
+                Unidades = d.Units,
+                Precio = d.Price,
+                SubtotalNeto = d.NetAmount,
+                Impuesto = d.TaxAmount,
+                Total = d.Total
+            })).ToList();
+
+            var contenido = await ExportService.ExportToExcelAsync(export, "Detalle Tickets");
+            var nombreArchivo = $"VentasProducto_Detalles_{sucursalSeleccionada?.Name}_{fechaInicio:yyyyMMdd}_a_{fechaFin:yyyyMMdd}.xlsx";
+            await DescargarArchivo(contenido, nombreArchivo, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+            Snackbar.Add("Detalle de transacciones exportado exitosamente a Excel", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error al exportar a Excel: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task ExportarResumenPDF()
+    {
+        if (datosReporte == null || !datosReporte.Any()) return;
+        try
+        {
+            var export = datosReporte.Select(r => new {
+                Codigo = r.ProductCode,
+                Producto = r.ProductName,
+                Unidades = r.TotalUnits,
+                SubtotalNeto = r.TotalNet,
+                Impuesto = r.TotalTax,
+                Total = r.TotalAmount
+            }).ToList();
+
+            var titulo = $"Reporte Resumen Ventas Producto - {sucursalSeleccionada?.Name} ({fechaInicio:dd/MM/yyyy} - {fechaFin:dd/MM/yyyy})";
+            var contenido = await ExportService.ExportToPdfAsync(export, titulo);
+            var nombreArchivo = $"VentasProducto_Resumen_{sucursalSeleccionada?.Name}_{fechaInicio:yyyyMMdd}_a_{fechaFin:yyyyMMdd}.pdf";
+            await DescargarArchivo(contenido, nombreArchivo, "application/pdf");
+            Snackbar.Add("Resumen exportado exitosamente a PDF", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error al exportar a PDF: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task ExportarDetallesPDF()
+    {
+        if (datosReporte == null || !datosReporte.Any()) return;
+        try
+        {
+            var export = datosReporte.SelectMany(r => r.Details.Select(d => new {
+                Codigo = r.ProductCode,
+                Producto = r.ProductName,
+                Folio = d.Folio,
+                Fecha = d.Fecha.ToString("dd/MM/yyyy"),
+                Cliente = d.Cliente,
+                Unidades = d.Units,
+                Precio = d.Price,
+                SubtotalNeto = d.NetAmount,
+                Impuesto = d.TaxAmount,
+                Total = d.Total
+            })).ToList();
+
+            var titulo = $"Detalle Ventas Producto - {sucursalSeleccionada?.Name} ({fechaInicio:dd/MM/yyyy} - {fechaFin:dd/MM/yyyy})";
+            var contenido = await ExportService.ExportToPdfAsync(export, titulo);
+            var nombreArchivo = $"VentasProducto_Detalles_{sucursalSeleccionada?.Name}_{fechaInicio:yyyyMMdd}_a_{fechaFin:yyyyMMdd}.pdf";
+            await DescargarArchivo(contenido, nombreArchivo, "application/pdf");
+            Snackbar.Add("Detalles exportados exitosamente a PDF", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error al exportar a PDF: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task DescargarArchivo(byte[] contenido, string nombreArchivo, string contentType)
+    {
+        var base64 = Convert.ToBase64String(contenido);
+        await JS.InvokeVoidAsync("fileDownloadHelper.downloadFile", nombreArchivo, contentType, base64);
+    }
+}

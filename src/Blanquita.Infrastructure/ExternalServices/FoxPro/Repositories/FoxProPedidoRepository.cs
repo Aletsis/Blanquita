@@ -49,15 +49,29 @@ public class FoxProPedidoRepository : IFoxProPedidoRepository
         try
         {
             using var reader = _readerFactory.CreateReverseReader(filePath);
+            int recordCount = 0;
+            int skippedCount = 0;
 
             while (reader.Read())
             {
+                recordCount++;
                 cancellationToken.ThrowIfCancellationRequested();
 
                 var cfecha = reader.GetDateTimeSafe("CFECHA");
                 
-                // Como leemos de atrás hacia adelante, si la fecha es más antigua, terminamos
-                if (cfecha.Date < date.Date) break;
+                if (cfecha == DateTime.MinValue || cfecha.Year < 2010)
+                {
+                    skippedCount++;
+                    continue;
+                }
+
+                // Como leemos de atrás hacia adelante, si la fecha es más antigua de 90 días, terminamos (para admitir registros fuera de orden)
+                if (cfecha.Date < date.Date.AddDays(-90))
+                {
+                    _logger.LogInformation("SearchPedidosAsync: Break triggered at record {RecordCount} (skipped {SkippedCount} invalid). Date in record: {CFecha:yyyy-MM-dd}, Target date: {TargetDate:yyyy-MM-dd}", 
+                        recordCount, skippedCount, cfecha, date);
+                    break;
+                }
                 // Si la fecha es más reciente (ej. buscamos ayer, pero estamos leyendo hoy), la saltamos
                 if (cfecha.Date > date.Date) continue;
 
@@ -139,15 +153,29 @@ public class FoxProPedidoRepository : IFoxProPedidoRepository
         try
         {
             using var reader = _readerFactory.CreateReverseReader(filePath);
+            int recordCount = 0;
+            int skippedCount = 0;
 
             while (reader.Read())
             {
+                recordCount++;
                 cancellationToken.ThrowIfCancellationRequested();
 
                 var cfecha = reader.GetDateTimeSafe("CFECHA");
                 
-                // Como leemos de atrás hacia adelante, si la fecha es más antigua, terminamos
-                if (cfecha.Date < date.Date) break;
+                if (cfecha == DateTime.MinValue || cfecha.Year < 2010)
+                {
+                    skippedCount++;
+                    continue;
+                }
+
+                // Como leemos de atrás hacia adelante, si la fecha es más antigua de 90 días, terminamos (para admitir registros fuera de orden)
+                if (cfecha.Date < date.Date.AddDays(-90))
+                {
+                    _logger.LogInformation("SearchRutasAsync: Break triggered at record {RecordCount} (skipped {SkippedCount} invalid). Date in record: {CFecha:yyyy-MM-dd}, Target date: {TargetDate:yyyy-MM-dd}", 
+                        recordCount, skippedCount, cfecha, date);
+                    break;
+                }
                 // Si la fecha es más reciente (ej. buscamos ayer, pero estamos leyendo hoy), la saltamos
                 if (cfecha.Date > date.Date) continue;
 
@@ -486,14 +514,31 @@ public class FoxProPedidoRepository : IFoxProPedidoRepository
         try
         {
             using var reader = _readerFactory.CreateReverseReader(filePath);
+            int recordCount = 0;
+            int skippedCount = 0;
+            _logger.LogInformation("GetSalesReportByFiltersAsync: Starting search. Date range: {Start:yyyy-MM-dd} to {End:yyyy-MM-dd}. File: {FilePath}", startDate, endDate, filePath);
 
             while (reader.Read())
             {
+                recordCount++;
                 cancellationToken.ThrowIfCancellationRequested();
 
                 var cfecha = reader.GetDateTimeSafe("CFECHA");
 
-                if (cfecha.Date < startDate.Date) break;
+                if (cfecha == DateTime.MinValue || cfecha.Year < 2010)
+                {
+                    skippedCount++;
+                    continue;
+                }
+
+                // Para evitar falsos cortes por registros fuera de orden en FoxPro, no detenemos la lectura
+                // a menos que sea una fecha más antigua de 90 días antes del inicio del rango de búsqueda.
+                if (cfecha.Date < startDate.Date.AddDays(-90))
+                {
+                    _logger.LogInformation("GetSalesReportByFiltersAsync: Break triggered at record {RecordCount} (skipped {SkippedCount} invalid). Date in record: {CFecha:yyyy-MM-dd}, Start date: {StartDate:yyyy-MM-dd}, Folio: {Folio}", 
+                        recordCount, skippedCount, cfecha, startDate, $"{reader.GetStringSafe("CSERIEDO01")?.Trim()}-{reader.GetStringSafe("CFOLIO")?.Trim()}");
+                    break;
+                }
                 if (cfecha.Date > endDate.Date) continue;
 
                 var cseriedo01 = reader.GetStringSafe("CSERIEDO01")?.Trim() ?? string.Empty;
@@ -557,6 +602,271 @@ public class FoxProPedidoRepository : IFoxProPedidoRepository
             _logger.LogError(ex, "Error al generar reporte de ventas por rango en POS10008");
             throw;
         }
+    }
+
+    public async Task<IEnumerable<ProductSalesReportDto>> GetProductSalesReportAsync(
+        DateTime startDate,
+        DateTime endDate,
+        IEnumerable<string> productCodes,
+        IEnumerable<string> series,
+        CancellationToken cancellationToken = default)
+    {
+        var config = await _configService.ObtenerConfiguracionAsync();
+        
+        // Paso 1: Buscar los IDs de los productos en MGW10005 a partir de los códigos
+        var targetCodes = productCodes.Select(c => c.Trim().ToUpper()).ToHashSet();
+        var productMap = new Dictionary<int, (string Code, string Name)>();
+        var productFilePath = config.Mgw10005Path;
+        
+        if (!string.IsNullOrEmpty(productFilePath) && File.Exists(productFilePath))
+        {
+            try
+            {
+                using var prodReader = _readerFactory.CreateReader(productFilePath);
+                while (prodReader.Read())
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    var prodCode = prodReader.GetStringSafe("CCODIGOP01")?.Trim() ?? string.Empty;
+                    var altCode = prodReader.GetStringSafe("CCODALTERN")?.Trim() ?? string.Empty;
+                    if (targetCodes.Contains(prodCode.ToUpper()) || targetCodes.Contains(altCode.ToUpper()))
+                    {
+                        var prodId = prodReader.GetInt32Safe("CIDPRODU01");
+                        var prodName = prodReader.GetStringSafe("CNOMBREP01")?.Trim() ?? string.Empty;
+                        productMap[prodId] = (prodCode, prodName);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al leer productos de MGW10005");
+                throw;
+            }
+        }
+        else
+        {
+            _logger.LogWarning("Archivo de productos MGW10005 no configurado o no existe: {FilePath}", productFilePath);
+            return Enumerable.Empty<ProductSalesReportDto>();
+        }
+
+        if (!productMap.Any())
+        {
+            _logger.LogInformation("No se encontró ningún producto con los códigos proporcionados.");
+            return Enumerable.Empty<ProductSalesReportDto>();
+        }
+
+        // Paso 2: Leer cabeceras de POS10008.DBF
+        var headersFilePath = config.Pos10008Path;
+        if (string.IsNullOrEmpty(headersFilePath) || !File.Exists(headersFilePath))
+        {
+            _logger.LogWarning("Archivo POS10008 no configurado o no existe: {FilePath}", headersFilePath);
+            return Enumerable.Empty<ProductSalesReportDto>();
+        }
+
+        var headerMap = new Dictionary<string, (string Folio, DateTime Fecha, int ClienteId)>();
+        var seriesList = series.Select(s => s.Trim().ToUpper()).ToList();
+        double minDocId = double.MaxValue;
+
+        try
+        {
+            using var headerReader = _readerFactory.CreateReverseReader(headersFilePath);
+            int recordCount = 0;
+            int skippedCount = 0;
+            _logger.LogInformation("GetProductSalesReportAsync: Starting search. Date range: {Start:yyyy-MM-dd} to {End:yyyy-MM-dd}. File: {FilePath}", startDate, endDate, headersFilePath);
+
+            while (headerReader.Read())
+            {
+                recordCount++;
+                cancellationToken.ThrowIfCancellationRequested();
+
+                var cfecha = headerReader.GetDateTimeSafe("CFECHA");
+
+                if (cfecha == DateTime.MinValue || cfecha.Year < 2010)
+                {
+                    skippedCount++;
+                    continue;
+                }
+
+                // Optimización de lectura reversa: detenerse si la fecha es más antigua de 90 días antes del inicio del rango (para admitir registros fuera de orden)
+                if (cfecha.Date < startDate.Date.AddDays(-90))
+                {
+                    _logger.LogInformation("GetProductSalesReportAsync: Break triggered at record {RecordCount} (skipped {SkippedCount} invalid). Date in record: {CFecha:yyyy-MM-dd}, Start date: {StartDate:yyyy-MM-dd}, Folio: {Folio}", 
+                        recordCount, skippedCount, cfecha, startDate, $"{headerReader.GetStringSafe("CSERIEDO01")?.Trim()}-{headerReader.GetStringSafe("CFOLIO")?.Trim()}");
+                    break;
+                }
+                if (cfecha.Date > endDate.Date) continue;
+
+                var cseriedo01 = headerReader.GetStringSafe("CSERIEDO01")?.Trim() ?? string.Empty;
+                if (seriesList.Any() && !seriesList.Contains(cseriedo01.ToUpper())) continue;
+
+                var cancelado = headerReader.GetInt32Safe("CCANCELADO");
+                var devuelto = headerReader.GetInt32Safe("CDEVUELTO");
+
+                // Solo incluir no cancelados y no devueltos
+                if (cancelado == 1 || devuelto == 1) continue;
+
+                var idDocumento = headerReader.GetStringSafe("CIDDOCUM01")?.Trim() ?? string.Empty;
+                if (string.IsNullOrEmpty(idDocumento)) continue;
+
+                if (double.TryParse(idDocumento, out var docIdVal))
+                {
+                    if (docIdVal < minDocId)
+                    {
+                        minDocId = docIdVal;
+                    }
+                }
+
+                var folio = $"{cseriedo01}-{headerReader.GetStringSafe("CFOLIO")?.Trim()}";
+                var clienteId = headerReader.GetInt32Safe("CIDCLIEN01");
+
+                headerMap[idDocumento] = (folio, cfecha, clienteId);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error al leer cabeceras de POS10008");
+            throw;
+        }
+
+        if (!headerMap.Any())
+        {
+            return Enumerable.Empty<ProductSalesReportDto>();
+        }
+
+        // Paso 3: Leer movimientos de POS10010.DBF
+        var movementsFilePath = config.Pos10010Path;
+        if (string.IsNullOrEmpty(movementsFilePath) || !File.Exists(movementsFilePath))
+        {
+            _logger.LogWarning("Archivo POS10010 no configurado o no existe: {FilePath}", movementsFilePath);
+            return Enumerable.Empty<ProductSalesReportDto>();
+        }
+
+        var detailsPerProduct = new Dictionary<int, List<ProductSalesDetailDto>>();
+        foreach (var prodId in productMap.Keys)
+        {
+            detailsPerProduct[prodId] = new List<ProductSalesDetailDto>();
+        }
+
+        try
+        {
+            using var moveReader = _readerFactory.CreateReverseReader(movementsFilePath);
+            while (moveReader.Read())
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                var currentIdDoc = moveReader.GetStringSafe("CIDDOCUM01")?.Trim() ?? string.Empty;
+                if (string.IsNullOrEmpty(currentIdDoc)) continue;
+
+                // Optimización: si el ID del documento es menor al ID mínimo filtrado de POS10008, nos detenemos
+                if (double.TryParse(currentIdDoc, out var docIdVal))
+                {
+                    if (docIdVal < minDocId)
+                    {
+                        break;
+                    }
+                }
+
+                if (headerMap.TryGetValue(currentIdDoc, out var headerInfo))
+                {
+                    var prodId02 = moveReader.GetInt32Safe("CIDPRODU02");
+                    var prodId01 = moveReader.GetInt32Safe("CIDPRODU01");
+                    var prodIdS = moveReader.GetInt32Safe("CIDPRODU");
+                    var finalProdId = prodId02 != 0 ? prodId02 : (prodId01 != 0 ? prodId01 : prodIdS);
+
+                    if (productMap.TryGetValue(finalProdId, out var productInfo))
+                    {
+                        var cantidad = moveReader.GetDecimalSafe("CUNIDADES");
+                        var neto = moveReader.GetDecimalSafe("CNETO");
+                        var impuesto = moveReader.GetDecimalSafe("CIMPUESTO1");
+                        var total = moveReader.GetDecimalSafe("CTOTAL");
+
+                        var precio01 = moveReader.GetDecimalSafe("CPRECIO01");
+                        var precioC0 = moveReader.GetDecimalSafe("CPRECIOC01");
+                        var precioStd = moveReader.GetDecimalSafe("CPRECIO");
+                        var finalPrecio = precioC0 != 0 ? precioC0 : (precioStd != 0 ? precioStd : precio01);
+
+                        if (neto == 0 && finalPrecio != 0)
+                        {
+                            neto = cantidad * finalPrecio;
+                        }
+                        if (total == 0)
+                        {
+                            total = neto + impuesto;
+                        }
+
+                        var detailDto = new ProductSalesDetailDto
+                        {
+                            Folio = headerInfo.Folio,
+                            Fecha = headerInfo.Fecha,
+                            ClienteId = headerInfo.ClienteId,
+                            Units = cantidad,
+                            Price = finalPrecio != 0 ? finalPrecio : (cantidad != 0 ? neto / cantidad : 0),
+                            NetAmount = neto,
+                            TaxAmount = impuesto,
+                            Total = total
+                        };
+
+                        detailsPerProduct[finalProdId].Add(detailDto);
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error al leer movimientos de POS10010");
+            throw;
+        }
+
+        // Paso 4: Cargar nombres de clientes
+        var allDetails = detailsPerProduct.Values.SelectMany(d => d).ToList();
+        if (allDetails.Any())
+        {
+            try
+            {
+                var uniqueClientIds = allDetails.Select(d => d.ClienteId).Distinct().Where(id => id > 0).ToList();
+                var clients = await _clientRepository.GetByIdsAsync(uniqueClientIds, cancellationToken);
+                var clientDict = clients.ToDictionary(c => c.Id, c => c.Name);
+
+                foreach (var detail in allDetails)
+                {
+                    if (clientDict.TryGetValue(detail.ClienteId, out var name))
+                    {
+                        detail.Cliente = name;
+                    }
+                    else
+                    {
+                        detail.Cliente = "CLIENTE DESCONOCIDO";
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "No se pudieron cargar algunos nombres de clientes");
+            }
+        }
+
+        // Paso 5: Construir la lista final de ProductSalesReportDto
+        var report = new List<ProductSalesReportDto>();
+        foreach (var kvp in detailsPerProduct)
+        {
+            var prodId = kvp.Key;
+            var details = kvp.Value;
+            var productInfo = productMap[prodId];
+
+            var summary = new ProductSalesReportDto
+            {
+                ProductCode = productInfo.Code,
+                ProductName = productInfo.Name,
+                TotalUnits = details.Sum(d => d.Units),
+                TotalNet = details.Sum(d => d.NetAmount),
+                TotalTax = details.Sum(d => d.TaxAmount),
+                TotalAmount = details.Sum(d => d.Total),
+                Details = details.OrderByDescending(d => d.Fecha).ToList()
+            };
+
+            report.Add(summary);
+        }
+
+        return report.OrderBy(r => r.ProductCode).ToList();
     }
 
     private string DetermineStatus(IFoxProDataReader reader)

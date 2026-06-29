@@ -20,6 +20,23 @@ const PORT = process.env.PORT || 3001;
 app.use(cors());
 app.use(express.json());
 
+// Authentication middleware using X-API-Key
+app.use((req, res, next) => {
+    const configuredKey = process.env.WHATSAPP_API_KEY;
+    if (configuredKey) {
+        const apiKey = req.headers['x-api-key'] || req.query['api_key'];
+        if (apiKey !== configuredKey) {
+            console.warn(`[UNAUTHORIZED] Access blocked for ${req.method} ${req.url} from IP: ${req.ip}`);
+            return res.status(401).json({ error: 'Unauthorized. Invalid or missing X-API-Key.' });
+        }
+    } else {
+        if (process.env.NODE_ENV === 'production') {
+            console.warn('[WARNING] WHATSAPP_API_KEY is not defined in production environment.');
+        }
+    }
+    next();
+});
+
 // Global logging middleware for iisnode to record all requests and responses
 app.use((req, res, next) => {
     const start = Date.now();
@@ -35,6 +52,7 @@ app.use((req, res, next) => {
 let sock: WASocket | null = null;
 let qrCodeData: string | null = null;
 let connectionStatus: 'CONNECTED' | 'CONNECTING' | 'DISCONNECTED' = 'DISCONNECTED';
+let reconnectAttempts = 0;
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -53,12 +71,6 @@ async function connectToWhatsApp() {
         console.warn('Failed to fetch latest WaWeb version, using hardcoded stable fallback:', version.join('.'), err);
     }
     
-    sock = makeWASocket({
-        version,
-        auth: state,
-        printQRInTerminal: true,
-        logger: pino({ level: 'silent' }),
-        browser: ['Chrome', 'Windows', '110.0.5481.177']
     });
 
     sock.ev.on('creds.update', saveCreds);
@@ -92,10 +104,16 @@ async function connectToWhatsApp() {
                 }
                 // Delay reconnection slightly to ensure filesystem release
                 setTimeout(() => {
+                    reconnectAttempts = 0;
                     connectToWhatsApp();
                 }, 2000);
             } else if (shouldReconnect) {
-                connectToWhatsApp();
+                reconnectAttempts++;
+                const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 60000);
+                console.log(`Scheduling reconnection in ${delay}ms (attempt ${reconnectAttempts})...`);
+                setTimeout(() => {
+                    connectToWhatsApp();
+                }, delay);
             }
         } else if (connection === 'connecting') {
             connectionStatus = 'CONNECTING';
@@ -103,6 +121,7 @@ async function connectToWhatsApp() {
         } else if (connection === 'open') {
             connectionStatus = 'CONNECTED';
             qrCodeData = null;
+            reconnectAttempts = 0;
             console.log('WhatsApp connection is open and active.');
         }
     });
@@ -172,6 +191,60 @@ app.post('/send', async (req, res) => {
         console.error('[WhatsApp SEND] CRITICAL EXCEPTION:', error);
         res.status(500).json({ 
             error: error.message || 'Failed to send message.',
+            details: error.stack || 'No stack trace available',
+            raw: JSON.stringify(error)
+        });
+    }
+});
+
+app.post('/send-document', async (req, res) => {
+    console.log('[WhatsApp SEND DOCUMENT] Raw Headers:', JSON.stringify(req.headers));
+    const { number, fileBase64, fileName, mimeType, caption } = req.body;
+
+    if (!number || !fileBase64 || !fileName || !mimeType) {
+        return res.status(400).json({ error: 'Number, fileBase64, fileName, and mimeType are required.' });
+    }
+
+    if (connectionStatus !== 'CONNECTED' || !sock) {
+        return res.status(503).json({ error: 'WhatsApp client is not connected.' });
+    }
+
+    try {
+        console.log(`[WhatsApp SEND DOCUMENT] Request received. Number: ${number}, File: ${fileName}, Mime: ${mimeType}`);
+        let formattedNumber = number.replace(/\D/g, '');
+        if (formattedNumber.length > 10) {
+            formattedNumber = formattedNumber.slice(-10);
+        }
+
+        const fallbackJid = `521${formattedNumber}@s.whatsapp.net`;
+        let jid = fallbackJid;
+
+        try {
+            console.log(`[WhatsApp SEND DOCUMENT] Performing onWhatsApp check for: ${formattedNumber}`);
+            const results = await sock.onWhatsApp(formattedNumber);
+            if (results && results.length > 0 && results[0].exists) {
+                jid = results[0].jid;
+                console.log(`[WhatsApp SEND DOCUMENT] Successfully mapped JID: ${jid}`);
+            }
+        } catch (checkErr: any) {
+            console.warn(`[WhatsApp SEND DOCUMENT] Error during onWhatsApp check, falling back to ${jid}:`, checkErr.message || checkErr);
+        }
+
+        const buffer = Buffer.from(fileBase64, 'base64');
+
+        console.log(`[WhatsApp SEND DOCUMENT] Sending document to JID: ${jid}`);
+        await sock.sendMessage(jid, {
+            document: buffer,
+            mimetype: mimeType,
+            fileName: fileName,
+            caption: caption
+        });
+
+        res.json({ success: true, message: 'Document sent successfully.' });
+    } catch (error: any) {
+        console.error('[WhatsApp SEND DOCUMENT] CRITICAL EXCEPTION:', error);
+        res.status(500).json({ 
+            error: error.message || 'Failed to send document.',
             details: error.stack || 'No stack trace available',
             raw: JSON.stringify(error)
         });

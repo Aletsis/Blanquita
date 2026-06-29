@@ -74,7 +74,9 @@
                                      Variant="Variant.Outlined" 
                                      Margin="Margin.Dense"
                                      Clearable="true"
-                                     Placeholder="Escriba para buscar producto..." />
+                                     Placeholder="Escriba para buscar producto..."
+                                     DebounceInterval="300"
+                                     MinCharacters="2" />
                 </MudItem>
 
                 <!-- Cantidad -->
@@ -200,7 +202,6 @@
     // Listado de conceptos y partidas
     private IEnumerable<CommercialConceptoDto>? _conceptosFiltrados;
     private List<PartidaModel> _partidas = new();
-    private List<CommercialProductoDto> _productosDisponibles = new();
 
     private class PartidaModel
     {
@@ -229,10 +230,6 @@
             {
                 _selectedConceptoCodigo = _conceptosFiltrados.First().CCODIGOCONCEPTO;
             }
-
-            // Cargar productos en memoria para búsqueda rápida por código o nombre
-            var productos = await CommercialApiService.GetProductosAsync("", Username, onlyActive: true);
-            _productosDisponibles = productos.ToList();
         }
         catch (Exception ex)
         {
@@ -243,16 +240,21 @@
 
     private async Task<IEnumerable<CommercialProductoDto>> BuscarProductos(string value, CancellationToken token)
     {
-        await Task.CompletedTask; // para mantener la firma async requerida
-        if (string.IsNullOrEmpty(value))
+        if (string.IsNullOrEmpty(value) || value.Length < 2)
         {
-            return _productosDisponibles.Take(50);
+            return Enumerable.Empty<CommercialProductoDto>();
         }
 
-        return _productosDisponibles
-            .Where(p => p.Nombre.Contains(value, StringComparison.OrdinalIgnoreCase) || 
-                        p.Codigo.Contains(value, StringComparison.OrdinalIgnoreCase))
-            .Take(100);
+        try
+        {
+            var productos = await CommercialApiService.GetProductosAsync(value, Username, onlyActive: true);
+            return productos.Take(50);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error al buscar productos con término '{Value}'", value);
+            return Enumerable.Empty<CommercialProductoDto>();
+        }
     }
 
 

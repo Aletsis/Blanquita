@@ -13,4 +13,5 @@ public interface IUserService
     Task<bool> UpdateAsync(UpdateUserDto dto);
     Task<bool> DeleteAsync(string id);
     Task<List<string>> GetRolesAsync();
+    Task<PagedResult<UserDto>> GetPagedAsync(SearchUserRequest request);
 }

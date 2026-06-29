@@ -102,7 +102,11 @@ public class FoxProDocumentRepository : IFoxProDocumentRepository
 
         try
         {
-            using var reader = _readerFactory.CreateReader(filePath);
+            // Usar lector reverso ya que los documentos para una fecha específica (e.g. hoy o ayer) están al final del archivo
+            using var reader = _readerFactory.CreateReverseReader(filePath);
+
+            int consecutiveOlderCount = 0;
+            const int maxConsecutiveOlderToStop = 30; // 30 registros seguidos más viejos nos indican que ya pasamos la fecha buscada
 
             while (reader.Read())
             {
@@ -113,10 +117,24 @@ public class FoxProDocumentRepository : IFoxProDocumentRepository
                     var docDate = reader.GetDateTimeSafe("CFECHA");
                     var cancelado = reader.GetInt32Safe("CCANCELADO");
 
-                    // Solo incluir facturas no canceladas (CCANCELADO = 0)
-                    if (docDate.Date == date.Date && cancelado == 0)
+                    if (docDate.Date == date.Date)
                     {
-                        documents.Add(FoxProDocumentMapper.MapToDto(reader));
+                        consecutiveOlderCount = 0; // Reiniciar contador de viejos
+                        
+                        // Solo incluir facturas no canceladas (CCANCELADO = 0)
+                        if (cancelado == 0)
+                        {
+                            documents.Add(FoxProDocumentMapper.MapToDto(reader));
+                        }
+                    }
+                    else if (docDate.Date < date.Date && docDate != DateTime.MinValue)
+                    {
+                        consecutiveOlderCount++;
+                        if (consecutiveOlderCount >= maxConsecutiveOlderToStop)
+                        {
+                            _logger.LogInformation("Deteniendo lectura reversa de MGW10008 al encontrar {Count} registros consecutivos anteriores a {Date}", consecutiveOlderCount, date.Date);
+                            break;
+                        }
                     }
                 }
                 catch (Exception ex)
@@ -131,6 +149,8 @@ public class FoxProDocumentRepository : IFoxProDocumentRepository
                 documents.Count, 
                 date.Date);
 
+            // Al leer en reversa, invertimos el resultado para mantener el orden cronológico normal
+            documents.Reverse();
             return documents;
         }
         catch (OperationCanceledException)
@@ -211,7 +231,8 @@ public class FoxProDocumentRepository : IFoxProDocumentRepository
             }
 
             // Paso 2: Leer MGW10008 y cruzar información
-            using (var reader = _readerFactory.CreateReader(documentsPath))
+            int matchedCount = 0;
+            using (var reader = _readerFactory.CreateReverseReader(documentsPath))
             {
                 // Validar columnas requeridas
                 ValidateColumns(reader, "MGW10008", 
@@ -230,6 +251,14 @@ public class FoxProDocumentRepository : IFoxProDocumentRepository
                         {
                             // Actualizar item con datos de MGW10008
                             billingItems[idDocumento] = FoxProBillingMapper.MapFromDocument(item, reader);
+                            matchedCount++;
+
+                            // Si ya cruzamos todas las facturas encontradas, podemos salir del bucle anticipadamente
+                            if (matchedCount >= billingItems.Count)
+                            {
+                                _logger.LogInformation("Deteniendo lectura de MGW10008 para reporte de facturación al encontrar todas las coincidencias ({Count})", matchedCount);
+                                break;
+                            }
                         }
                     }
                     catch (Exception ex)
@@ -303,7 +332,8 @@ public class FoxProDocumentRepository : IFoxProDocumentRepository
                             Serie = serie,
                             Folio = folio,
                             Fecha = fecha,
-                            FileName = fileName
+                            FileName = fileName,
+                            ClientId = idCliente
                         });
                     }
                 }
@@ -318,6 +348,84 @@ public class FoxProDocumentRepository : IFoxProDocumentRepository
         catch (Exception ex)
         {
              _logger.LogError(ex, "Error al obtener facturas del cliente {ClientId}", clientId);
+             throw;
+        }
+    }
+
+    public async Task<IEnumerable<InvoiceDto>> GetRecentInvoicesAsync(DateTime sinceDate, CancellationToken cancellationToken = default)
+    {
+        var config = await _configService.ObtenerConfiguracionAsync();
+        var documentsPath = config.Mgw10008Path;
+        var invoices = new List<InvoiceDto>();
+
+        if (string.IsNullOrEmpty(documentsPath) || !File.Exists(documentsPath))
+        {
+             _logger.LogWarning("Archivo MGW10008 no encontrado o no configurado: {FilePath}", documentsPath);
+             return invoices;
+        }
+
+        try
+        {
+            // Usar lector reverso para eficiencia
+            using var reader = _readerFactory.CreateReverseReader(documentsPath);
+            
+            ValidateColumns(reader, "MGW10008", "CIDCLIEN01", "CSERIEDO01", "CFOLIO", "CFECHA");
+
+            int consecutiveOlderCount = 0;
+            const int maxConsecutiveOlderToStop = 50; // Detenerse si vemos 50 registros seguidos anteriores a la fecha límite
+
+            while (reader.Read())
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                try
+                {
+                    var fecha = reader.GetDateTimeSafe("CFECHA");
+
+                    if (fecha < sinceDate)
+                    {
+                        consecutiveOlderCount++;
+                        if (consecutiveOlderCount >= maxConsecutiveOlderToStop)
+                        {
+                            // Encontramos suficientes registros viejos de forma consecutiva, podemos asumir que ya terminamos de leer los recientes
+                            _logger.LogInformation("Deteniendo lectura reversa de MGW10008 al encontrar {Count} registros consecutivos anteriores a {SinceDate}", consecutiveOlderCount, sinceDate);
+                            break;
+                        }
+                        continue;
+                    }
+
+                    // Reiniciar contador si vemos un registro dentro del rango
+                    consecutiveOlderCount = 0;
+
+                    var idCliente = reader.GetInt32Safe("CIDCLIEN01");
+                    var serie = reader.GetStringSafe("CSERIEDO01");
+                    var folioDecimal = reader.GetDecimalSafe("CFOLIO");
+                    var folio = (double)folioDecimal;
+                    
+                    var folioStr = folioDecimal.ToString("0");
+                    folioStr = folioStr.PadLeft(10, '0');
+                    var fileName = $"F{serie}{folioStr}";
+
+                    invoices.Add(new InvoiceDto
+                    {
+                        Serie = serie,
+                        Folio = folio,
+                        Fecha = fecha,
+                        FileName = fileName,
+                        ClientId = idCliente
+                    });
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogDebug(ex, "Error al leer registro en GetRecentInvoicesAsync");
+                }
+            }
+
+            return invoices;
+        }
+        catch (Exception ex)
+        {
+             _logger.LogError(ex, "Error al obtener facturas recientes mediante lectura reversa");
              throw;
         }
     }

@@ -51,7 +51,7 @@ public class SeriesDocumentoSucursalTests
         var series = SeriesDocumentoSucursal.ObtenerPorSucursal(Sucursal.Chapultepec);
 
         Assert.Equal("COX", series.SerieCliente);
-        Assert.Equal("FXIS", series.SerieGlobal);
+        Assert.Equal("FIXS", series.SerieGlobal);
         Assert.Equal("DFCX", series.SerieDevolucion);
     }
 

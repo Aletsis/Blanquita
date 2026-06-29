@@ -29,6 +29,7 @@ public class BlanquitaDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<DetalleReporte> DetallesReporte { get; set; } = null!;
     public DbSet<Deliverer> Deliverers { get; set; } = null!;
     public DbSet<ConciliacionCorte> ConciliacionCortes { get; set; } = null!;
+    public DbSet<SystemConfigurationAuditLog> SystemConfigurationAuditLogs { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -38,6 +39,7 @@ public class BlanquitaDbContext : IdentityDbContext<ApplicationUser>
         modelBuilder.Entity<ApplicationUser>(entity =>
         {
             entity.Property(u => u.Id).HasColumnType("text");
+            entity.Property(u => u.EmployeeNumber).HasColumnName("NumNomina");
             entity.HasOne<Branch>()
                 .WithMany()
                 .HasForeignKey(u => u.BranchId)
@@ -395,6 +397,19 @@ public class BlanquitaDbContext : IdentityDbContext<ApplicationUser>
             entity.HasIndex(e => e.Sucursal);
             entity.HasIndex(e => e.Caja);
             entity.HasIndex(e => e.AperturaId);
+        });
+
+        // Configure SystemConfigurationAuditLog
+        modelBuilder.Entity<SystemConfigurationAuditLog>(entity =>
+        {
+            entity.ToTable("ConfiguracionAuditoria");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.ChangedAt).HasColumnName("FechaHora").IsRequired();
+            entity.Property(e => e.ChangedBy).HasColumnName("Usuario").IsRequired().HasMaxLength(200);
+            entity.Property(e => e.PropertyName).HasColumnName("Propiedad").IsRequired().HasMaxLength(200);
+            entity.Property(e => e.OldValue).HasColumnName("ValorAnterior").HasColumnType("text");
+            entity.Property(e => e.NewValue).HasColumnName("ValorNuevo").HasColumnType("text");
+            entity.HasIndex(e => e.ChangedAt);
         });
     }
 }

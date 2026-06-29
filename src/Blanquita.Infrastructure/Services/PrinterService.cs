@@ -75,7 +75,7 @@ public class PrinterService : IPrinterService
                 Name = printerDto.Name,
                 IpAddress = printerDto.IpAddress,
                 Port = printerDto.Port,
-                Dpi = printerDto.Dpi,
+                Dpi = printerDto.Dpi > 0 ? printerDto.Dpi : 203,
                 IsActive = true
             };
 
@@ -103,7 +103,7 @@ public class PrinterService : IPrinterService
             printer.Name = printerDto.Name;
             printer.IpAddress = printerDto.IpAddress;
             printer.Port = printerDto.Port;
-            printer.Dpi = printerDto.Dpi;
+            printer.Dpi = printerDto.Dpi > 0 ? printerDto.Dpi : 203;
             // printer.IsActive = printerDto.IsActive; // Typically update doesn't toggle active status unless intended
 
             await _context.SaveChangesAsync();

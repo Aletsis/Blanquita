@@ -183,7 +183,7 @@
         }
         catch (Exception ex)
         {
-            Snackbar.Add($"Error al buscar clientes: {ex.Message}", Severity.Error);
+            Snackbar.Add($"Error al buscar clientes: {Blanquita.Web.Helpers.ExceptionHelper.GetLocalizedExceptionMessage(ex)}", Severity.Error);
         }
         finally
         {
@@ -227,7 +227,7 @@
         }
         catch (Exception ex)
         {
-            Snackbar.Add($"Error al abrir facturas: {ex.Message}", Severity.Error);
+            Snackbar.Add($"Error al abrir facturas: {Blanquita.Web.Helpers.ExceptionHelper.GetLocalizedExceptionMessage(ex)}", Severity.Error);
         }
     }
 }

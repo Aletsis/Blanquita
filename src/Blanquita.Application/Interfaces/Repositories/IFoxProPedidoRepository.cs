@@ -28,4 +28,11 @@ public interface IFoxProPedidoRepository
         TimeSpan endTime,
         IEnumerable<string> series,
         CancellationToken cancellationToken = default);
+
+    Task<IEnumerable<ProductSalesReportDto>> GetProductSalesReportAsync(
+        DateTime startDate,
+        DateTime endDate,
+        IEnumerable<string> productCodes,
+        IEnumerable<string> series,
+        CancellationToken cancellationToken = default);
 }

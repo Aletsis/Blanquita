@@ -17,6 +17,7 @@
 @inject ICashRegisterService CashRegisterService
 @inject IBranchService BranchService
 @inject IEmailService EmailService
+@inject AuthenticationStateProvider AuthStateProvider
 
 <PageTitle>Configuración - Sistema de Reportes</PageTitle>
 
@@ -318,6 +319,18 @@
                         <MudText Typo="Typo.caption" Class="mt-2 d-block text-muted">
                             URL local o externa donde se ejecuta el microservicio Node.js con Baileys.
                         </MudText>
+
+                        <MudTextField @bind-Value="_configuracion.WhatsAppApiKey" 
+                                      Label="API Key de WhatsApp" 
+                                      Variant="Variant.Outlined" 
+                                      Margin="Margin.Dense" 
+                                      Class="mt-4"
+                                      InputType="InputType.Password"
+                                      Adornment="Adornment.Start" 
+                                      AdornmentIcon="@Icons.Material.Filled.VpnKey" />
+                        <MudText Typo="Typo.caption" Class="mt-2 d-block text-muted">
+                            Clave de autenticación para el microservicio de WhatsApp.
+                        </MudText>
                         
                         <div class="d-flex align-center gap-4 mt-6">
                             <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="CheckWhatsAppStatus" StartIcon="@Icons.Material.Filled.Refresh">Verificar Estado</MudButton>
@@ -413,13 +426,23 @@
         };
     }
 
+    private System.Net.Http.HttpClient CreateWhatsAppHttpClient()
+    {
+        var client = new System.Net.Http.HttpClient();
+        client.DefaultRequestHeaders.ExpectContinue = false;
+        if (!string.IsNullOrWhiteSpace(_configuracion.WhatsAppApiKey))
+        {
+            client.DefaultRequestHeaders.Add("X-API-Key", _configuracion.WhatsAppApiKey);
+        }
+        return client;
+    }
+
     private async Task CheckWhatsAppStatus()
     {
         try
         {
             var baseUrl = string.IsNullOrWhiteSpace(_configuracion.WhatsAppServiceUrl) ? "http://localhost:3001" : _configuracion.WhatsAppServiceUrl;
-            using var client = new System.Net.Http.HttpClient();
-            client.DefaultRequestHeaders.ExpectContinue = false;
+            using var client = CreateWhatsAppHttpClient();
             var response = await client.GetFromJsonAsync<WhatsAppStatusResponse>($"{baseUrl}/status");
             if (response != null)
             {
@@ -441,8 +464,7 @@
         try
         {
             var baseUrl = string.IsNullOrWhiteSpace(_configuracion.WhatsAppServiceUrl) ? "http://localhost:3001" : _configuracion.WhatsAppServiceUrl;
-            using var client = new System.Net.Http.HttpClient();
-            client.DefaultRequestHeaders.ExpectContinue = false;
+            using var client = CreateWhatsAppHttpClient();
             var response = await client.PostAsync($"{baseUrl}/logout", null);
             if (response.IsSuccessStatusCode)
             {
@@ -469,8 +491,7 @@
         try
         {
             var baseUrl = string.IsNullOrWhiteSpace(_configuracion.WhatsAppServiceUrl) ? "http://localhost:3001" : _configuracion.WhatsAppServiceUrl;
-            using var client = new System.Net.Http.HttpClient();
-            client.DefaultRequestHeaders.ExpectContinue = false;
+            using var client = CreateWhatsAppHttpClient();
             var payload = new System.Collections.Generic.Dictionary<string, string>
             {
                 { "number", testPhoneNumber },
@@ -621,7 +642,9 @@
             }
 
             // Guardar configuración
-            await ConfigService.GuardarConfiguracionAsync(_configuracion);
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            var userName = authState.User.Identity?.Name ?? "Admin";
+            await ConfigService.GuardarConfiguracionAsync(_configuracion, userName);
             
             Logger.LogInformation("Configuración guardada exitosamente");
             Snackbar.Add("Configuración guardada exitosamente", Severity.Success);
@@ -749,7 +772,9 @@
         _enviandoPrueba = true;
         try
         {
-            await ConfigService.GuardarConfiguracionAsync(_configuracion);
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            var userName = authState.User.Identity?.Name ?? "Admin";
+            await ConfigService.GuardarConfiguracionAsync(_configuracion, userName);
             await EmailService.SendEmailAsync(_configuracion.SmtpFromEmail, "Prueba SMTP", "Conexión exitosa.");
             Snackbar.Add("Correo de prueba enviado", Severity.Success);
         }

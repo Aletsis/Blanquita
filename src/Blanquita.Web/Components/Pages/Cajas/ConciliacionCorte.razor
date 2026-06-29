@@ -618,7 +618,7 @@ else
         catch (Exception ex)
         {
             Logger.LogError(ex, "ERROR FATAL en CargarDatos para ShiftId: {ShiftId}. Mensaje: {Message}", _selectedShiftId, ex.Message);
-            Snackbar.Add($"Error crítico: {ex.Message}", Severity.Error);
+            Snackbar.Add(Blanquita.Web.Helpers.ExceptionHelper.GetLocalizedExceptionMessage(ex), Severity.Error);
         }
         finally
         {

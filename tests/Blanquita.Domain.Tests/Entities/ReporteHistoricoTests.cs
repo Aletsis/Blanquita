@@ -19,7 +19,7 @@ public class ReporteHistoricoTests
 
         Assert.NotNull(reporte);
         Assert.Equal(sucursal, reporte.Sucursal);
-        Assert.Equal(fecha, reporte.Fecha);
+        Assert.Equal(fecha.ToUniversalTime(), reporte.Fecha);
         Assert.Equal(totalSistema, reporte.TotalSistema);
         Assert.Equal(totalCorte, reporte.TotalCorteManual);
         Assert.Empty(reporte.Detalles);

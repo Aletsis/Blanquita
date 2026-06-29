@@ -75,7 +75,7 @@ public class CashCollectionTests
     [Fact]
     public void MarkAsForCashCut_ShouldSetFlagToTrue()
     {
-        var collection = CashCollection.Create(0,0,0,0,0,0, "Caja 1", "Juan", "Pedro", 100);
+        var collection = CashCollection.Create(1, 0, 0, 0, 0, 0, "Caja 1", "Juan", "Pedro", 100);
         
         collection.MarkAsForCashCut();
         

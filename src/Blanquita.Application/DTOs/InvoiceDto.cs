@@ -6,4 +6,5 @@ public class InvoiceDto
     public double Folio { get; set; }
     public DateTime Fecha { get; set; }
     public string FileName { get; set; } = string.Empty;
+    public int ClientId { get; set; }
 }

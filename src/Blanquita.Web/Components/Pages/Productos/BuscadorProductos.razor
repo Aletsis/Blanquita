@@ -174,7 +174,7 @@
         catch (Exception ex)
         {
             Logger.LogError(ex, "Error al buscar productos");
-            Snackbar.Add("Error al realizar la búsqueda.", Severity.Error);
+            Snackbar.Add($"Error al realizar la búsqueda: {Blanquita.Web.Helpers.ExceptionHelper.GetLocalizedExceptionMessage(ex)}", Severity.Error);
         }
         finally
         {
