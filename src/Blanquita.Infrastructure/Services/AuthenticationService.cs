@@ -1,6 +1,7 @@
 using Blanquita.Application.Interfaces;
 using Blanquita.Infrastructure.Persistence.Identity;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
 namespace Blanquita.Infrastructure.Services;
@@ -29,12 +30,21 @@ public class AuthenticationService : IAuthenticationService
     {
         try
         {
-            var result = await _signInManager.PasswordSignInAsync(username, password, isPersistent: true, lockoutOnFailure: false);
-            
-            if (result.Succeeded)
+            var user = await _userManager.FindByNameAsync(username);
+            if (user == null && int.TryParse(username, out int employeeNumber))
             {
-                _logger.LogInformation("Usuario {Username} autenticado existosamente", username);
-                return true;
+                user = await _userManager.Users.FirstOrDefaultAsync(u => u.EmployeeNumber == employeeNumber);
+            }
+
+            if (user != null)
+            {
+                var result = await _signInManager.PasswordSignInAsync(user, password, isPersistent: true, lockoutOnFailure: false);
+                
+                if (result.Succeeded)
+                {
+                    _logger.LogInformation("Usuario {Username} autenticado existosamente", username);
+                    return true;
+                }
             }
             
             _logger.LogWarning("Fallo en autenticación para usuario {Username}", username);

@@ -1,4 +1,4 @@
-﻿@page "/login"
+@page "/login"
 @using System.ComponentModel.DataAnnotations
 @using Microsoft.AspNetCore.Authorization
 @attribute [AllowAnonymous]
@@ -26,7 +26,7 @@
 
                 <MudStack Spacing="3">
                     <MudTextField @bind-Value="model.Username"
-                                  Label="Usuario"
+                                  Label="Usuario o Número de Nómina"
                                   Variant="Variant.Outlined"
                                   For="@(() => model.Username)"
                                   Adornment="Adornment.Start"
@@ -114,7 +114,7 @@
 
     public class LoginModel
     {
-        [Required(ErrorMessage = "El usuario es requerido")]
+        [Required(ErrorMessage = "El usuario o número de nómina es requerido")]
         public string Username { get; set; } = string.Empty;
 
         [Required(ErrorMessage = "La contraseña es requerida")]

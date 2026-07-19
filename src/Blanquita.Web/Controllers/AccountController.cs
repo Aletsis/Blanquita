@@ -1,6 +1,7 @@
 using Blanquita.Infrastructure.Persistence.Identity;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace Blanquita.Web.Controllers;
 
@@ -25,11 +26,21 @@ public class AccountController : Controller
              return Redirect($"/login?error=DatosRequeridos");
         }
 
-        var result = await _signInManager.PasswordSignInAsync(username, password, isPersistent: true, lockoutOnFailure: false);
+        ApplicationUser? user = await _userManager.FindByNameAsync(username);
 
-        if (result.Succeeded)
+        if (user == null && int.TryParse(username, out int employeeNumber))
         {
-            return Redirect(returnUrl ?? "/");
+            user = await _userManager.Users.FirstOrDefaultAsync(u => u.EmployeeNumber == employeeNumber);
+        }
+
+        if (user != null)
+        {
+            var result = await _signInManager.PasswordSignInAsync(user, password, isPersistent: true, lockoutOnFailure: false);
+
+            if (result.Succeeded)
+            {
+                return Redirect(returnUrl ?? "/");
+            }
         }
 
         return Redirect($"/login?error=CredencialesInvalidas");

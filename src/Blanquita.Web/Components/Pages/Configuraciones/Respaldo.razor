@@ -1,0 +1,411 @@
+@page "/configuracion/respaldo"
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Roles = "Admin")]
+@using Blanquita.Application.Interfaces
+@using Blanquita.Application.DTOs
+@using System.IO
+@using Npgsql
+@inject IDatabaseBackupService BackupService
+@inject IConfiguration Configuration
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+@inject IFileDownloadService FileDownloadService
+@inject ILogger<Respaldo> Logger
+
+<PageTitle>Respaldo y Restauración - La Blanquita</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4 animated fadeIn">
+    <!-- Encabezado con Estilo Premium -->
+    <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-6">
+        <MudText Typo="Typo.h4" Class="font-weight-bold" Style="background: linear-gradient(45deg, #4f46e5, #06b6d4); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+            <MudIcon Icon="@Icons.Material.Filled.Backup" Class="mr-2" Size="Size.Large" Color="Color.Primary" />
+            Respaldo y Restauración de Base de Datos
+        </MudText>
+    </MudStack>
+
+    <MudGrid>
+        <!-- Panel Izquierdo: Información y Acciones -->
+        <MudItem xs="12" md="4">
+            <MudStack Spacing="4">
+                <!-- Información de Base de Datos -->
+                <MudCard Elevation="4" Class="rounded-lg">
+                    <MudCardHeader>
+                        <CardHeaderContent>
+                            <MudText Typo="Typo.h6" Class="font-weight-bold">
+                                <MudIcon Icon="@Icons.Material.Filled.Storage" Class="mr-2" Color="Color.Primary" />
+                                Base de Datos Activa
+                            </MudText>
+                        </CardHeaderContent>
+                    </MudCardHeader>
+                    <MudCardContent>
+                        <MudStack Spacing="2">
+                            <div class="d-flex justify-space-between">
+                                <MudText Typo="Typo.body2" Color="Color.Secondary">Servidor:</MudText>
+                                <MudText Typo="Typo.body2" Class="font-weight-bold">@_dbHost</MudText>
+                            </div>
+                            <div class="d-flex justify-space-between">
+                                <MudText Typo="Typo.body2" Color="Color.Secondary">Puerto:</MudText>
+                                <MudText Typo="Typo.body2" Class="font-weight-bold">@_dbPort</MudText>
+                            </div>
+                            <div class="d-flex justify-space-between">
+                                <MudText Typo="Typo.body2" Color="Color.Secondary">Base de Datos:</MudText>
+                                <MudText Typo="Typo.body2" Class="font-weight-bold" Color="Color.Primary">@_dbName</MudText>
+                            </div>
+                            <div class="d-flex justify-space-between">
+                                <MudText Typo="Typo.body2" Color="Color.Secondary">Usuario:</MudText>
+                                <MudText Typo="Typo.body2" Class="font-weight-bold">@_dbUser</MudText>
+                            </div>
+                            <div class="d-flex justify-space-between">
+                                <MudText Typo="Typo.body2" Color="Color.Secondary">Motor:</MudText>
+                                <MudText Typo="Typo.body2" Class="font-weight-bold" Color="Color.Info">PostgreSQL</MudText>
+                            </div>
+                        </MudStack>
+                    </MudCardContent>
+                </MudCard>
+
+                <!-- Acciones de Respaldo -->
+                <MudCard Elevation="4" Class="rounded-lg pa-2">
+                    <MudCardContent>
+                        <MudStack Spacing="3">
+                            <MudText Typo="Typo.subtitle1" Class="font-weight-bold mb-2">Acciones</MudText>
+                            
+                            <MudButton Variant="Variant.Filled"
+                                       Color="Color.Primary"
+                                       Size="Size.Large"
+                                       StartIcon="@Icons.Material.Filled.AddCircle"
+                                       OnClick="CrearRespaldoAsync"
+                                       Disabled="@_procesando"
+                                       Class="py-3 rounded-lg">
+                                @if (_procesando && _accionActual == "creando")
+                                {
+                                    <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                                    <text>Creando Respaldo...</text>
+                                }
+                                else
+                                {
+                                    <text>Crear Nuevo Respaldo</text>
+                                }
+                            </MudButton>
+
+                            <MudDivider Class="my-2" />
+
+                            <InputFile id="fileUploadInput" OnChange="SubirRespaldoAsync" hidden />
+                            <MudButton HtmlTag="label"
+                                       Variant="Variant.Outlined"
+                                       Color="Color.Secondary"
+                                       Size="Size.Large"
+                                       StartIcon="@Icons.Material.Filled.CloudUpload"
+                                       for="fileUploadInput"
+                                       Disabled="@_procesando"
+                                       Class="py-3 rounded-lg w-100 text-center">
+                                @if (_procesando && _accionActual == "subiendo")
+                                {
+                                    <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                                    <text>Subiendo Archivo...</text>
+                                }
+                                else
+                                {
+                                    <text>Subir Archivo (.backup)</text>
+                                }
+                            </MudButton>
+                        </MudStack>
+                    </MudCardContent>
+                </MudCard>
+
+                <!-- Ubicación de Archivos -->
+                <MudCard Elevation="4" Class="rounded-lg">
+                    <MudCardContent>
+                        <MudText Typo="Typo.subtitle2" Class="font-weight-bold mb-1">Directorio de Almacenamiento:</MudText>
+                        <MudText Typo="Typo.caption" Color="Color.Secondary" Style="word-break: break-all; font-family: monospace;">
+                            @_backupDirectory
+                        </MudText>
+                    </MudCardContent>
+                </MudCard>
+            </MudStack>
+        </MudItem>
+
+        <!-- Panel Derecho: Historial de Respaldos -->
+        <MudItem xs="12" md="8">
+            <MudCard Elevation="4" Class="rounded-lg">
+                <MudCardHeader>
+                    <CardHeaderContent>
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                            <MudText Typo="Typo.h6" Class="font-weight-bold">
+                                <MudIcon Icon="@Icons.Material.Filled.History" Class="mr-2" Color="Color.Primary" />
+                                Respaldos Disponibles en el Servidor
+                            </MudText>
+                            <MudIconButton Icon="@Icons.Material.Filled.Refresh" Color="Color.Primary" OnClick="CargarRespaldosAsync" Disabled="@_procesando" />
+                        </MudStack>
+                    </CardHeaderContent>
+                </MudCardHeader>
+                <MudCardContent Class="pa-0">
+                    <MudTable Items="@_respaldos" Hover="true" Breakpoint="Breakpoint.Sm" Elevation="0" Loading="@_cargando" LoadingProgressColor="Color.Primary">
+                        <HeaderContent>
+                            <MudTh>Nombre del Archivo</MudTh>
+                            <MudTh>Fecha de Creación</MudTh>
+                            <MudTh>Tamaño</MudTh>
+                            <MudTh Style="text-align: right; width: 180px;">Acciones</MudTh>
+                        </HeaderContent>
+                        <RowTemplate>
+                            <MudTd DataLabel="Nombre del Archivo" Style="font-family: monospace; font-size: 0.9rem;">@context.FileName</MudTd>
+                            <MudTd DataLabel="Fecha de Creación">@context.CreatedAt.ToString("dd/MM/yyyy hh:mm:ss tt")</MudTd>
+                            <MudTd DataLabel="Tamaño">@FormatBytes(context.SizeBytes)</MudTd>
+                            <MudTd Style="text-align: right;">
+                                <MudTooltip Text="Descargar respaldo a su equipo">
+                                    <MudIconButton Icon="@Icons.Material.Filled.Download" Color="Color.Primary" Size="Size.Small" OnClick="() => DescargarRespaldoAsync(context)" Disabled="@_procesando" />
+                                </MudTooltip>
+                                <MudTooltip Text="Restaurar base de datos con este respaldo">
+                                    <MudIconButton Icon="@Icons.Material.Filled.Restore" Color="Color.Warning" Size="Size.Small" OnClick="() => ConfirmarRestauracionAsync(context)" Disabled="@_procesando" />
+                                </MudTooltip>
+                                <MudTooltip Text="Eliminar del servidor">
+                                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" OnClick="() => EliminarRespaldoAsync(context)" Disabled="@_procesando" />
+                                </MudTooltip>
+                            </MudTd>
+                        </RowTemplate>
+                        <NoRecordsContent>
+                            <MudText Align="Align.Center" Class="pa-4">No se encontraron archivos de respaldo (.backup) en el servidor.</MudText>
+                        </NoRecordsContent>
+                    </MudTable>
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+    </MudGrid>
+</MudContainer>
+
+@code {
+    private List<BackupFileInfo> _respaldos = new();
+    private bool _cargando = true;
+    private bool _procesando = false;
+    private string _accionActual = "";
+    
+    // Parámetros de conexión DB
+    private string _dbHost = "";
+    private int _dbPort = 5432;
+    private string _dbName = "";
+    private string _dbUser = "";
+    private string _backupDirectory = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        ParseConnectionString();
+        await CargarRespaldosAsync();
+        _backupDirectory = await BackupService.GetBackupDirectoryAsync();
+    }
+
+    private void ParseConnectionString()
+    {
+        try
+        {
+            var connectionString = Configuration.GetConnectionString("DefaultConnection");
+            if (!string.IsNullOrEmpty(connectionString))
+            {
+                var builder = new NpgsqlConnectionStringBuilder(connectionString);
+                _dbHost = builder.Host ?? "localhost";
+                _dbPort = builder.Port;
+                _dbName = builder.Database ?? "BlanquitaDB";
+                _dbUser = builder.Username ?? "postgres";
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error al procesar la cadena de conexión en el componente Respaldo.");
+        }
+    }
+
+    private async Task CargarRespaldosAsync()
+    {
+        _cargando = true;
+        StateHasChanged();
+        try
+        {
+            _respaldos = await BackupService.GetAvailableBackupsAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error al cargar la lista de respaldos.");
+            Snackbar.Add("Error al cargar la lista de respaldos.", Severity.Error);
+        }
+        finally
+        {
+            _cargando = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task CrearRespaldoAsync()
+    {
+        _procesando = true;
+        _accionActual = "creando";
+        StateHasChanged();
+        try
+        {
+            var path = await BackupService.CreateBackupAsync();
+            Snackbar.Add("Copia de seguridad creada con éxito", Severity.Success);
+            await CargarRespaldosAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error al crear respaldo manual.");
+            Snackbar.Add($"Error al crear respaldo: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _procesando = false;
+            _accionActual = "";
+            StateHasChanged();
+        }
+    }
+
+    private async Task SubirRespaldoAsync(InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+        if (file == null) return;
+
+        if (!file.Name.EndsWith(".backup", StringComparison.OrdinalIgnoreCase))
+        {
+            Snackbar.Add("El archivo debe ser un archivo de respaldo con extensión .backup", Severity.Warning);
+            return;
+        }
+
+        _procesando = true;
+        _accionActual = "subiendo";
+        StateHasChanged();
+
+        try
+        {
+            var backupDir = await BackupService.GetBackupDirectoryAsync();
+            if (!Directory.Exists(backupDir))
+            {
+                Directory.CreateDirectory(backupDir);
+            }
+
+            var destinationPath = Path.Combine(backupDir, file.Name);
+            
+            // Límite de tamaño: 250 MB
+            using var stream = file.OpenReadStream(maxAllowedSize: 1024 * 1024 * 250); 
+            using var fileStream = new FileStream(destinationPath, FileMode.Create);
+            await stream.CopyToAsync(fileStream);
+
+            Snackbar.Add("Archivo de respaldo subido exitosamente", Severity.Success);
+            await CargarRespaldosAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error al subir el archivo de respaldo.");
+            Snackbar.Add($"Error al subir el archivo: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _procesando = false;
+            _accionActual = "";
+            StateHasChanged();
+        }
+    }
+
+    private async Task DescargarRespaldoAsync(BackupFileInfo fileInfo)
+    {
+        try
+        {
+            if (!File.Exists(fileInfo.FilePath))
+            {
+                Snackbar.Add("El archivo ya no existe en el servidor", Severity.Error);
+                return;
+            }
+
+            Snackbar.Add($"Iniciando descarga de {fileInfo.FileName}...", Severity.Info);
+            var content = await File.ReadAllBytesAsync(fileInfo.FilePath);
+            await FileDownloadService.DescargarArchivoAsync(content, fileInfo.FileName, "application/octet-stream");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error al descargar el archivo de respaldo {FileName}.", fileInfo.FileName);
+            Snackbar.Add($"Error al descargar el archivo: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task ConfirmarRestauracionAsync(BackupFileInfo fileInfo)
+    {
+        var parameters = new DialogParameters<DialogoConfirmarRestauracion>
+        {
+            { x => x.BackupName, fileInfo.FileName },
+            { x => x.BackupDate, fileInfo.CreatedAt }
+        };
+
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium, FullWidth = true };
+        var dialog = await DialogService.ShowAsync<DialogoConfirmarRestauracion>("Confirmar Restauración", parameters, options);
+        var result = await dialog.Result;
+
+        if (result != null && !result.Canceled && result.Data is bool confirmed && confirmed)
+        {
+            await EjecutarRestauracionAsync(fileInfo);
+        }
+    }
+
+    private async Task EjecutarRestauracionAsync(BackupFileInfo fileInfo)
+    {
+        _procesando = true;
+        _accionActual = "restaurando";
+        StateHasChanged();
+        
+        try
+        {
+            Snackbar.Add("Restaurando base de datos... Por favor, espere.", Severity.Info, config => { config.RequireInteraction = true; });
+            
+            await BackupService.RestoreBackupAsync(fileInfo.FilePath);
+            
+            Snackbar.Clear();
+            Snackbar.Add("Base de datos restaurada exitosamente. Se recomienda refrescar la página.", Severity.Success, config => { config.RequireInteraction = true; });
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error al restaurar la base de datos.");
+            Snackbar.Clear();
+            Snackbar.Add($"Error crítico en la restauración: {ex.Message}", Severity.Error, config => { config.RequireInteraction = true; });
+        }
+        finally
+        {
+            _procesando = false;
+            _accionActual = "";
+            StateHasChanged();
+        }
+    }
+
+    private async Task EliminarRespaldoAsync(BackupFileInfo fileInfo)
+    {
+        bool? result = await DialogService.ShowMessageBox(
+            "Confirmar Eliminación",
+            $"¿Está seguro de que desea eliminar permanentemente el archivo de respaldo '{fileInfo.FileName}' del servidor?",
+            yesText: "Eliminar", 
+            cancelText: "Cancelar"
+        );
+
+        if (result == true)
+        {
+            try
+            {
+                await BackupService.DeleteBackupAsync(fileInfo.FilePath);
+                Snackbar.Add("Archivo de respaldo eliminado del servidor", Severity.Success);
+                await CargarRespaldosAsync();
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError(ex, "Error al eliminar el archivo de respaldo.");
+                Snackbar.Add("Error al eliminar el archivo.", Severity.Error);
+            }
+        }
+    }
+
+    private string FormatBytes(long bytes)
+    {
+        if (bytes == 0) return "0 B";
+        string[] suffixes = { "B", "KB", "MB", "GB", "TB" };
+        int counter = 0;
+        decimal number = bytes;
+        while (Math.Round(number / 1024) >= 1)
+        {
+            number /= 1024;
+            counter++;
+        }
+        return string.Format("{0:n1} {1}", number, suffixes[counter]);
+    }
+}

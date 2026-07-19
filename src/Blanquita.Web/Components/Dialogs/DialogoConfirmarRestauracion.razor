@@ -1,0 +1,59 @@
+<MudDialog>
+    <DialogContent>
+        <MudStack Spacing="3">
+            <MudText Color="Color.Error" Typo="Typo.h5" Class="font-weight-bold d-flex align-center">
+                <MudIcon Icon="@Icons.Material.Filled.Warning" Color="Color.Error" Class="mr-2" Size="Size.Large" />
+                ¡ADVERTENCIA CRÍTICA!
+            </MudText>
+            
+            <MudText Typo="Typo.body1">
+                Está a punto de restaurar la base de datos utilizando el siguiente archivo de respaldo:
+            </MudText>
+
+            <MudPaper Elevation="0" Class="pa-3" Style="background-color: #fafafa; border-left: 4px solid #ef5350;">
+                <MudText Typo="Typo.body2"><strong>Archivo:</strong> @BackupName</MudText>
+                <MudText Typo="Typo.body2"><strong>Fecha de creación:</strong> @BackupDate.ToString("dd/MM/yyyy hh:mm:ss tt")</MudText>
+            </MudPaper>
+
+            <MudAlert Severity="Severity.Error" Variant="Variant.Outlined" Class="border-solid border">
+                <strong>Esta operación es destructiva e irreversible.</strong> Eliminará la base de datos actual de producción y todos los datos ingresados desde la fecha del respaldo se perderán definitivamente. Asegúrese de que no haya otros usuarios operando la aplicación.
+            </MudAlert>
+
+            <MudText Typo="Typo.body2">
+                Para confirmar y proceder con la restauración, escriba la palabra <strong>RESTAURAR</strong> (en mayúsculas) a continuación:
+            </MudText>
+            
+            <MudTextField @bind-Value="_confirmacion" 
+                          Label="Escriba aquí para confirmar" 
+                          Variant="Variant.Outlined" 
+                          Margin="Margin.Dense" 
+                          Immediate="true" 
+                          AutoFocus="true" />
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel" Variant="Variant.Outlined" Class="px-4">Cancelar</MudButton>
+        <MudButton Color="Color.Error" 
+                   Variant="Variant.Filled" 
+                   OnClick="Submit" 
+                   Disabled="@(_confirmacion != "RESTAURAR")"
+                   StartIcon="@Icons.Material.Filled.Restore"
+                   Class="px-4 ml-2">
+            Confirmar y Restaurar
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    IMudDialogInstance MudDialog { get; set; } = default!;
+
+    [Parameter] public string BackupName { get; set; } = "";
+    [Parameter] public DateTime BackupDate { get; set; }
+
+    private string _confirmacion = "";
+
+    private void Cancel() => MudDialog.Cancel();
+
+    private void Submit() => MudDialog.Close(DialogResult.Ok(true));
+}

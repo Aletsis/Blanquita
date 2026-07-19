@@ -1,5 +1,6 @@
 using Blanquita.Infrastructure.Persistence.Identity;
 using Blanquita.Infrastructure.Services;
+using Blanquita.Infrastructure.Tests.Helpers;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Logging;
 using Moq;
@@ -37,7 +38,11 @@ public class AuthenticationServiceTests
     [Fact]
     public async Task AuthenticateAsync_ShouldReturnTrue_WhenCredentialsValid()
     {
-        _signInManagerMock.Setup(x => x.PasswordSignInAsync("admin", "password", true, false))
+        var user = new ApplicationUser { UserName = "admin" };
+        _userManagerMock.Setup(x => x.FindByNameAsync("admin"))
+            .ReturnsAsync(user);
+
+        _signInManagerMock.Setup(x => x.PasswordSignInAsync(user, "password", true, false))
             .ReturnsAsync(Microsoft.AspNetCore.Identity.SignInResult.Success);
 
         var result = await _service.AuthenticateAsync("admin", "password");
@@ -48,10 +53,46 @@ public class AuthenticationServiceTests
     [Fact]
     public async Task AuthenticateAsync_ShouldReturnFalse_WhenCredentialsInvalid()
     {
-        _signInManagerMock.Setup(x => x.PasswordSignInAsync("admin", "wrong", true, false))
+        var user = new ApplicationUser { UserName = "admin" };
+        _userManagerMock.Setup(x => x.FindByNameAsync("admin"))
+            .ReturnsAsync(user);
+
+        _signInManagerMock.Setup(x => x.PasswordSignInAsync(user, "wrong", true, false))
             .ReturnsAsync(Microsoft.AspNetCore.Identity.SignInResult.Failed);
 
         var result = await _service.AuthenticateAsync("admin", "wrong");
+
+        Assert.False(result);
+    }
+
+    [Fact]
+    public async Task AuthenticateAsync_ShouldReturnTrue_WhenEmployeeNumberValid()
+    {
+        var user = new ApplicationUser { UserName = "admin", EmployeeNumber = 12345 };
+        _userManagerMock.Setup(x => x.FindByNameAsync("12345"))
+            .ReturnsAsync((ApplicationUser?)null);
+
+        var users = new List<ApplicationUser> { user }.AsAsyncQueryable();
+        _userManagerMock.Setup(x => x.Users).Returns(users);
+
+        _signInManagerMock.Setup(x => x.PasswordSignInAsync(user, "password", true, false))
+            .ReturnsAsync(Microsoft.AspNetCore.Identity.SignInResult.Success);
+
+        var result = await _service.AuthenticateAsync("12345", "password");
+
+        Assert.True(result);
+    }
+
+    [Fact]
+    public async Task AuthenticateAsync_ShouldReturnFalse_WhenUserNotFound()
+    {
+        _userManagerMock.Setup(x => x.FindByNameAsync("nonexistent"))
+            .ReturnsAsync((ApplicationUser?)null);
+
+        _userManagerMock.Setup(x => x.Users)
+            .Returns(new List<ApplicationUser>().AsAsyncQueryable());
+
+        var result = await _service.AuthenticateAsync("nonexistent", "password");
 
         Assert.False(result);
     }

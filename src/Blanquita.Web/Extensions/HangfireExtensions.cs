@@ -34,6 +34,18 @@ public static class HangfireExtensions
                 });
 
             logger.LogInformation("Trabajo recurrente de facturas configurado para ejecutarse a las {Time} (Cron: {Cron})", executionTime, cronExpression);
+
+            // Trabajo recurrente de respaldo de base de datos diario a las 2:00 AM
+            recurringJobManager.AddOrUpdate<IDatabaseBackupService>(
+                "respaldo-base-datos-diario",
+                job => job.CreateBackupAsync(null),
+                "0 2 * * *", // 2:00 AM todos los días
+                new RecurringJobOptions
+                {
+                    TimeZone = TimeZoneInfo.Local
+                });
+
+            logger.LogInformation("Trabajo recurrente de respaldo de base de datos configurado para ejecutarse diariamente a las 2:00 AM");
         }
         catch (Exception ex)
         {

@@ -95,6 +95,7 @@ public static class DependencyInjection
         services.AddScoped<ICommercialApiService, CommercialApiService>();
         services.AddSingleton<IEncryptionService, EncryptionService>();
         services.AddScoped<IWhatsAppService, WhatsAppService>();
+        services.AddScoped<IDatabaseBackupService, DatabaseBackupService>();
 
         // External Services
         services.AddScoped<IPrintingService, PrintingService>();

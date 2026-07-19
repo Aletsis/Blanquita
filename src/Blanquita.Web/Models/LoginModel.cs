@@ -4,7 +4,7 @@ namespace Blanquita.Web.Models;
 
 public class LoginModel
 {
-    [Required(ErrorMessage = "El usuario es requerido")]
+    [Required(ErrorMessage = "El usuario o número de nómina es requerido")]
     public string Username { get; set; } = string.Empty;
 
     [Required(ErrorMessage = "La contraseña es requerida")]
