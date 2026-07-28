@@ -464,7 +464,7 @@
                 return;
             }
 
-            bool? result = await DialogService.ShowMessageBox(
+            bool? result = await DialogService.ShowMessageBoxAsync(
                 "Confirmar Eliminación",
                 $"¿Está seguro de que desea eliminar permanentemente al usuario '{user.Username}'?",
                 yesText: "Eliminar", 

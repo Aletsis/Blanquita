@@ -305,7 +305,7 @@
 
     private async Task EliminarDiseño(LabelDesignDto diseño)
     {
-        bool? result = await DialogService.ShowMessageBox(
+        bool? result = await DialogService.ShowMessageBoxAsync(
             "Confirmar Eliminación",
             $"¿Está seguro que desea eliminar la configuración '{diseño.Name}'?",
             yesText: "Eliminar", cancelText: "Cancelar"

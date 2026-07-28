@@ -740,7 +740,7 @@
 
     private async Task EliminarImpresora(PrinterDto printer)
     {
-        bool? result = await DialogService.ShowMessageBox(
+        bool? result = await DialogService.ShowMessageBoxAsync(
             "Confirmar Eliminación",
             $"¿Está seguro que desea eliminar la impresora {printer.Name}?",
             yesText: "Eliminar", cancelText: "Cancelar"

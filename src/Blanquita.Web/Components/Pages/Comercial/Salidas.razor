@@ -324,20 +324,20 @@
         }
     }
 
-    private void RowClickEvent(TableRowClickEventArgs<CommercialSalidaDto> args)
+    private async Task RowClickEvent(TableRowClickEventArgs<CommercialSalidaDto> args)
     {
         var doc = args.Item;
         var now = DateTime.Now;
         if (doc.CIDDOCUMENTO == _lastClickedDocId && (now - _lastClickTime).TotalMilliseconds < 300)
         {
             // Ejecutar doble clic
-            VerDetalles(doc);
+            await VerDetalles(doc);
         }
         _lastClickTime = now;
         _lastClickedDocId = doc.CIDDOCUMENTO;
     }
 
-    private void VerDetalles(CommercialSalidaDto salida)
+    private async Task VerDetalles(CommercialSalidaDto salida)
     {
         var parameters = new DialogParameters
         {
@@ -353,7 +353,7 @@
         };
 
         var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium, FullWidth = true };
-        DialogService.Show<DialogoDetallesSalida>("Partidas de Salida", parameters, options);
+        await DialogService.ShowAsync<DialogoDetallesSalida>("Partidas de Salida", parameters, options);
     }
 
     private async Task AbrirNuevaSalidaDialog()
@@ -365,7 +365,7 @@
         };
 
         var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium, FullWidth = true };
-        var dialog = DialogService.Show<DialogoNuevaSalida>("Nueva Salida de Almacén", parameters, options);
+        var dialog = await DialogService.ShowAsync<DialogoNuevaSalida>("Nueva Salida de Almacén", parameters, options);
         var result = await dialog.Result;
 
         if (!result.Canceled)

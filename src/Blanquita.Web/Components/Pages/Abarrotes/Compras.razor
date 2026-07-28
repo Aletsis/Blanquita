@@ -338,20 +338,20 @@
         }
     }
 
-    private void RowClickEvent(TableRowClickEventArgs<CommercialCompraDto> args)
+    private async Task RowClickEvent(TableRowClickEventArgs<CommercialCompraDto> args)
     {
         var doc = args.Item;
         var now = DateTime.Now;
         if (doc.CIDDOCUMENTO == _lastClickedDocId && (now - _lastClickTime).TotalMilliseconds < 300)
         {
             // Ejecutar doble clic
-            VerDetalles(doc);
+            await VerDetalles(doc);
         }
         _lastClickTime = now;
         _lastClickedDocId = doc.CIDDOCUMENTO;
     }
 
-    private void VerDetalles(CommercialCompraDto compra)
+    private async Task VerDetalles(CommercialCompraDto compra)
     {
         var parameters = new DialogParameters
         {
@@ -363,6 +363,6 @@
         };
 
         var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium, FullWidth = true };
-        DialogService.Show<DialogoDetallesCompra>("Partidas de Compra", parameters, options);
+        await DialogService.ShowAsync<DialogoDetallesCompra>("Partidas de Compra", parameters, options);
     }
 }

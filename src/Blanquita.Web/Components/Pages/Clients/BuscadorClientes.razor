@@ -191,11 +191,11 @@
         }
     }
 
-    private void VerDetalles(ClientSearchDto cliente)
+    private async Task VerDetalles(ClientSearchDto cliente)
     {
         var parameters = new DialogParameters { ["Client"] = cliente };
         var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium, FullWidth = true };
-        DialogService.Show<ClientDetailsDialog>($"Detalles del Cliente: {cliente.Name}", parameters, options);
+        await DialogService.ShowAsync<ClientDetailsDialog>($"Detalles del Cliente: {cliente.Name}", parameters, options);
     }
 
     private async Task VerFacturas(ClientSearchDto cliente)
@@ -223,7 +223,7 @@
             };
             
             var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Large, FullWidth = true };
-            DialogService.Show<ClientInvoicesDialog>($"Documentos del Cliente", parameters, options);
+            await DialogService.ShowAsync<ClientInvoicesDialog>($"Documentos del Cliente", parameters, options);
         }
         catch (Exception ex)
         {

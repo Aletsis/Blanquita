@@ -190,7 +190,7 @@
         }
     }
 
-    private void VerDetalles(ProductSearchDto producto)
+    private async Task VerDetalles(ProductSearchDto producto)
     {
         var parameters = new DialogParameters
         {
@@ -202,6 +202,6 @@
         };
 
         var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Small, FullWidth = true };
-        DialogService.Show<ProductDialog>("Detalles", parameters, options);
+        await DialogService.ShowAsync<ProductDialog>("Detalles", parameters, options);
     }
 }
