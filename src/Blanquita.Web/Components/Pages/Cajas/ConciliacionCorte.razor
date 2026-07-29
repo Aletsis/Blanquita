@@ -583,7 +583,6 @@ else
             var query = new GetAvailableBoxesQuery(_selectedDate ?? DateTime.Today, ActiveBranchId);
             var data = await Mediator.Send(query);
             _boxes = data.ToList();
-            StateHasChanged();
         }
         catch (Exception ex)
         {
@@ -593,6 +592,7 @@ else
         finally
         {
             _isProcessing = false;
+            StateHasChanged();
         }
     }
 
