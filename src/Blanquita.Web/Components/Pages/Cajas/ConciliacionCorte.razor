@@ -116,22 +116,32 @@ else
             <!-- Selección de Cajas en Móvil (Oculto en Desktop) -->
             <MudItem xs="12" Class="d-block d-md-none mb-2">
                 <MudPaper Elevation="4" Class="pa-4 rounded-xl border-light bg-light shadow-sm">
-                    <MudSelect T="int" 
-                               Label="Seleccionar Corte de Caja" 
-                               Value="_selectedShiftId" 
-                               ValueChanged="OnShiftSelected" 
-                               Variant="Variant.Outlined" 
-                               Margin="Margin.Dense"
-                               Adornment="Adornment.Start" 
-                               AdornmentIcon="@Icons.Material.Filled.DesktopWindows">
-                        <MudSelectItem T="int" Value="0">-- Seleccione un corte disponible --</MudSelectItem>
-                        @foreach (var box in _boxes)
-                        {
-                            <MudSelectItem T="int" Value="@box.ShiftId">
-                                @box.Name (Apertura: @box.Time.ToString("HH:mm"))
-                            </MudSelectItem>
-                        }
-                    </MudSelect>
+                    <MudStack Spacing="3">
+                        <MudDatePicker Label="Fecha de Búsqueda"
+                                       Date="_selectedDate"
+                                       DateChanged="OnDateChanged"
+                                       Variant="Variant.Outlined"
+                                       Adornment="Adornment.Start"
+                                       AdornmentIcon="@Icons.Material.Filled.CalendarMonth"
+                                       Margin="Margin.Dense"
+                                       MaxDate="DateTime.Today" />
+                        <MudSelect T="int" 
+                                   Label="Seleccionar Corte de Caja" 
+                                   Value="_selectedShiftId" 
+                                   ValueChanged="OnShiftSelected" 
+                                   Variant="Variant.Outlined" 
+                                   Margin="Margin.Dense"
+                                   Adornment="Adornment.Start" 
+                                   AdornmentIcon="@Icons.Material.Filled.DesktopWindows">
+                            <MudSelectItem T="int" Value="0">-- Seleccione un corte disponible --</MudSelectItem>
+                            @foreach (var box in _boxes)
+                            {
+                                <MudSelectItem T="int" Value="@box.ShiftId">
+                                    @box.Name (Apertura: @box.Time.ToString("HH:mm"))
+                                </MudSelectItem>
+                            }
+                        </MudSelect>
+                    </MudStack>
                 </MudPaper>
             </MudItem>
 
@@ -139,6 +149,15 @@ else
             <MudItem xs="12" md="3" Class="d-none d-md-block">
                 <MudPaper Elevation="4" Class="pa-4 rounded-xl h-100" Style="max-height: 80vh; overflow-y: auto;">
                     <MudText Typo="Typo.h6" Class="mb-4 px-2 font-weight-bold">Cortes Disponibles</MudText>
+                    <MudDatePicker Label="Fecha de Búsqueda"
+                                   Date="_selectedDate"
+                                   DateChanged="OnDateChanged"
+                                   Variant="Variant.Outlined"
+                                   Adornment="Adornment.Start"
+                                   AdornmentIcon="@Icons.Material.Filled.CalendarMonth"
+                                   Margin="Margin.Dense"
+                                   MaxDate="DateTime.Today"
+                                   Class="mb-4" />
                     <MudList T="int" Clickable="true" Color="Color.Primary">
                         @if (!_boxes.Any())
                         {
@@ -343,6 +362,12 @@ else
                 }
             </MudItem>
         </MudGrid>
+        <MudOverlay Visible="_isProcessing" LightBackground="true" Absolute="false" ZIndex="9999">
+            <div class="d-flex flex-column align-center justify-center">
+                <MudProgressCircular Color="Color.Primary" Size="Size.Large" Indeterminate="true" />
+                <MudText Class="mt-4 font-weight-bold" Color="Color.Primary">Cargando...</MudText>
+            </div>
+        </MudOverlay>
     </MudContainer>
 }
 
@@ -392,6 +417,7 @@ else
     private bool _isProcessing;
     private bool _isSaving;
     private ConciliacionResultDto? _result;
+    private DateTime? _selectedDate = DateTime.Today;
     
     // Inputs del usuario
     private System.Globalization.CultureInfo _mexicoCulture = System.Globalization.CultureInfo.GetCultureInfo("es-MX");
@@ -537,6 +563,15 @@ else
         StateHasChanged();
     }
 
+    private async Task OnDateChanged(DateTime? newDate)
+    {
+        _selectedDate = newDate;
+        _selectedShiftId = 0;
+        _selectedBoxId = 0;
+        _result = null;
+        await CargarCajas();
+    }
+
     private async Task CargarCajas()
     {
         if (_isProcessing) return;
@@ -545,7 +580,7 @@ else
         try
         {
             Logger.LogInformation("Cargando cajas disponibles para la sucursal {BranchId}", ActiveBranchId);
-            var query = new GetAvailableBoxesQuery(DateTime.Today, ActiveBranchId);
+            var query = new GetAvailableBoxesQuery(_selectedDate ?? DateTime.Today, ActiveBranchId);
             var data = await Mediator.Send(query);
             _boxes = data.ToList();
             StateHasChanged();
@@ -602,7 +637,7 @@ else
         try
         {
             Logger.LogInformation("Iniciando carga de datos de conciliación para ShiftId: {ShiftId}", _selectedShiftId);
-            var query = new GetConciliacionQuery(_selectedBoxId, _selectedShiftId, 0, DateTime.Today);
+            var query = new GetConciliacionQuery(_selectedBoxId, _selectedShiftId, 0, _selectedDate ?? DateTime.Today);
             _result = await Mediator.Send(query);
             
             if (_result == null)
