@@ -82,7 +82,8 @@ public class SaveConciliacionCorteCommandHandler : IRequestHandler<SaveConciliac
                 Devoluciones = devoluciones,
                 TotalEntregado = totalEntregado,
                 TotalEsperado = totalEsperado,
-                Diferencia = diferencia
+                Diferencia = diferencia,
+                Fecha = request.Fecha
             };
 
             await _conciliacionService.SaveConciliacionCorteAsync(dto, cancellationToken);

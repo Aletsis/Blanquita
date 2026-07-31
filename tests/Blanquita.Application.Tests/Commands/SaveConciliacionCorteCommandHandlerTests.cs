@@ -66,7 +66,8 @@ public class SaveConciliacionCorteCommandHandlerTests
             Banregio: 300m,
             Banbajio: 200m,
             ReturnsTotal: 100m,
-            TotalSold: 2600m
+            TotalSold: 2600m,
+            Fecha: DateTime.UtcNow
         );
 
         _mockShiftRepository
@@ -114,7 +115,8 @@ public class SaveConciliacionCorteCommandHandlerTests
             dto.Devoluciones == 100m &&
             dto.TotalEntregado == 2500m &&
             dto.TotalEsperado == 2500m &&
-            dto.Diferencia == 0m
+            dto.Diferencia == 0m &&
+            dto.Fecha == command.Fecha
         ), It.IsAny<CancellationToken>()), Times.Once);
 
         _mockEmailService.Verify(e => e.SendEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<IEnumerable<string>>()), Times.Never);
@@ -135,7 +137,8 @@ public class SaveConciliacionCorteCommandHandlerTests
             Banregio: 300m,
             Banbajio: 200m,
             ReturnsTotal: 100m,
-            TotalSold: 2500m
+            TotalSold: 2500m,
+            Fecha: DateTime.UtcNow
         );
 
         _mockShiftRepository
@@ -176,7 +179,8 @@ public class SaveConciliacionCorteCommandHandlerTests
             Banregio: 300m,
             Banbajio: 200m,
             ReturnsTotal: 100m,
-            TotalSold: 2700m
+            TotalSold: 2700m,
+            Fecha: DateTime.UtcNow
         );
 
         _mockShiftRepository
@@ -261,7 +265,8 @@ public class SaveConciliacionCorteCommandHandlerTests
             Banregio: 300m,
             Banbajio: 200m,
             ReturnsTotal: 100m,
-            TotalSold: 2700m
+            TotalSold: 2700m,
+            Fecha: DateTime.UtcNow
         );
 
         _mockShiftRepository

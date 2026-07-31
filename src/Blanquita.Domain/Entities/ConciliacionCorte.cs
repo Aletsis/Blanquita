@@ -19,6 +19,7 @@ public class ConciliacionCorte : BaseEntity
     public decimal TotalEsperado { get; private set; }
     public decimal Diferencia { get; private set; }
     public DateTime FechaCreacion { get; private set; }
+    public DateTime Fecha { get; private set; }
 
     // EF Core Constructor
     private ConciliacionCorte() { }
@@ -37,7 +38,8 @@ public class ConciliacionCorte : BaseEntity
         decimal devoluciones,
         decimal totalEntregado,
         decimal totalEsperado,
-        decimal diferencia)
+        decimal diferencia,
+        DateTime fecha)
     {
         AperturaId = aperturaId;
         Sucursal = sucursal;
@@ -53,6 +55,7 @@ public class ConciliacionCorte : BaseEntity
         TotalEntregado = totalEntregado;
         TotalEsperado = totalEsperado;
         Diferencia = diferencia;
+        Fecha = fecha.Kind == DateTimeKind.Utc ? fecha : DateTime.SpecifyKind(fecha, DateTimeKind.Local).ToUniversalTime();
         FechaCreacion = DateTime.UtcNow;
     }
 }

@@ -36,4 +36,5 @@ public record ConciliacionResultDto
     public decimal EfectivoEsperado => TotalSold - Math.Abs(ReturnsTotal) - TotalRecolectado;
     public int Status { get; init; } // From FoxPro Cestadoape
     public bool IsClosed => Status == 1;
+    public DateTime Fecha { get; init; }
 }

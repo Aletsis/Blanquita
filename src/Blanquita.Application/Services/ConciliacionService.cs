@@ -76,7 +76,8 @@ public class ConciliacionService : IConciliacionService
             CardCollected = shiftData?.CardCollected ?? 0,
             ReturnsTotal = shiftData?.ReturnsTotal ?? 0,
             TotalRecolectado = totalRecolectado,
-            Status = shiftData?.Status ?? 0
+            Status = shiftData?.Status ?? 0,
+            Fecha = shiftData?.OpeningTime ?? date
         };
     }
 
@@ -99,7 +100,8 @@ public class ConciliacionService : IConciliacionService
             dto.Devoluciones,
             dto.TotalEntregado,
             dto.TotalEsperado,
-            dto.Diferencia
+            dto.Diferencia,
+            dto.Fecha
         );
 
         await _conciliacionCorteRepository.AddAsync(conciliacion, cancellationToken);
@@ -126,7 +128,9 @@ public class ConciliacionService : IConciliacionService
             Devoluciones = c.Devoluciones,
             TotalEntregado = c.TotalEntregado,
             TotalEsperado = c.TotalEsperado,
-            Diferencia = c.Diferencia
+            Diferencia = c.Diferencia,
+            Fecha = c.Fecha,
+            FechaCreacion = c.FechaCreacion
         }).ToList();
     }
 

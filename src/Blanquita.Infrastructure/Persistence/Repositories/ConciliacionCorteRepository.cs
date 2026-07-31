@@ -37,8 +37,8 @@ public class ConciliacionCorteRepository : IConciliacionCorteRepository
         var endUtc = startUtc.AddDays(1);
 
         return await _context.ConciliacionCortes
-            .Where(c => c.Sucursal == branchName && c.FechaCreacion >= startUtc && c.FechaCreacion < endUtc)
-            .OrderByDescending(c => c.FechaCreacion)
+            .Where(c => c.Sucursal == branchName && c.Fecha >= startUtc && c.Fecha < endUtc)
+            .OrderByDescending(c => c.Fecha)
             .ToListAsync(cancellationToken);
     }
 
@@ -49,7 +49,7 @@ public class ConciliacionCorteRepository : IConciliacionCorteRepository
         var endUtc = startUtc.AddDays(1);
 
         return await _context.ConciliacionCortes
-            .Where(c => c.FechaCreacion >= startUtc && c.FechaCreacion < endUtc)
+            .Where(c => c.Fecha >= startUtc && c.Fecha < endUtc)
             .Select(c => c.AperturaId)
             .ToListAsync(cancellationToken);
     }

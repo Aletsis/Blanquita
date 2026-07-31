@@ -15,5 +15,6 @@ public record SaveConciliacionCorteCommand(
     decimal Banregio,
     decimal Banbajio,
     decimal ReturnsTotal,
-    decimal TotalSold
+    decimal TotalSold,
+    DateTime Fecha
 ) : IRequest<bool>;

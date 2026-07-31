@@ -18,4 +18,6 @@ public class ConciliacionCorteDto
     public decimal TotalEntregado { get; set; }
     public decimal TotalEsperado { get; set; }
     public decimal Diferencia { get; set; }
+    public DateTime Fecha { get; set; }
+    public DateTime FechaCreacion { get; set; }
 }

@@ -392,8 +392,10 @@ public class BlanquitaDbContext : IdentityDbContext<ApplicationUser>
             entity.Property(e => e.Diferencia).HasColumnName("Diferencia").HasColumnType("decimal(18,2)").IsRequired();
             
             entity.Property(e => e.FechaCreacion).HasColumnName("FechaCreacion").IsRequired();
+            entity.Property(e => e.Fecha).HasColumnName("Fecha").IsRequired();
             
             entity.HasIndex(e => e.FechaCreacion);
+            entity.HasIndex(e => e.Fecha);
             entity.HasIndex(e => e.Sucursal);
             entity.HasIndex(e => e.Caja);
             entity.HasIndex(e => e.AperturaId);
