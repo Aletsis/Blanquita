@@ -13,6 +13,7 @@
 @inject IJSRuntime JSRuntime
 @inject ISnackbar Snackbar
 @inject ILogger<ConciliacionCorte> Logger
+@inject IDialogService DialogService
 
 <PageTitle>Conciliación de Corte</PageTitle>
 
@@ -671,6 +672,16 @@ else
             Snackbar.Add("No se puede guardar una conciliación si la caja sigue abierta.", Severity.Error);
             return;
         }
+        if (DiferenciaEfectivo != 0)
+        {
+            await DialogService.ShowMessageBoxAsync(
+                "No se puede guardar el corte",
+                "No se puede guardar este corte porque existe una diferencia en efectivo. Por favor, cuadre los valores antes de continuar.",
+                yesText: "Aceptar"
+            );
+            return;
+        }
+
 
         _isSaving = true;
         StateHasChanged();
