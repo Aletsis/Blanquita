@@ -1,4 +1,4 @@
-@page "/reportes/devoluciones"
+@page "/reportes/NotasCreditoDevoluciones"
 @using Microsoft.AspNetCore.Authorization
 @attribute [Authorize(Roles = "Admin")]
 @using Blanquita.Application.DTOs
@@ -17,7 +17,7 @@
 <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4 animate-fade-in">
     <MudText Typo="Typo.h4" Class="mb-6 font-weight-bold" Style="background: linear-gradient(45deg, #f44336, #e91e63); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
         <MudIcon Icon="@Icons.Material.Filled.AssignmentReturn" Class="mr-2" Size="Size.Large" Color="Color.Primary" />
-        Reporte de Devoluciones
+        Reporte de Notas de Crédito y Devoluciones
     </MudText>
 
     <MudGrid>
