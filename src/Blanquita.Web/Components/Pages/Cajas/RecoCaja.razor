@@ -10,227 +10,305 @@
 @using Blanquita.Application.Commands.Cajas
 @using Blanquita.Application.Helpers
 @using MediatR
-@using System.Globalization
+@using Microsoft.AspNetCore.Components.Authorization
 @inject ISnackbar Snackbar
 @inject IMediator Mediator
-
+@inject ISupervisorService SupervisorService
+@inject IBranchService BranchService
+@inject IJSRuntime JSRuntime
+@inject ILogger<RecoCaja> Logger
+@inject AuthenticationStateProvider AuthStateProvider
 
 <PageTitle>Recolección de Efectivo</PageTitle>
 
-<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4 animated fadeIn">
-    <MudText Typo="Typo.h4" Class="mb-6 font-weight-bold" Style="background: linear-gradient(45deg, #2e7d32, #66bb6a); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
-        <MudIcon Icon="@Icons.Material.Filled.AccountBalanceWallet" Class="mr-2" Size="Size.Large" Color="Color.Success" />
-        Recolección de Efectivo
-    </MudText>
+@if (!IsUserAuthorized)
+{
+    <!-- Pantalla de Autenticación Inline por Nómina -->
+    <MudContainer MaxWidth="MaxWidth.Small" Class="d-flex align-center justify-center animate-fade-in" Style="min-height: 80vh;">
+        <MudPaper Elevation="8" Class="pa-8 rounded-xl" Style="width: 100%; max-width: 450px;">
+            <MudStack Spacing="4">
+                <MudStack AlignItems="AlignItems.Center" Spacing="2">
+                    <MudAvatar Color="Color.Primary" Size="Size.Large" Style="width: 70px; height: 70px;">
+                        <MudIcon Icon="@Icons.Material.Filled.SupervisorAccount" Size="Size.Large" />
+                    </MudAvatar>
+                    <MudText Typo="Typo.h5" Align="Align.Center" Class="font-weight-bold">Acceso de Encargada</MudText>
+                    <MudText Typo="Typo.body2" Align="Align.Center" Color="Color.Secondary">
+                        Ingrese su número de nómina para comenzar la conciliación
+                    </MudText>
+                </MudStack>
 
-    @if (_isError && !string.IsNullOrEmpty(_errorMessage))
-    {
-        <MudAlert Severity="Severity.Error" Class="mb-4 animate-fade-in" Elevation="2">
-            <MudText Typo="Typo.body1"><strong>Error:</strong> @_errorMessage</MudText>
-        </MudAlert>
-    }
+                <EditForm Model="this" OnValidSubmit="ValidarNomina">
+                    <MudStack Spacing="3">
+                        <MudNumericField @bind-Value="_employeeNumberInput"
+                                         Label="Número de Nómina"
+                                         Variant="Variant.Outlined"
+                                         Min="1"
+                                         Required="true"
+                                         Adornment="Adornment.Start"
+                                         AdornmentIcon="@Icons.Material.Filled.Numbers"
+                                         HideSpinButtons="true" />
 
-    @if (!_isError && _isSubmitting)
-    {
-        <MudAlert Severity="Severity.Info" Class="mb-4 animate-fade-in" Elevation="2">
-            <div class="d-flex align-center">
-                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-3" />
-                <MudText Typo="Typo.body1">Procesando recolección...</MudText>
-            </div>
-        </MudAlert>
-    }
-
-    <MudGrid>
-        <!-- Sección de Selección -->
-        <MudItem xs="12" md="6">
-            <MudCard Elevation="4" Class="pa-4 rounded-lg animate-slide-up">
-                <MudCardHeader>
-                    <CardHeaderContent>
-                        <MudText Typo="Typo.h6" Color="Color.Primary">
-                            <MudIcon Icon="@Icons.Material.Filled.People" Class="mr-2" />
-                            Información del Personal
-                        </MudText>
-                    </CardHeaderContent>
-                </MudCardHeader>
-                <MudCardContent>
-                    <MudSelect T="int" 
-                               Label="Seleccione encargada" 
-                               Value="_selectedSupervisorId" 
-                               ValueChanged="@(async (int value) => await OnSupervisorChanged(value))"
-                               Variant="Variant.Outlined"
-                               AnchorOrigin="Origin.BottomCenter"
-                               Class="mb-4"
-                               Adornment="Adornment.Start"
-                               AdornmentIcon="@Icons.Material.Filled.SupervisorAccount">
-                        @if (supervisors == null)
+                        @if (!string.IsNullOrEmpty(_authErrorMessage))
                         {
-                            <MudSelectItem T="int" Value="0">
-                                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
-                                Cargando...
-                            </MudSelectItem>
+                            <MudAlert Severity="Severity.Error" Dense="true" Class="rounded-lg">@_authErrorMessage</MudAlert>
                         }
-                        else
-                        {
-                            <MudSelectItem T="int" Value="0">-- Seleccione una encargada --</MudSelectItem>
-                            @foreach (var sup in supervisors)
+
+                        <MudButton ButtonType="ButtonType.Submit"
+                                   Variant="Variant.Filled"
+                                   Color="Color.Primary"
+                                   FullWidth="true"
+                                   Size="Size.Large"
+                                   Class="rounded-xl mt-2"
+                                   Disabled="@_checkingSupervisor">
+                            @if (_checkingSupervisor)
                             {
-                                <MudSelectItem T="int" Value="@sup.Id">@sup.Name</MudSelectItem>
+                                <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true" />
+                                <MudText Class="ms-2">Validando...</MudText>
                             }
-                        }
-                    </MudSelect>
-
-                    <MudSelect T="int" 
-                               Label="Seleccione caja" 
-                               Value="_selectedCashRegisterId"
-                               ValueChanged="@(async (int value) => await OnCashRegisterChanged(value))"
-                               Variant="Variant.Outlined"
-                               AnchorOrigin="Origin.BottomCenter"
-                               Class="mb-4"
-                               Disabled="@(_selectedSupervisorId == 0)"
-                               Adornment="Adornment.Start"
-                               AdornmentIcon="@Icons.Material.Filled.PointOfSale">
-                        @if (_availableBoxes == null || !_availableBoxes.Any())
-                        {
-                            <MudSelectItem T="int" Value="0">
-                                @(_selectedSupervisorId == 0 ? "-- Seleccione una encargada primero --" : "-- No hay cajas con apertura disponibles --")
-                            </MudSelectItem>
-                        }
-                        else
-                        {
-                            <MudSelectItem T="int" Value="0">-- Seleccione una caja --</MudSelectItem>
-                            @foreach (var box in _availableBoxes)
+                            else
                             {
-                                <MudSelectItem T="int" Value="@box.Id">
-                                    <div class="d-flex align-center">
-                                        <MudIcon Icon="@Icons.Material.Filled.Print" Size="Size.Small" Class="mr-2"/>
-                                        @box.Name (Apertura: @box.Time.ToString("HH:mm"))
-                                    </div>
+                                <MudText>Ingresar</MudText>
+                            }
+                        </MudButton>
+
+                        <MudDivider Class="my-2" />
+
+                        <MudButton Variant="Variant.Text"
+                                   Color="Color.Secondary"
+                                   FullWidth="true"
+                                   StartIcon="@Icons.Material.Filled.Login"
+                                   Href="/login?returnUrl=/conciliacion-corte"
+                                   Class="rounded-xl">
+                            Cambiar a login de usuario
+                        </MudButton>
+                    </MudStack>
+                </EditForm>
+            </MudStack>
+        </MudPaper>
+    </MudContainer>
+}
+else
+{
+    <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4 animated fadeIn">
+        <MudText Typo="Typo.h4" Class="mb-6 font-weight-bold" Style="background: linear-gradient(45deg, #2e7d32, #66bb6a); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+            <MudIcon Icon="@Icons.Material.Filled.AccountBalanceWallet" Class="mr-2" Size="Size.Large" Color="Color.Success" />
+            Recolección de Efectivo
+        </MudText>
+
+        @if (_isError && !string.IsNullOrEmpty(_errorMessage))
+        {
+            <MudAlert Severity="Severity.Error" Class="mb-4 animate-fade-in" Elevation="2">
+                <MudText Typo="Typo.body1"><strong>Error:</strong> @_errorMessage</MudText>
+            </MudAlert>
+        }
+
+        @if (!_isError && _isSubmitting)
+        {
+            <MudAlert Severity="Severity.Info" Class="mb-4 animate-fade-in" Elevation="2">
+                <div class="d-flex align-center">
+                    <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-3" />
+                    <MudText Typo="Typo.body1">Procesando recolección...</MudText>
+                </div>
+            </MudAlert>
+        }
+
+        <MudGrid>
+            <!-- Sección de Selección -->
+            <MudItem xs="12" md="6">
+                <MudCard Elevation="4" Class="pa-4 rounded-lg animate-slide-up">
+                    <MudCardHeader>
+                        <CardHeaderContent>
+                            <MudText Typo="Typo.h6" Color="Color.Primary">
+                                <MudIcon Icon="@Icons.Material.Filled.People" Class="mr-2" />
+                                Información del Personal
+                            </MudText>
+                        </CardHeaderContent>
+                    </MudCardHeader>
+                    <MudCardContent>
+                        <MudSelect T="int" 
+                                Label="Seleccione encargada" 
+                                Value="_selectedSupervisorId" 
+                                ValueChanged="@(async (int value) => await OnSupervisorChanged(value))"
+                                Variant="Variant.Outlined"
+                                AnchorOrigin="Origin.BottomCenter"
+                                Class="mb-4"
+                                Adornment="Adornment.Start"
+                                AdornmentIcon="@Icons.Material.Filled.SupervisorAccount">
+                            @if (supervisors == null)
+                            {
+                                <MudSelectItem T="int" Value="0">
+                                    <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                                    Cargando...
                                 </MudSelectItem>
                             }
-                        }
-                    </MudSelect>
+                            else
+                            {
+                                <MudSelectItem T="int" Value="0">-- Seleccione una encargada --</MudSelectItem>
+                                @foreach (var sup in supervisors)
+                                {
+                                    <MudSelectItem T="int" Value="@sup.Id">@sup.Name</MudSelectItem>
+                                }
+                            }
+                        </MudSelect>
 
-                    @if (!string.IsNullOrEmpty(_resolvedCashierName))
-                    {
                         <MudPaper Elevation="0" Class="pa-3 rounded-lg border-light bg-light d-flex align-center mb-4">
-                            <MudIcon Icon="@Icons.Material.Filled.Person" Color="Color.Secondary" Class="mr-2" />
-                            <MudText Typo="Typo.body1">Cajera asignada: <b>@_resolvedCashierName</b></MudText>
+                                <MudIcon Icon="@Icons.Material.Filled.Person" Color="Color.Secondary" Class="mr-2" />
+                                <MudText Typo="Typo.body1">Supervisor: <b>@_supervisorName</b></MudText>
                         </MudPaper>
-                    }
-                    else if (_selectedSupervisorId > 0 && _selectedCashRegisterId > 0)
-                    {
-                        <MudAlert Severity="Severity.Warning" Dense="true" Class="rounded-lg mb-4">
-                            No se pudo auto-resolver la cajera para este turno.
-                        </MudAlert>
-                    }
-                </MudCardContent>
-            </MudCard>
-        </MudItem>
 
-        <!-- Sección de Denominaciones -->
-        <MudItem xs="12" md="6">
-            <MudCard Elevation="4" Class="pa-4 rounded-lg animate-slide-up" Style="animation-delay: 0.1s;">
-                <MudCardHeader>
-                    <CardHeaderContent>
-                        <MudText Typo="Typo.h6" Color="Color.Success">
-                            <MudIcon Icon="@Icons.Material.Filled.AttachMoney" Class="mr-2" />
-                            Denominaciones
-                        </MudText>
-                    </CardHeaderContent>
-                </MudCardHeader>
-                <MudCardContent>
-                    <MudGrid Spacing="2">
-                        <MudItem xs="6">
-                            <MudNumericField @bind-Value="_c1000" 
-                                           Label="Billetes de $1000" 
-                                           Variant="Variant.Outlined" 
-                                           Min="0"
-                                           Adornment="Adornment.Start"
-                                           AdornmentIcon="@Icons.Material.Filled.Money"
-                                           AdornmentColor="Color.Success" />
-                        </MudItem>
-                        <MudItem xs="6">
-                            <MudNumericField @bind-Value="_c500" 
-                                           Label="Billetes de $500" 
-                                           Variant="Variant.Outlined" 
-                                           Min="0"
-                                           Adornment="Adornment.Start"
-                                           AdornmentIcon="@Icons.Material.Filled.Money"
-                                           AdornmentColor="Color.Success" />
-                        </MudItem>
-                        <MudItem xs="6">
-                            <MudNumericField @bind-Value="_c200" 
-                                           Label="Billetes de $200" 
-                                           Variant="Variant.Outlined" 
-                                           Min="0"
-                                           Adornment="Adornment.Start"
-                                           AdornmentIcon="@Icons.Material.Filled.Money"
-                                           AdornmentColor="Color.Info" />
-                        </MudItem>
-                        <MudItem xs="6">
-                            <MudNumericField @bind-Value="_c100" 
-                                           Label="Billetes de $100" 
-                                           Variant="Variant.Outlined" 
-                                           Min="0"
-                                           Adornment="Adornment.Start"
-                                           AdornmentIcon="@Icons.Material.Filled.Money"
-                                           AdornmentColor="Color.Info" />
-                        </MudItem>
-                        <MudItem xs="6">
-                            <MudNumericField @bind-Value="_c50" 
-                                           Label="Billetes de $50" 
-                                           Variant="Variant.Outlined" 
-                                           Min="0"
-                                           Adornment="Adornment.Start"
-                                           AdornmentIcon="@Icons.Material.Filled.Money"
-                                           AdornmentColor="Color.Warning" />
-                        </MudItem>
-                        <MudItem xs="6">
-                            <MudNumericField @bind-Value="_c20" 
-                                           Label="Billetes de $20" 
-                                           Variant="Variant.Outlined" 
-                                           Min="0"
-                                           Adornment="Adornment.Start"
-                                           AdornmentIcon="@Icons.Material.Filled.Money"
-                                           AdornmentColor="Color.Warning" />
-                        </MudItem>
-                    </MudGrid>
+                        <MudSelect T="int" 
+                                Label="Seleccione caja" 
+                                Value="_selectedCashRegisterId"
+                                ValueChanged="@(async (int value) => await OnCashRegisterChanged(value))"
+                                Variant="Variant.Outlined"
+                                AnchorOrigin="Origin.BottomCenter"
+                                Class="mb-4"
+                                Disabled="@(_selectedSupervisorId == 0)"
+                                Adornment="Adornment.Start"
+                                AdornmentIcon="@Icons.Material.Filled.PointOfSale">
+                            @if (_availableBoxes == null || !_availableBoxes.Any())
+                            {
+                                <MudSelectItem T="int" Value="0">
+                                    @(_selectedSupervisorId == 0 ? "-- Seleccione una encargada primero --" : "-- No hay cajas con apertura disponibles --")
+                                </MudSelectItem>
+                            }
+                            else
+                            {
+                                <MudSelectItem T="int" Value="0">-- Seleccione una caja --</MudSelectItem>
+                                @foreach (var box in _availableBoxes)
+                                {
+                                    <MudSelectItem T="int" Value="@box.Id">
+                                        <div class="d-flex align-center">
+                                            <MudIcon Icon="@Icons.Material.Filled.Print" Size="Size.Small" Class="mr-2"/>
+                                            @box.Name (Apertura: @box.Time.ToString("HH:mm"))
+                                        </div>
+                                    </MudSelectItem>
+                                }
+                            }
+                        </MudSelect>
 
-                    <MudDivider Class="my-4" />
+                        @if (!string.IsNullOrEmpty(_resolvedCashierName))
+                        {
+                            <MudPaper Elevation="0" Class="pa-3 rounded-lg border-light bg-light d-flex align-center mb-4">
+                                <MudIcon Icon="@Icons.Material.Filled.Person" Color="Color.Secondary" Class="mr-2" />
+                                <MudText Typo="Typo.body1">Cajera asignada: <b>@_resolvedCashierName</b></MudText>
+                            </MudPaper>
+                        }
+                        else if (_selectedSupervisorId > 0 && _selectedCashRegisterId > 0)
+                        {
+                            <MudAlert Severity="Severity.Warning" Dense="true" Class="rounded-lg mb-4">
+                                No se pudo auto-resolver la cajera para este turno.
+                            </MudAlert>
+                        }
+                    </MudCardContent>
+                </MudCard>
+            </MudItem>
 
-                    <div class="d-flex justify-center flex-column align-center">
-                        <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-2">Total a Recolectar</MudText>
-                        <MudPaper Elevation="3" Class="pa-4 rounded-lg" Style="background: linear-gradient(135deg, #2e7d32 0%, #66bb6a 100%);">
-                            <MudText Typo="Typo.h4" Class="font-weight-bold" Style="color: white;">
-                                $ @CalculateTotal().ToString("N2", CultureInfo.InvariantCulture)
+            <!-- Sección de Denominaciones -->
+            <MudItem xs="12" md="6">
+                <MudCard Elevation="4" Class="pa-4 rounded-lg animate-slide-up" Style="animation-delay: 0.1s;">
+                    <MudCardHeader>
+                        <CardHeaderContent>
+                            <MudText Typo="Typo.h6" Color="Color.Success">
+                                <MudIcon Icon="@Icons.Material.Filled.AttachMoney" Class="mr-2" />
+                                Denominaciones
                             </MudText>
-                        </MudPaper>
-                    </div>
-                </MudCardContent>
-                <MudCardActions Class="d-flex justify-center pa-4">
-                    <MudButton Variant="Variant.Filled"
-                               Color="Color.Success"
-                               OnClick="@ImprimirReco"
-                               Disabled="@_isSubmitting"
-                               Size="Size.Large"
-                               StartIcon="@Icons.Material.Filled.Print"
-                               FullWidth="true"
-                               Class="py-3 elevation-4">
-                        @if (_isSubmitting)
-                        {
-                            <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
-                            <text>Procesando...</text>
-                        }
-                        else
-                        {
-                            <text>Imprimir Recolección</text>
-                        }
-                    </MudButton>
-                </MudCardActions>
-            </MudCard>
-        </MudItem>
-    </MudGrid>
-</MudContainer>
+                        </CardHeaderContent>
+                    </MudCardHeader>
+                    <MudCardContent>
+                        <MudGrid Spacing="2">
+                            <MudItem xs="6">
+                                <MudNumericField @bind-Value="_c1000" 
+                                            Label="Billetes de $1000" 
+                                            Variant="Variant.Outlined" 
+                                            Min="0"
+                                            Adornment="Adornment.Start"
+                                            AdornmentIcon="@Icons.Material.Filled.Money"
+                                            AdornmentColor="Color.Success" />
+                            </MudItem>
+                            <MudItem xs="6">
+                                <MudNumericField @bind-Value="_c500" 
+                                            Label="Billetes de $500" 
+                                            Variant="Variant.Outlined" 
+                                            Min="0"
+                                            Adornment="Adornment.Start"
+                                            AdornmentIcon="@Icons.Material.Filled.Money"
+                                            AdornmentColor="Color.Success" />
+                            </MudItem>
+                            <MudItem xs="6">
+                                <MudNumericField @bind-Value="_c200" 
+                                            Label="Billetes de $200" 
+                                            Variant="Variant.Outlined" 
+                                            Min="0"
+                                            Adornment="Adornment.Start"
+                                            AdornmentIcon="@Icons.Material.Filled.Money"
+                                            AdornmentColor="Color.Info" />
+                            </MudItem>
+                            <MudItem xs="6">
+                                <MudNumericField @bind-Value="_c100" 
+                                            Label="Billetes de $100" 
+                                            Variant="Variant.Outlined" 
+                                            Min="0"
+                                            Adornment="Adornment.Start"
+                                            AdornmentIcon="@Icons.Material.Filled.Money"
+                                            AdornmentColor="Color.Info" />
+                            </MudItem>
+                            <MudItem xs="6">
+                                <MudNumericField @bind-Value="_c50" 
+                                            Label="Billetes de $50" 
+                                            Variant="Variant.Outlined" 
+                                            Min="0"
+                                            Adornment="Adornment.Start"
+                                            AdornmentIcon="@Icons.Material.Filled.Money"
+                                            AdornmentColor="Color.Warning" />
+                            </MudItem>
+                            <MudItem xs="6">
+                                <MudNumericField @bind-Value="_c20" 
+                                            Label="Billetes de $20" 
+                                            Variant="Variant.Outlined" 
+                                            Min="0"
+                                            Adornment="Adornment.Start"
+                                            AdornmentIcon="@Icons.Material.Filled.Money"
+                                            AdornmentColor="Color.Warning" />
+                            </MudItem>
+                        </MudGrid>
+
+                        <MudDivider Class="my-4" />
+
+                        <div class="d-flex justify-center flex-column align-center">
+                            <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-2">Total a Recolectar</MudText>
+                            <MudPaper Elevation="3" Class="pa-4 rounded-lg" Style="background: linear-gradient(135deg, #2e7d32 0%, #66bb6a 100%);">
+                                <MudText Typo="Typo.h4" Class="font-weight-bold" Style="color: white;">
+                                    $ @CalculateTotal().ToString("N2", CultureInfo.InvariantCulture)
+                                </MudText>
+                            </MudPaper>
+                        </div>
+                    </MudCardContent>
+                    <MudCardActions Class="d-flex justify-center pa-4">
+                        <MudButton Variant="Variant.Filled"
+                                Color="Color.Success"
+                                OnClick="@ImprimirReco"
+                                Disabled="@_isSubmitting"
+                                Size="Size.Large"
+                                StartIcon="@Icons.Material.Filled.Print"
+                                FullWidth="true"
+                                Class="py-3 elevation-4">
+                            @if (_isSubmitting)
+                            {
+                                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                                <text>Procesando...</text>
+                            }
+                            else
+                            {
+                                <text>Imprimir Recolección</text>
+                            }
+                        </MudButton>
+                    </MudCardActions>
+                </MudCard>
+            </MudItem>
+        </MudGrid>
+    </MudContainer>
+}
 
 <style>
     .animate-fade-in {
@@ -253,6 +331,16 @@
 </style>
 
 @code {
+    private bool _isUserAuthenticated;
+    private bool _isSupervisorAuthenticated;
+    private bool IsUserAuthorized => _isUserAuthenticated || _isSupervisorAuthenticated;
+    private int _employeeNumberInput;
+    private string _authErrorMessage = string.Empty;
+    private bool _checkingSupervisor;
+    private int _supervisorBranchId;
+    private string _supervisorBranchName = string.Empty;
+    private string _supervisorName = string.Empty;
+    private bool _isAdmin;
     private int _selectedSupervisorId = 0;
     private List<SupervisorDto>? supervisors;
     private int _selectedCashierId = 0;
@@ -277,6 +365,60 @@
     private CashierDto? _selectedCashier;
     private CashRegisterDto? _selectedCashRegister;
 
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await CheckAuthSession();
+        }
+    }
+
+    private async Task CheckAuthSession()
+    {
+        try
+        {
+            // 1. Validar si está logueado como usuario estándar en el sistema
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            var user = authState.User;
+            if (user.Identity?.IsAuthenticated == true)
+            {
+                if (!user.IsInRole("Admin") && !user.IsInRole("Supervisor"))
+                {
+                    _authErrorMessage = "No tienes permisos para acceder a esta sección.";
+                    StateHasChanged();
+                    return; // Cae al formulario de nómina
+                }
+                _isUserAuthenticated = true;
+                _isAdmin = user.IsInRole("Admin");
+                StateHasChanged();
+                return;
+            }
+
+            // 2. Si no, validar si está logueado temporalmente por número de nómina en sessionStorage
+            var storedNominaStr = await JSRuntime.InvokeAsync<string>("sessionStorage.getItem", "supervisor_nomina");
+            if (int.TryParse(storedNominaStr, out int storedNomina))
+            {
+                var supervisor = await SupervisorService.GetByEmployeeNumberAsync(storedNomina);
+                if (supervisor != null && supervisor.IsActive)
+                {
+                    _isSupervisorAuthenticated = true;
+                    _supervisorBranchId = supervisor.BranchId;
+                    _supervisorName = supervisor.Name;
+                    
+                    var branches = await BranchService.GetAllAsync();
+                    _supervisorBranchName = branches.FirstOrDefault(b => b.Id == supervisor.BranchId)?.Name ?? "Desconocida";
+                    
+                    StateHasChanged();
+                    return;
+                }
+            }
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error al comprobar sesión de autenticación");
+        }
+    }
     protected override async Task OnInitializedAsync()
     {
         var result = await Mediator.Send(new GetSupervisorsQuery());
@@ -467,5 +609,55 @@
     private decimal CalculateTotal()
     {
         return FinancialCalculator.CalculateDenominationsTotal(_c1000, _c500, _c200, _c100, _c50, _c20);
+    }
+    private async Task ValidarNomina()
+    {
+        if (_employeeNumberInput <= 0)
+        {
+            _authErrorMessage = "Por favor ingrese un número de nómina válido";
+            return;
+        }
+
+        _checkingSupervisor = true;
+        _authErrorMessage = string.Empty;
+        StateHasChanged();
+
+        try
+        {
+            var supervisor = await SupervisorService.GetByEmployeeNumberAsync(_employeeNumberInput);
+            if (supervisor == null)
+            {
+                _authErrorMessage = "El número de nómina no coincide con ninguna encargada registrada";
+            }
+            else if (!supervisor.IsActive)
+            {
+                _authErrorMessage = "La encargada no se encuentra activa en el sistema";
+            }
+            else
+            {
+                // Authenticated successfully!
+                _isSupervisorAuthenticated = true;
+                _supervisorBranchId = supervisor.BranchId;
+                _supervisorName = supervisor.Name;
+                
+                var branches = await BranchService.GetAllAsync();
+                _supervisorBranchName = branches.FirstOrDefault(b => b.Id == supervisor.BranchId)?.Name ?? "Desconocida";
+
+                // Guardar en sessionStorage
+                await JSRuntime.InvokeVoidAsync("sessionStorage.setItem", "supervisor_nomina", _employeeNumberInput.ToString());
+                
+                Snackbar.Add($"Bienvenida, {supervisor.Name}", Severity.Success);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error al validar la nómina de la encargada");
+            _authErrorMessage = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            _checkingSupervisor = false;
+            StateHasChanged();
+        }
     }
 }
