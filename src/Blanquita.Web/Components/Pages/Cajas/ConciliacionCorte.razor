@@ -401,7 +401,6 @@ else
     private bool _isSupervisorAuthenticated;
     private bool _isUserAuthenticated;
     private bool _isAdmin;
-    
     private int _supervisorBranchId;
     private string _supervisorBranchName = string.Empty;
     private string _supervisorName = string.Empty;
@@ -427,16 +426,16 @@ else
     private decimal _efectivoRecibido;
 
     // Fórmulas de Diferencias
-    private decimal TarjetasFisicas => _terminalBanbajio + _terminalBanRegio;
+    private decimal TarjetasFisicas => Math.Round(_terminalBanbajio + _terminalBanRegio, 2, MidpointRounding.AwayFromZero);
     
     // Diferencia Tarjeta = Físico (TarjetasFisicas) - Sistema (CardCollected)
-    private decimal DiferenciaTarjeta => TarjetasFisicas - (_result?.CardCollected ?? 0);
+    private decimal DiferenciaTarjeta => Math.Round(TarjetasFisicas - (_result?.CardCollected ?? 0), 2, MidpointRounding.AwayFromZero);
 
     // Efectivo Esperado = Total Vendido - Devoluciones - Efectivo Recolectado - TarjetasFisicas
-    private decimal EfectivoEsperado => (_result?.TotalSold ?? 0) - Math.Abs(_result?.ReturnsTotal ?? 0) - (_result?.TotalRecolectado ?? 0) - TarjetasFisicas;
+    private decimal EfectivoEsperado => Math.Round((_result?.TotalSold ?? 0) - Math.Abs(_result?.ReturnsTotal ?? 0) - (_result?.TotalRecolectado ?? 0) - TarjetasFisicas, 2, MidpointRounding.AwayFromZero);
     
     // Diferencia Efectivo = Efectivo Recibido - Efectivo Esperado
-    private decimal DiferenciaEfectivo => _efectivoRecibido - EfectivoEsperado;
+    private decimal DiferenciaEfectivo => Math.Round(_efectivoRecibido - EfectivoEsperado, 2, MidpointRounding.AwayFromZero);
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -672,7 +671,7 @@ else
             Snackbar.Add("No se puede guardar una conciliación si la caja sigue abierta.", Severity.Error);
             return;
         }
-        if (DiferenciaEfectivo != 0)
+        if (Math.Abs(DiferenciaEfectivo) >= 0.01m)
         {
             await DialogService.ShowMessageBoxAsync(
                 "No se puede guardar el corte",
@@ -681,7 +680,6 @@ else
             );
             return;
         }
-
 
         _isSaving = true;
         StateHasChanged();
