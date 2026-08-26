@@ -18,19 +18,37 @@ public class PrinterNetworkService : IDisposable
 
     public async Task ConnectAsync(CancellationToken cancellationToken = default)
     {
-        _client = new TcpClient();
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        cts.CancelAfter(3000);
+        const int perAttemptTimeoutMs = 5000;
+        const int totalTimeoutSec = 30; //Tiempo maximo global en segundos
+        using var totalCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        totalCts.CancelAfter(TimeSpan.FromSeconds(totalTimeoutSec));
 
-        try
+        while (!totalCts.Token.IsCancellationRequested)
         {
-            await _client.ConnectAsync(_ipAddress, _port, cts.Token);
-            _stream = _client.GetStream();
+            _client?.Dispose();
+            _client = new TcpClient();
+
+            using var attemptCts = CancellationTokenSource.CreateLinkedTokenSource(totalCts.Token);
+            attemptCts.CancelAfter(perAttemptTimeoutMs);
+
+            try
+            {
+                await _client.ConnectAsync(_ipAddress, _port, attemptCts.Token);
+                _stream = _client.GetStream();
+                return;
+            }
+            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+            {
+                if (totalCts.Token.IsCancellationRequested) throw new TimeoutException($"No se pudo conectar a la impresora {_ipAddress}:{_port} en {totalTimeoutSec} segundos.");
+            }
+            catch (Exception) when (!totalCts.Token.IsCancellationRequested)
+            {
+                //Reintentamos otros errores
+            }
+            //Si se canceló el total, salimos del bucle y lanzamos excepción
         }
-        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
-        {
-            throw new TimeoutException($"No se pudo conectar a la impresora {_ipAddress}:{_port} dentro del límite de 3 segundos.");
-        }
+        //Si salimos del bucle por cancelación total
+        throw new TimeoutException ($"No se pudo conectar a {_ipAddress}:{_port} en {totalTimeoutSec} segundos.");
     }
 
     public async Task SendRawDataAsync(byte[] data, CancellationToken cancellationToken = default)
