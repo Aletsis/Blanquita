@@ -1,4 +1,4 @@
-window.submitLoginForm = (action, username, password) => {
+window.submitLoginForm = (action, username, password, returnUrl) => {
     const form = document.createElement('form');
     form.method = 'post';
     form.action = action;
@@ -14,6 +14,14 @@ window.submitLoginForm = (action, username, password) => {
     passIn.name = 'password';
     passIn.value = password;
     form.appendChild(passIn);
+
+    if (returnUrl) {
+        const returnUrlIn = document.createElement('input');
+        returnUrlIn.type = 'hidden';
+        returnUrlIn.name = 'returnUrl';
+        returnUrlIn.value = returnUrl;
+        form.appendChild(returnUrlIn);
+    }
 
     document.body.appendChild(form);
     form.submit();

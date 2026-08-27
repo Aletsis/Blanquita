@@ -23,7 +23,12 @@ public class AccountController : Controller
     {
         if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(password))
         {
-             return Redirect($"/login?error=DatosRequeridos");
+            var errorUrl = "/login?error=DatosRequeridos";
+            if (!string.IsNullOrWhiteSpace(returnUrl))
+            {
+                errorUrl += $"&returnUrl={Uri.EscapeDataString(returnUrl)}";
+            }
+            return Redirect(errorUrl);
         }
 
         ApplicationUser? user = await _userManager.FindByNameAsync(username);
@@ -39,11 +44,29 @@ public class AccountController : Controller
 
             if (result.Succeeded)
             {
-                return Redirect(returnUrl ?? "/");
+                if (!string.IsNullOrWhiteSpace(returnUrl))
+                {
+                    if (Url.IsLocalUrl(returnUrl))
+                    {
+                        return LocalRedirect(returnUrl);
+                    }
+                    if (Uri.TryCreate(returnUrl, UriKind.Absolute, out var uri) &&
+                        string.Equals(uri.Host, Request.Host.Host, StringComparison.OrdinalIgnoreCase))
+                    {
+                        return Redirect(uri.PathAndQuery);
+                    }
+                }
+
+                return Redirect("/");
             }
         }
 
-        return Redirect($"/login?error=CredencialesInvalidas");
+        var invalidCredsUrl = "/login?error=CredencialesInvalidas";
+        if (!string.IsNullOrWhiteSpace(returnUrl))
+        {
+            invalidCredsUrl += $"&returnUrl={Uri.EscapeDataString(returnUrl)}";
+        }
+        return Redirect(invalidCredsUrl);
     }
 
     [HttpGet("logout")]

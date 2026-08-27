@@ -13,8 +13,10 @@
 @inject IMediator Mediator
 @inject ISupervisorService SupervisorService
 @inject IBranchService BranchService
+@inject IUserService UserService
+@inject ICashRegisterService CashRegisterService
 @inject IJSRuntime JSRuntime
-@inject ILogger<RecoCaja> Logger
+@inject ILogger<CorteCaja> Logger
 @inject AuthenticationStateProvider AuthStateProvider
 
 <PageTitle>Corte de Caja</PageTitle>
@@ -74,7 +76,7 @@
                                    Color="Color.Secondary"
                                    FullWidth="true"
                                    StartIcon="@Icons.Material.Filled.Login"
-                                   Href="/login?returnUrl=/conciliacion-corte"
+                                   Href="/login?returnUrl=/corte-caja"
                                    Class="rounded-xl">
                             Cambiar a login de usuario
                         </MudButton>
@@ -87,10 +89,34 @@
 else
 {
     <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4 animated fadeIn">
-        <MudText Typo="Typo.h4" Class="mb-6 font-weight-bold" Style="background: linear-gradient(45deg, #d32f2f, #f44336); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
-            <MudIcon Icon="@Icons.Material.Filled.PointOfSale" Class="mr-2" Size="Size.Large" Color="Color.Error" />
-            Corte de Caja
-        </MudText>
+        <div class="d-flex flex-column flex-sm-row justify-space-between align-start align-sm-center mb-6">
+            <MudText Typo="Typo.h4" Class="font-weight-bold mb-2 mb-sm-0" Style="background: linear-gradient(45deg, #d32f2f, #f44336); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+                <MudIcon Icon="@Icons.Material.Filled.PointOfSale" Class="mr-2" Size="Size.Large" Color="Color.Error" />
+                Corte de Caja
+            </MudText>
+
+            <div class="d-flex align-center">
+                @if (_isSupervisorAuthenticated)
+                {
+                    <MudChip T="string" Color="Color.Info" Variant="Variant.Text" Icon="@Icons.Material.Filled.Store" Class="mr-2">
+                        Sucursal: @_supervisorBranchName
+                    </MudChip>
+                    <MudChip T="string" Color="Color.Primary" Variant="Variant.Filled" Icon="@Icons.Material.Filled.Person">
+                        @_supervisorName
+                    </MudChip>
+                    <MudIconButton Icon="@Icons.Material.Filled.Logout" Color="Color.Error" OnClick="LogoutSupervisor" Class="ml-1" Title="Salir" />
+                }
+                else
+                {
+                    <MudChip T="string" Color="Color.Info" Variant="Variant.Text" Icon="@Icons.Material.Filled.Store" Class="mr-2">
+                        Sucursal: @(_isAdmin ? "Todas las sucursales" : _supervisorBranchName)
+                    </MudChip>
+                    <MudChip T="string" Color="Color.Success" Variant="Variant.Filled" Icon="@Icons.Material.Filled.AdminPanelSettings">
+                        @(_isAdmin ? $"Admin ({_supervisorName})" : _supervisorName)
+                    </MudChip>
+                }
+            </div>
+        </div>
 
         @if (_isSubmitting)
         {
@@ -116,45 +142,43 @@ else
                             </CardHeaderContent>
                         </MudCardHeader>
                         <MudCardContent>
-                            <MudSelect T="int" 
-                                    Label="Seleccione encargada" 
-                                    Value="_selectedSupervisorId" 
-                                    ValueChanged="@(async (int value) => await OnSupervisorChanged(value))"
-                                    Variant="Variant.Outlined"
-                                    AnchorOrigin="Origin.BottomCenter"
-                                    Class="mb-4"
-                                    Adornment="Adornment.Start"
-                                    AdornmentIcon="@Icons.Material.Filled.SupervisorAccount">
-                                @if (supervisors == null)
-                                {
-                                    <MudSelectItem T="int" Value="0">
-                                        <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
-                                        Cargando...
-                                    </MudSelectItem>
-                                }
-                                else
-                                {
-                                    <MudSelectItem T="int" Value="0">-- Seleccione una encargada --</MudSelectItem>
-                                    @foreach (var supervisor in supervisors)
+                            <MudPaper Elevation="0" Class="pa-3 rounded-lg border-light bg-light d-flex align-center mb-4">
+                                <MudIcon Icon="@Icons.Material.Filled.SupervisorAccount" Color="Color.Primary" Class="mr-3" />
+                                <div>
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">Encargada / Responsable</MudText>
+                                    <MudText Typo="Typo.body1" Class="font-weight-bold">@_supervisorName</MudText>
+                                    @if (!string.IsNullOrEmpty(_supervisorBranchName) && !_isAdmin)
                                     {
-                                        <MudSelectItem T="int" Value="@supervisor.Id">@supervisor.Name</MudSelectItem>
+                                        <MudText Typo="Typo.caption" Color="Color.Info">Sucursal: @_supervisorBranchName</MudText>
                                     }
-                                }
-                            </MudSelect>
+                                    else if (_isAdmin)
+                                    {
+                                        <MudText Typo="Typo.caption" Color="Color.Success">Todas las sucursales (Administrador)</MudText>
+                                    }
+                                </div>
+                            </MudPaper>
+
                             <MudSelect T="int" 
                                     Label="Seleccione caja" 
-                                    Value="_selectedCashRegisterId"
+                                    Value="_selectedCashRegisterId" 
                                     ValueChanged="@(async (int value) => await OnCashRegisterChanged(value))"
                                     Variant="Variant.Outlined"
                                     AnchorOrigin="Origin.BottomCenter"
                                     Class="mb-4"
-                                    Disabled="@(_selectedSupervisorId == 0)"
+                                    Disabled="@_isSubmitting"
                                     Adornment="Adornment.Start"
                                     AdornmentIcon="@Icons.Material.Filled.PointOfSale">
-                                @if (_availableBoxes == null || !_availableBoxes.Any())
+                                @if (_isLoadingBoxes)
                                 {
                                     <MudSelectItem T="int" Value="0">
-                                        @(_selectedSupervisorId == 0 ? "-- Seleccione una encargada primero --" : "-- No hay cajas con apertura disponibles --")
+                                        <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                                        Cargando cajas disponibles...
+                                    </MudSelectItem>
+                                }
+                                else if (_availableBoxes == null || !_availableBoxes.Any())
+                                {
+                                    <MudSelectItem T="int" Value="0">
+                                        -- No hay cajas con apertura disponibles --
                                     </MudSelectItem>
                                 }
                                 else
@@ -174,12 +198,12 @@ else
 
                             @if (!string.IsNullOrEmpty(_resolvedCashierName))
                             {
-                                <MudPaper Elevation="0" Class="pa-3 rounded-lg border-light bg-light d-flex align-center">
+                                <MudPaper Elevation="0" Class="pa-3 rounded-lg border-light bg-light d-flex align-center mb-4">
                                     <MudIcon Icon="@Icons.Material.Filled.Person" Color="Color.Secondary" Class="mr-2" />
                                     <MudText Typo="Typo.body1">Cajera asignada: <b>@_resolvedCashierName</b></MudText>
                                 </MudPaper>
                             }
-                            else if (_selectedSupervisorId > 0 && _selectedCashRegisterId > 0)
+                            else if (_selectedCashRegisterId > 0)
                             {
                                 <MudAlert Severity="Severity.Warning" Dense="true" Class="rounded-lg">
                                     No se pudo auto-resolver la cajera para este turno.
@@ -310,11 +334,11 @@ else
     private List<AvailableBoxDto> _availableBoxes = new();
     private int _selectedSupervisorId = 0;
     private int _selectedCashierId = 0;
-    private List<SupervisorDto>? supervisors;
     private string? _resolvedCashierName;
     private SupervisorDto? _selectedSupervisor;
     private bool _isSubmitting = false;
     private decimal _totalCollections = 0;
+    private bool _isLoadingBoxes = false;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -341,7 +365,81 @@ else
                 }
                 _isUserAuthenticated = true;
                 _isAdmin = user.IsInRole("Admin");
+                var username = user.Identity.Name ?? string.Empty;
+                var userDto = await UserService.GetByUsernameAsync(username);
+
+                // Intentar resolver supervisor desde el usuario
+                if (userDto != null)
+                {
+                    if (userDto.EmployeeNumber.HasValue)
+                    {
+                        _selectedSupervisor = await SupervisorService.GetByEmployeeNumberAsync(userDto.EmployeeNumber.Value);
+                    }
+                    if (_selectedSupervisor == null && !string.IsNullOrWhiteSpace(userDto.FullName))
+                    {
+                        _selectedSupervisor = await SupervisorService.GetByNameAsync(userDto.FullName);
+                    }
+                    if (_selectedSupervisor == null && !string.IsNullOrWhiteSpace(userDto.Username))
+                    {
+                        _selectedSupervisor = await SupervisorService.GetByNameAsync(userDto.Username);
+                    }
+
+                    if (_selectedSupervisor != null)
+                    {
+                        _selectedSupervisorId = _selectedSupervisor.Id;
+                        _supervisorName = _selectedSupervisor.Name;
+                        _supervisorBranchId = _selectedSupervisor.BranchId;
+                    }
+                    else
+                    {
+                        _supervisorName = !string.IsNullOrWhiteSpace(userDto.FullName) ? userDto.FullName : userDto.Username;
+                        _supervisorBranchId = userDto.BranchId ?? 0;
+
+                        // Si no existe el supervisor en base de datos, lo resolvemos o creamos para que el corte no falle
+                        try
+                        {
+                            var branchId = _supervisorBranchId > 0 ? _supervisorBranchId : 1;
+                            var empNum = userDto.EmployeeNumber ?? 9999;
+                            var createSupDto = new CreateSupervisorDto
+                            {
+                                EmployeeNumber = empNum,
+                                Name = _supervisorName,
+                                BranchId = branchId,
+                                IsActive = true
+                            };
+                            _selectedSupervisor = await SupervisorService.CreateAsync(createSupDto);
+                            _selectedSupervisorId = _selectedSupervisor.Id;
+                        }
+                        catch
+                        {
+                            var allSups = await SupervisorService.GetAllAsync();
+                            _selectedSupervisor = allSups.FirstOrDefault(s => s.EmployeeNumber == (userDto.EmployeeNumber ?? 0))
+                                                  ?? allSups.FirstOrDefault(s => s.BranchId == _supervisorBranchId && s.IsActive)
+                                                  ?? allSups.FirstOrDefault();
+                            if (_selectedSupervisor != null)
+                            {
+                                _selectedSupervisorId = _selectedSupervisor.Id;
+                            }
+                        }
+                    }
+                }
+                else
+                {
+                    _supervisorName = username;
+                }
+
+                if (_supervisorBranchId > 0)
+                {
+                    var branch = await BranchService.GetByIdAsync(_supervisorBranchId);
+                    _supervisorBranchName = branch?.Name ?? "Desconocida";
+                }
+                else
+                {
+                    _supervisorBranchName = _isAdmin ? "Todas las sucursales" : string.Empty;
+                }
+
                 StateHasChanged();
+                await CargarCajas();
                 return;
             }
 
@@ -353,6 +451,8 @@ else
                 if (supervisor != null && supervisor.IsActive)
                 {
                     _isSupervisorAuthenticated = true;
+                    _selectedSupervisor = supervisor;
+                    _selectedSupervisorId = supervisor.Id;
                     _supervisorBranchId = supervisor.BranchId;
                     _supervisorName = supervisor.Name;
                     
@@ -360,6 +460,7 @@ else
                     _supervisorBranchName = branches.FirstOrDefault(b => b.Id == supervisor.BranchId)?.Name ?? "Desconocida";
                     
                     StateHasChanged();
+                    await CargarCajas();
                     return;
                 }
             }
@@ -370,32 +471,27 @@ else
             Logger.LogError(ex, "Error al comprobar sesión de autenticación");
         }
     }
-    protected override async Task OnInitializedAsync()
+
+    private async Task CargarCajas()
     {
-        var result = await Mediator.Send(new GetSupervisorsQuery());
-        supervisors = result.ToList();
-    }
-
-    private async Task OnSupervisorChanged(int supervisorId)
-    {
-        _selectedSupervisorId = supervisorId;
-        _selectedCashierId = 0; 
-        _selectedCashRegisterId = 0;
-        _totalCollections = 0;
-        _resolvedCashierName = null;
-        _availableBoxes = new List<AvailableBoxDto>();
-
-        if (supervisorId > 0 && supervisors != null)
-        {
-            _selectedSupervisor = supervisors.FirstOrDefault(s => s.Id == supervisorId);
-            if (_selectedSupervisor != null)
-            {
-                var data = await Mediator.Send(new GetAvailableBoxesQuery(DateTime.Today, _selectedSupervisor.BranchId));
-                _availableBoxes = data.ToList();
-            }
-        }
-
+        _isLoadingBoxes = true;
         StateHasChanged();
+        try
+        {
+            int? branchFilter = _isAdmin ? null : (_supervisorBranchId > 0 ? _supervisorBranchId : (int?)null);
+            var data = await Mediator.Send(new GetAvailableBoxesQuery(DateTime.Today, branchFilter));
+            _availableBoxes = data.ToList();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error al cargar cajas disponibles");
+            Snackbar.Add("Error al cargar cajas disponibles", Severity.Error);
+        }
+        finally
+        {
+            _isLoadingBoxes = false;
+            StateHasChanged();
+        }
     }
 
     private async Task OnCashRegisterChanged(int cashRegisterId)
@@ -413,10 +509,20 @@ else
                 // Obtener recolecciones sin corte de esta caja
                 await LoadCollectionsTotal(selectedBox.Name);
 
-                // Obtener cajera automática según el CashierId del turno
-                if (_selectedSupervisor != null)
+                // Resolver el ID de sucursal de la caja
+                int boxBranchId = _supervisorBranchId;
+                if (boxBranchId <= 0 || _isAdmin)
                 {
-                    var cashier = await Mediator.Send(new GetCashierByContpaqIdQuery(_selectedSupervisor.BranchId, selectedBox.CashierId));
+                    var register = await CashRegisterService.GetByIdAsync(cashRegisterId);
+                    if (register != null && register.BranchId > 0)
+                    {
+                        boxBranchId = register.BranchId;
+                    }
+                }
+
+                if (boxBranchId > 0)
+                {
+                    var cashier = await Mediator.Send(new GetCashierByContpaqIdQuery(boxBranchId, selectedBox.CashierId));
                     if (cashier != null)
                     {
                         _selectedCashierId = cashier.Id;
@@ -450,9 +556,19 @@ else
     private async Task HacerCorte()
     {
         if (_isSubmitting) return;
-        if (_selectedSupervisorId == 0 || _selectedCashierId == 0 || _selectedCashRegisterId == 0)
+        if (_selectedCashRegisterId == 0)
         {
-            Snackbar.Add("❗ Debe seleccionar encargada, cajera y caja.", Severity.Warning);
+            Snackbar.Add("❗ Debe seleccionar una caja registradora.", Severity.Warning);
+            return;
+        }
+        if (_selectedCashierId == 0)
+        {
+            Snackbar.Add("❗ No se pudo auto-resolver la cajera para este turno.", Severity.Warning);
+            return;
+        }
+        if (_selectedSupervisorId == 0)
+        {
+            Snackbar.Add("❗ No se pudo resolver la encargada responsable.", Severity.Warning);
             return;
         }
         _isSubmitting = true;
@@ -481,6 +597,8 @@ else
                 {
                     Snackbar.Add($"⚠️ Corte guardado, pero {result.Message}", Severity.Warning);
                 }
+                ResetForm();
+                await CargarCajas();
             }
             else
             {
@@ -493,19 +611,17 @@ else
         }
         finally
         {
-            ResetForm();
             _isSubmitting = false;
+            StateHasChanged();
         }
     }
 
     private void ResetForm()
     {
-        _selectedSupervisorId = 0;
-        _selectedCashierId = 0;
         _selectedCashRegisterId = 0;
+        _selectedCashierId = 0;
         _totalCollections = 0;
         _resolvedCashierName = null;
-        _availableBoxes = new List<AvailableBoxDto>();
         model = new CashCutViewModel();
     }
 
@@ -513,6 +629,7 @@ else
     {
         return FinancialCalculator.CalculateCashToDeliver(model.TotalSlips, model.TotalBanbajio, model.TotalBanregio, _totalCollections);
     }
+
     private async Task ValidarNomina()
     {
         if (_employeeNumberInput <= 0)
@@ -540,6 +657,8 @@ else
             {
                 // Authenticated successfully!
                 _isSupervisorAuthenticated = true;
+                _selectedSupervisor = supervisor;
+                _selectedSupervisorId = supervisor.Id;
                 _supervisorBranchId = supervisor.BranchId;
                 _supervisorName = supervisor.Name;
                 
@@ -550,6 +669,7 @@ else
                 await JSRuntime.InvokeVoidAsync("sessionStorage.setItem", "supervisor_nomina", _employeeNumberInput.ToString());
                 
                 Snackbar.Add($"Bienvenida, {supervisor.Name}", Severity.Success);
+                await CargarCajas();
             }
         }
         catch (Exception ex)
@@ -562,6 +682,25 @@ else
             _checkingSupervisor = false;
             StateHasChanged();
         }
+    }
+
+    private async Task LogoutSupervisor()
+    {
+        _isSupervisorAuthenticated = false;
+        _selectedSupervisor = null;
+        _selectedSupervisorId = 0;
+        _supervisorBranchId = 0;
+        _supervisorName = string.Empty;
+        _supervisorBranchName = string.Empty;
+        _employeeNumberInput = 0;
+        _availableBoxes.Clear();
+        _selectedCashRegisterId = 0;
+        _selectedCashierId = 0;
+        _resolvedCashierName = null;
+        
+        await JSRuntime.InvokeVoidAsync("sessionStorage.removeItem", "supervisor_nomina");
+        Snackbar.Add("Sesión cerrada", Severity.Info);
+        StateHasChanged();
     }
 
     public class CashCutViewModel

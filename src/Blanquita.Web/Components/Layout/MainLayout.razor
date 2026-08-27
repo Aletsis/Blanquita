@@ -48,7 +48,7 @@
                 <MudButton Variant="Variant.Filled" 
                            Color="Color.Primary" 
                            Size="Size.Medium"
-                           Href="/login" 
+                           OnClick="NavigateToLogin" 
                            StartIcon="@Icons.Material.Filled.Login"
                            Class="rounded-pill px-6 shadow-md">
                     Iniciar Sesión
@@ -136,6 +136,22 @@
     private void Logout()
     {
         Navigation.NavigateTo("/Account/logout", forceLoad: true);
+    }
+
+    private void NavigateToLogin()
+    {
+        var uri = Navigation.ToAbsoluteUri(Navigation.Uri);
+        var returnUrl = uri.PathAndQuery;
+        if (!string.IsNullOrEmpty(returnUrl) && 
+            !returnUrl.StartsWith("/login", StringComparison.OrdinalIgnoreCase) && 
+            returnUrl != "/")
+        {
+            Navigation.NavigateTo($"login?returnUrl={Uri.EscapeDataString(returnUrl)}");
+        }
+        else
+        {
+            Navigation.NavigateTo("login");
+        }
     }
 
     private MudTheme _theme = new()

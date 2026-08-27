@@ -82,6 +82,10 @@
         isPasswordVisible = !isPasswordVisible;
     }
 
+    [SupplyParameterFromQuery(Name = "returnUrl")]
+    [Parameter]
+    public string? ReturnUrl { get; set; }
+
     private async Task OnValidSubmit()
     {
         isLoading = true;
@@ -89,7 +93,7 @@
 
         try
         {
-             await JSRuntime.InvokeVoidAsync("submitLoginForm", "/Account/login", model.Username, model.Password);
+             await JSRuntime.InvokeVoidAsync("submitLoginForm", "/Account/login", model.Username, model.Password, ReturnUrl);
         }
         catch (Exception ex)
         {
@@ -101,7 +105,9 @@
     protected override void OnInitialized()
     {
         var uri = Navigation.ToAbsoluteUri(Navigation.Uri);
-        if (Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(uri.Query).TryGetValue("error", out var error))
+        var query = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(uri.Query);
+
+        if (query.TryGetValue("error", out var error))
         {
             errorMessage = error.ToString() switch
             {
@@ -109,6 +115,11 @@
                 "DatosRequeridos" => "Por favor complete todos los campos",
                 _ => "Error desconocido al iniciar sesión"
             };
+        }
+
+        if (string.IsNullOrEmpty(ReturnUrl) && query.TryGetValue("returnUrl", out var rUrl))
+        {
+            ReturnUrl = rUrl.ToString();
         }
     }
 

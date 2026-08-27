@@ -2,11 +2,17 @@
 @code {
     protected override void OnInitialized()
     {
-        var returnUrl = Navigation.Uri;
+        var uri = Navigation.ToAbsoluteUri(Navigation.Uri);
+        var returnUrl = uri.PathAndQuery;
+
         // Avoid loop if already on login
-        if (!returnUrl.Contains("login"))
+        if (!returnUrl.StartsWith("/login", StringComparison.OrdinalIgnoreCase) && returnUrl != "/")
         {
             Navigation.NavigateTo($"login?returnUrl={Uri.EscapeDataString(returnUrl)}", forceLoad: true);
+        }
+        else if (!returnUrl.StartsWith("/login", StringComparison.OrdinalIgnoreCase))
+        {
+            Navigation.NavigateTo("login", forceLoad: true);
         }
     }
 }
