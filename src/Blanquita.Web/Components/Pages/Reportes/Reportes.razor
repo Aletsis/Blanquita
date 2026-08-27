@@ -1,4 +1,4 @@
-﻿@page "/reportes"
+@page "/reportes"
 @using Microsoft.AspNetCore.Authorization
 @attribute [Authorize(Roles = "Admin")]
 @using System.ComponentModel.DataAnnotations
@@ -16,6 +16,7 @@
 @inject IJSRuntime JS
 @inject ILogger<Reportes> Logger
 @inject IBranchService BranchService
+@inject AuthenticationStateProvider AuthStateProvider
 
 <PageTitle>Generar Reportes - Sistema de Reportes</PageTitle>
 
@@ -433,6 +434,10 @@
 
         try
         {
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            var currentUser = authState.User;
+            var userName = currentUser.FindFirst("FullName")?.Value ?? currentUser.Identity?.Name ?? "Admin";
+
             var sucursal = Sucursal.Create(sucursalReporte!.Code, sucursalReporte!.Name);
             var detalles = datosReporte.Select(d => DetalleReporte.Crear(
                 d.Fecha, 
@@ -447,7 +452,8 @@
                 fechaReporte!.Value,
                 totalSistema,
                 totalCorteManual ?? 0,
-                detalles
+                detalles,
+                userName
             );
 
             if (!string.IsNullOrEmpty(notasReporte))

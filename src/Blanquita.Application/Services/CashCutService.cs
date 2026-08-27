@@ -164,13 +164,33 @@ public class CashCutService : ICashCutService
         var register = await _cashRegisterService.GetByIdAsync(request.CashRegisterId, cancellationToken);
         if (register == null) throw new InvalidOperationException($"Register {request.CashRegisterId} not found");
 
-        var supervisor = await _supervisorService.GetByIdAsync(request.SupervisorId, cancellationToken);
-        if (supervisor == null) throw new InvalidOperationException($"Supervisor {request.SupervisorId} not found");
+        string supervisorName = request.SupervisorName ?? string.Empty;
+        int branchId = request.BranchId ?? 0;
+
+        if (request.SupervisorId > 0)
+        {
+            var supervisor = await _supervisorService.GetByIdAsync(request.SupervisorId, cancellationToken);
+            if (supervisor != null)
+            {
+                supervisorName = supervisor.Name;
+                if (branchId <= 0) branchId = supervisor.BranchId;
+            }
+        }
+
+        if (string.IsNullOrWhiteSpace(supervisorName))
+        {
+            supervisorName = "Usuario";
+        }
+
+        if (branchId <= 0)
+        {
+            branchId = register.BranchId;
+        }
 
         var cashier = await _cashierService.GetByIdAsync(request.CashierId, cancellationToken);
         if (cashier == null) throw new InvalidOperationException($"Cashier {request.CashierId} not found");
         
-        var branch = await _branchService.GetByIdAsync(supervisor.BranchId, cancellationToken);
+        var branch = await _branchService.GetByIdAsync(branchId, cancellationToken);
         var branchName = branch?.Name ?? "Unknown";
 
         // 2. Fetch Collections
@@ -213,7 +233,7 @@ public class CashCutService : ICashCutService
             TotalBanbajio = request.TotalBanbajio,
             TotalBanregio = request.TotalBanregio,
             CashRegisterName = register.Name,
-            SupervisorName = supervisor.Name,
+            SupervisorName = supervisorName,
             CashierName = cashier.Name, 
             BranchName = branchName
         };

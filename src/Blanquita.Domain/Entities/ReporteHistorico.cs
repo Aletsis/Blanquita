@@ -13,6 +13,7 @@ public class ReporteHistorico : BaseEntity
     public decimal TotalSistema { get; private set; }
     public decimal TotalCorteManual { get; private set; }
     public string Notas { get; private set; }
+    public string Usuario { get; private set; }
     public DateTime FechaGeneracion { get; private set; }
 
     private readonly List<DetalleReporte> _detalles = new();
@@ -27,6 +28,7 @@ public class ReporteHistorico : BaseEntity
     private ReporteHistorico() 
     { 
         Notas = string.Empty;
+        Usuario = string.Empty;
     } // Para EF Core
 
     private ReporteHistorico(
@@ -34,7 +36,8 @@ public class ReporteHistorico : BaseEntity
         DateTime fecha,
         decimal totalSistema,
         decimal totalCorteManual,
-        List<DetalleReporte> detalles)
+        List<DetalleReporte> detalles,
+        string? usuario = null)
     {
         Sucursal = sucursal ?? throw new ArgumentNullException(nameof(sucursal));
         Fecha = fecha.ToUniversalTime();
@@ -42,6 +45,7 @@ public class ReporteHistorico : BaseEntity
         TotalCorteManual = totalCorteManual;
         FechaGeneracion = DateTime.UtcNow;
         Notas = string.Empty;
+        Usuario = usuario ?? string.Empty;
         _detalles = detalles ?? new List<DetalleReporte>();
     }
 
@@ -53,7 +57,8 @@ public class ReporteHistorico : BaseEntity
         DateTime fecha,
         decimal totalSistema,
         decimal totalCorteManual,
-        List<DetalleReporte> detalles)
+        List<DetalleReporte> detalles,
+        string? usuario = null)
     {
         if (sucursal == null)
             throw new ArgumentNullException(nameof(sucursal));
@@ -67,7 +72,7 @@ public class ReporteHistorico : BaseEntity
         if (fecha > DateTime.Now)
             throw new ArgumentException("La fecha del reporte no puede ser futura", nameof(fecha));
 
-        return new ReporteHistorico(sucursal, fecha, totalSistema, totalCorteManual, detalles);
+        return new ReporteHistorico(sucursal, fecha, totalSistema, totalCorteManual, detalles, usuario);
     }
 
     /// <summary>

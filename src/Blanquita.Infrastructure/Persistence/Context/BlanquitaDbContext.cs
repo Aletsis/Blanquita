@@ -330,6 +330,7 @@ public class BlanquitaDbContext : IdentityDbContext<ApplicationUser>
             entity.Property(e => e.TotalSistema).HasColumnName("TotalSistema").HasColumnType("decimal(18,2)").IsRequired();
             entity.Property(e => e.TotalCorteManual).HasColumnName("TotalCorteManual").HasColumnType("decimal(18,2)").IsRequired();
             entity.Property(e => e.Notas).HasColumnName("Notas").HasMaxLength(1000);
+            entity.Property(e => e.Usuario).HasColumnName("Usuario").HasMaxLength(100);
             entity.Property(e => e.FechaGeneracion).HasColumnName("FechaGeneracion").IsRequired();
 
             entity.Ignore(e => e.Diferencia); 

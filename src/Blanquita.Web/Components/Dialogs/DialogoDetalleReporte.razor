@@ -1,4 +1,4 @@
-﻿@using Blanquita.Domain.Entities
+@using Blanquita.Domain.Entities
 
 <MudDialog>
     <DialogContent>
@@ -36,6 +36,10 @@
                         <MudItem xs="12" md="6">
                             <MudText Typo="Typo.caption" Color="Color.Secondary">Generado el</MudText>
                             <MudText Typo="Typo.body1">@Reporte.FechaGeneracion.ToLocalTime().ToString("dd/MM/yyyy HH:mm:ss")</MudText>
+                        </MudItem>
+                        <MudItem xs="12" md="6">
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">Generado por</MudText>
+                            <MudText Typo="Typo.body1">@(string.IsNullOrWhiteSpace(Reporte.Usuario) ? "Sistema" : Reporte.Usuario)</MudText>
                         </MudItem>
                         
                         @if (!string.IsNullOrWhiteSpace(Reporte.Notas))

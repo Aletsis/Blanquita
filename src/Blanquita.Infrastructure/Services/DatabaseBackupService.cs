@@ -36,7 +36,7 @@ public class DatabaseBackupService : IDatabaseBackupService
         var username = builder.Username ?? "postgres";
         var password = builder.Password ?? "";
 
-        var pgDumpPath = FindPgToolPath("pg_dump.exe");
+        var pgDumpPath = FindPgToolPath("pg_dump");
 
         var backupDir = destinationDirectory;
         if (string.IsNullOrEmpty(backupDir))
@@ -117,7 +117,7 @@ public class DatabaseBackupService : IDatabaseBackupService
         var username = builder.Username ?? "postgres";
         var password = builder.Password ?? "";
 
-        var pgRestorePath = FindPgToolPath("pg_restore.exe");
+        var pgRestorePath = FindPgToolPath("pg_restore");
 
         _logger.LogInformation("Preparando la base de datos para la restauración de {Path}", backupFilePath);
 
@@ -222,8 +222,11 @@ public class DatabaseBackupService : IDatabaseBackupService
         return Task.FromResult(backupDir);
     }
 
-    private string FindPgToolPath(string toolName)
+    private string FindPgToolPath(string baseToolName)
     {
+        var isWindows = OperatingSystem.IsWindows();
+        var toolName = isWindows ? $"{baseToolName}.exe" : baseToolName;
+
         // 1. Verificar si está en la configuración
         var configPath = _configuration["DatabaseBackup:PostgresBinPath"];
         if (!string.IsNullOrEmpty(configPath))
@@ -232,12 +235,24 @@ public class DatabaseBackupService : IDatabaseBackupService
             if (File.Exists(fullPath)) return fullPath;
         }
 
-        // 2. Verificar rutas de instalación estándar en Windows
-        var standardVersions = new[] { "17", "16", "15", "14", "13", "12" };
-        foreach (var version in standardVersions)
+        // 2. Verificar rutas de instalación estándar
+        if (isWindows)
         {
-            var standardPath = Path.Combine(@"C:\Program Files\PostgreSQL", version, "bin", toolName);
-            if (File.Exists(standardPath)) return standardPath;
+            var standardVersions = new[] { "17", "16", "15", "14", "13", "12" };
+            foreach (var version in standardVersions)
+            {
+                var standardPath = Path.Combine(@"C:\Program Files\PostgreSQL", version, "bin", toolName);
+                if (File.Exists(standardPath)) return standardPath;
+            }
+        }
+        else
+        {
+            var standardPaths = new[] { "/usr/bin", "/usr/local/bin", "/usr/local/pgsql/bin" };
+            foreach (var path in standardPaths)
+            {
+                var fullPath = Path.Combine(path, toolName);
+                if (File.Exists(fullPath)) return fullPath;
+            }
         }
 
         // 3. Buscar en el PATH del sistema

@@ -67,6 +67,8 @@ public record CreateCashCutDto
 public record ProcessCashCutRequest
 {
     public int SupervisorId { get; init; }
+    public string? SupervisorName { get; init; }
+    public int? BranchId { get; init; }
     public int CashierId { get; init; }
     public int CashRegisterId { get; init; }
     public decimal TotalSlips { get; init; }

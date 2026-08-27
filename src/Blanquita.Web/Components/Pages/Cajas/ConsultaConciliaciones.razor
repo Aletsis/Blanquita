@@ -5,6 +5,7 @@
 @using MediatR
 @using Microsoft.AspNetCore.Authorization
 @using Microsoft.AspNetCore.Components.Authorization
+@attribute [Authorize(Roles = "Admin,Supervisor")]
 @inject IBranchService BranchService
 @inject ISupervisorService SupervisorService
 @inject AuthenticationStateProvider AuthStateProvider
@@ -17,101 +18,22 @@
 
 <PageTitle>Consulta de Conciliaciones</PageTitle>
 
-@if (!IsUserAuthorized)
-{
-    <!-- Pantalla de Autenticación Inline por Nómina -->
-    <MudContainer MaxWidth="MaxWidth.Small" Class="d-flex align-center justify-center animate-fade-in" Style="min-height: 80vh;">
-        <MudPaper Elevation="8" Class="pa-8 rounded-xl" Style="width: 100%; max-width: 450px;">
-            <MudStack Spacing="4">
-                <MudStack AlignItems="AlignItems.Center" Spacing="2">
-                    <MudAvatar Color="Color.Primary" Size="Size.Large" Style="width: 70px; height: 70px;">
-                        <MudIcon Icon="@Icons.Material.Filled.SupervisorAccount" Size="Size.Large" />
-                    </MudAvatar>
-                    <MudText Typo="Typo.h5" Align="Align.Center" Class="font-weight-bold">Acceso de Encargada</MudText>
-                    <MudText Typo="Typo.body2" Align="Align.Center" Color="Color.Secondary">
-                        Ingrese su número de nómina para consultar el historial de conciliaciones
-                    </MudText>
-                </MudStack>
-
-                <EditForm Model="this" OnValidSubmit="ValidarNomina">
-                    <MudStack Spacing="3">
-                        <MudNumericField @bind-Value="_employeeNumberInput"
-                                         Label="Número de Nómina"
-                                         Variant="Variant.Outlined"
-                                         Min="1"
-                                         Required="true"
-                                         Adornment="Adornment.Start"
-                                         AdornmentIcon="@Icons.Material.Filled.Numbers"
-                                         HideSpinButtons="true" />
-
-                        @if (!string.IsNullOrEmpty(_authErrorMessage))
-                        {
-                            <MudAlert Severity="Severity.Error" Dense="true" Class="rounded-lg">@_authErrorMessage</MudAlert>
-                        }
-
-                        <MudButton ButtonType="ButtonType.Submit"
-                                   Variant="Variant.Filled"
-                                   Color="Color.Primary"
-                                   FullWidth="true"
-                                   Size="Size.Large"
-                                   Class="rounded-xl mt-2"
-                                   Disabled="@_checkingSupervisor">
-                            @if (_checkingSupervisor)
-                            {
-                                <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true" />
-                                <MudText Class="ms-2">Validando...</MudText>
-                            }
-                            else
-                            {
-                                <MudText>Ingresar</MudText>
-                            }
-                        </MudButton>
-
-                        <MudDivider Class="my-2" />
-
-                        <MudButton Variant="Variant.Text"
-                                   Color="Color.Secondary"
-                                   FullWidth="true"
-                                   StartIcon="@Icons.Material.Filled.Login"
-                                   Href="/login?returnUrl=/consulta-conciliaciones"
-                                   Class="rounded-xl">
-                            Cambiar a login de usuario
-                        </MudButton>
-                    </MudStack>
-                </EditForm>
-            </MudStack>
-        </MudPaper>
-    </MudContainer>
-}
-else
-{
-    <!-- Contenido de la Página Principal -->
-    <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-6 animate-fade-in">
-        <div class="d-flex flex-column flex-sm-row justify-space-between align-start align-sm-center mb-6">
-            <MudText Typo="Typo.h4" Class="font-weight-bold mb-2 mb-sm-0" Color="Color.Primary">
-                <MudIcon Icon="@Icons.Material.Filled.ListAlt" Class="mr-2" Size="Size.Large" />
-                Consulta de Conciliaciones
-            </MudText>
-            
-            <div class="d-flex align-center">
-                @if (_isSupervisorAuthenticated)
-                {
-                    <MudChip T="string" Color="Color.Info" Variant="Variant.Text" Icon="@Icons.Material.Filled.Store" Class="mr-2">
-                        Sucursal: @_supervisorBranchName
-                    </MudChip>
-                    <MudChip T="string" Color="Color.Primary" Variant="Variant.Filled" Icon="@Icons.Material.Filled.Person">
-                        @_supervisorName
-                    </MudChip>
-                    <MudIconButton Icon="@Icons.Material.Filled.Logout" Color="Color.Error" OnClick="LogoutSupervisor" Class="ml-1" Title="Salir" />
-                }
-                else
-                {
-                    <MudChip T="string" Color="Color.Success" Variant="Variant.Filled" Icon="@Icons.Material.Filled.AdminPanelSettings">
-                        Administrador
-                    </MudChip>
-                }
-            </div>
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-6 animate-fade-in">
+    <div class="d-flex flex-column flex-sm-row justify-space-between align-start align-sm-center mb-6">
+        <MudText Typo="Typo.h4" Class="font-weight-bold mb-2 mb-sm-0" Color="Color.Primary">
+            <MudIcon Icon="@Icons.Material.Filled.ListAlt" Class="mr-2" Size="Size.Large" />
+            Consulta de Conciliaciones
+        </MudText>
+        
+        <div class="d-flex align-center">
+            <MudChip T="string" Color="Color.Info" Variant="Variant.Text" Icon="@Icons.Material.Filled.Store" Class="mr-2">
+                Sucursal: @(_isAdmin && _supervisorBranchId <= 0 ? "Todas las sucursales" : _supervisorBranchName)
+            </MudChip>
+            <MudChip T="string" Color="@(_isAdmin ? Color.Success : Color.Primary)" Variant="Variant.Filled" Icon="@(_isAdmin ? Icons.Material.Filled.AdminPanelSettings : Icons.Material.Filled.Person)">
+                @_supervisorName
+            </MudChip>
         </div>
+    </div>
 
         <!-- Panel de Búsqueda y Filtros -->
         <MudPaper Elevation="4" Class="pa-4 pa-sm-6 rounded-xl mb-6 bg-light border-light shadow-sm">
@@ -353,7 +275,6 @@ else
             </MudPaper>
         }
     </MudContainer>
-}
 
 <style>
     .animate-fade-in { animation: fadeIn 0.5s ease-out; }
@@ -391,20 +312,12 @@ else
 </style>
 
 @code {
-    // Autenticación por nómina
-    private int _employeeNumberInput;
-    private bool _checkingSupervisor;
-    private string _authErrorMessage = string.Empty;
-    private bool _isSupervisorAuthenticated;
-    private bool _isUserAuthenticated;
     private bool _isAdmin;
-    
     private int _supervisorBranchId;
     private string _supervisorBranchName = string.Empty;
     private string _supervisorName = string.Empty;
 
-    private bool IsUserAuthorized => _isUserAuthenticated || _isSupervisorAuthenticated;
-    private bool _isSupervisorBranchLocked => _isSupervisorAuthenticated;
+    private bool _isSupervisorBranchLocked => !_isAdmin && _supervisorBranchId > 0;
 
     // Filtros e Historial
     private List<BranchDto> _branches = new();
@@ -421,129 +334,44 @@ else
     private int _pendingBoxesCount = 0;
     private bool _exporting = false;
 
-    protected override async Task OnAfterRenderAsync(bool firstRender)
+    protected override async Task OnInitializedAsync()
     {
-        if (firstRender)
-        {
-            await CheckAuthSession();
-        }
+        await LoadUserSessionAsync();
     }
 
-    private async Task CheckAuthSession()
+    private async Task LoadUserSessionAsync()
     {
         try
         {
-            // 1. Validar si está logueado como usuario estándar en el sistema
             var authState = await AuthStateProvider.GetAuthenticationStateAsync();
             var user = authState.User;
-            if (user.Identity?.IsAuthenticated == true)
-            {
-                if (!user.IsInRole("Admin") && !user.IsInRole("Supervisor"))
-                {
-                    _authErrorMessage = "No tienes permisos para acceder a esta sección.";
-                    StateHasChanged();
-                    return; // Cae al formulario de nómina
-                }
-                _isUserAuthenticated = true;
-                _isAdmin = user.IsInRole("Admin");
-                StateHasChanged();
-                await CargarSucursales();
-                return;
-            }
+            _isAdmin = user.IsInRole("Admin");
+            
+            var fullNameClaim = user.FindFirst("FullName")?.Value;
+            var branchIdClaim = user.FindFirst("BranchId")?.Value;
+            var username = user.Identity?.Name ?? string.Empty;
 
-            // 2. Si no, validar si está logueado temporalmente por número de nómina en sessionStorage
-            var storedNominaStr = await JSRuntime.InvokeAsync<string>("sessionStorage.getItem", "supervisor_nomina");
-            if (int.TryParse(storedNominaStr, out int storedNomina))
-            {
-                var supervisor = await SupervisorService.GetByEmployeeNumberAsync(storedNomina);
-                if (supervisor != null && supervisor.IsActive)
-                {
-                    _isSupervisorAuthenticated = true;
-                    _supervisorBranchId = supervisor.BranchId;
-                    _supervisorName = supervisor.Name;
-                    
-                    var branches = await BranchService.GetAllAsync();
-                    _supervisorBranchName = branches.FirstOrDefault(b => b.Id == supervisor.BranchId)?.Name ?? "Desconocida";
-                    
-                    StateHasChanged();
-                    await CargarSucursales();
-                    return;
-                }
-            }
-            StateHasChanged();
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Error al comprobar sesión de autenticación");
-        }
-    }
+            _supervisorName = !string.IsNullOrWhiteSpace(fullNameClaim) ? fullNameClaim : username;
 
-    private async Task ValidarNomina()
-    {
-        if (_employeeNumberInput <= 0)
-        {
-            _authErrorMessage = "Por favor ingrese un número de nómina válido";
-            return;
-        }
-
-        _checkingSupervisor = true;
-        _authErrorMessage = string.Empty;
-        StateHasChanged();
-
-        try
-        {
-            var supervisor = await SupervisorService.GetByEmployeeNumberAsync(_employeeNumberInput);
-            if (supervisor == null)
+            if (int.TryParse(branchIdClaim, out int branchId) && branchId > 0)
             {
-                _authErrorMessage = "El número de nómina no coincide con ninguna encargada registrada";
-            }
-            else if (!supervisor.IsActive)
-            {
-                _authErrorMessage = "La encargada no se encuentra activa en el sistema";
+                _supervisorBranchId = branchId;
+                var branch = await BranchService.GetByIdAsync(branchId);
+                _supervisorBranchName = branch?.Name ?? "Desconocida";
             }
             else
             {
-                // Authenticated successfully!
-                _isSupervisorAuthenticated = true;
-                _supervisorBranchId = supervisor.BranchId;
-                _supervisorName = supervisor.Name;
-                
-                var branches = await BranchService.GetAllAsync();
-                _supervisorBranchName = branches.FirstOrDefault(b => b.Id == supervisor.BranchId)?.Name ?? "Desconocida";
-
-                // Guardar en sessionStorage
-                await JSRuntime.InvokeVoidAsync("sessionStorage.setItem", "supervisor_nomina", _employeeNumberInput.ToString());
-                
-                Snackbar.Add($"Bienvenida, {supervisor.Name}", Severity.Success);
-                await CargarSucursales();
+                _supervisorBranchId = 0;
+                _supervisorBranchName = _isAdmin ? "Todas las sucursales" : string.Empty;
             }
+
+            await CargarSucursales();
         }
         catch (Exception ex)
         {
-            Logger.LogError(ex, "Error al validar la nómina de la encargada");
-            _authErrorMessage = $"Error: {ex.Message}";
+            Logger.LogError(ex, "Error al cargar sesión de usuario en Consulta de Conciliaciones");
+            Snackbar.Add("Error al cargar la información del usuario", Severity.Error);
         }
-        finally
-        {
-            _checkingSupervisor = false;
-            StateHasChanged();
-        }
-    }
-
-    private async Task LogoutSupervisor()
-    {
-        _isSupervisorAuthenticated = false;
-        _supervisorBranchId = 0;
-        _supervisorName = string.Empty;
-        _supervisorBranchName = string.Empty;
-        _employeeNumberInput = 0;
-        _branches.Clear();
-        _selectedBranch = string.Empty;
-        _conciliaciones = null;
-        
-        await JSRuntime.InvokeVoidAsync("sessionStorage.removeItem", "supervisor_nomina");
-        Snackbar.Add("Sesión cerrada", Severity.Info);
-        StateHasChanged();
     }
 
     private async Task CargarSucursales()
@@ -553,7 +381,7 @@ else
             var result = await BranchService.GetAllAsync();
             _branches = result.ToList();
             
-            if (_isSupervisorAuthenticated)
+            if (!_isAdmin && _supervisorBranchId > 0)
             {
                 var favBranch = _branches.FirstOrDefault(b => b.Id == _supervisorBranchId);
                 if (favBranch != null)

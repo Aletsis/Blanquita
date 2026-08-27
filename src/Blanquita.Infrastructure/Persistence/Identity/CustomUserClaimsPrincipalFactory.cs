@@ -22,6 +22,14 @@ public class CustomUserClaimsPrincipalFactory : UserClaimsPrincipalFactory<Appli
         {
             identity.AddClaim(new Claim("BranchId", user.BranchId.Value.ToString()));
         }
+        if (!string.IsNullOrWhiteSpace(user.FullName))
+        {
+            identity.AddClaim(new Claim("FullName", user.FullName));
+        }
+        if (user.EmployeeNumber.HasValue)
+        {
+            identity.AddClaim(new Claim("EmployeeNumber", user.EmployeeNumber.Value.ToString()));
+        }
         return identity;
     }
 }
