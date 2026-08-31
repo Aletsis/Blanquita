@@ -1,0 +1,111 @@
+@using Blanquita.Application.DTOs
+@inject ISnackbar Snackbar
+
+<MudDialog MaxWidth="MaxWidth.Small" FullWidth="true">
+    <TitleContent>
+        <div class="d-flex align-center">
+            <MudIcon Icon="@Icons.Material.Filled.MoneyOff" Color="Color.Error" Class="mr-2" />
+            <MudText Typo="Typo.h6" Class="font-weight-bold">Registrar Salida de Efectivo</MudText>
+        </div>
+    </TitleContent>
+    <DialogContent>
+        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
+            Ingrese los datos de la salida o gasto de efectivo efectuado durante el turno.
+        </MudText>
+
+        <MudForm @ref="_form" @bind-IsValid="_isValid">
+            <MudStack Spacing="3">
+                <MudNumericField T="decimal" 
+                                @bind-Value="_monto" 
+                                Label="Monto de Salida ($)" 
+                                Variant="Variant.Outlined" 
+                                Culture="@_culture" 
+                                Format="N2" 
+                                HideSpinButtons="true" 
+                                Margin="Margin.Dense" 
+                                Required="true" 
+                                RequiredError="El monto es requerido." 
+                                Adornment="Adornment.Start" 
+                                AdornmentIcon="@Icons.Material.Filled.AttachMoney" />
+
+                <MudTextField T="string" 
+                              @bind-Value="_motivo" 
+                              Label="Motivo / Concepto" 
+                              Variant="Variant.Outlined" 
+                              Margin="Margin.Dense" 
+                              Required="true" 
+                              RequiredError="El motivo es obligatorio." 
+                              MaxLength="250" 
+                              Placeholder="Ej. Compra de insumos, pago de servicio local..." 
+                              Lines="2" />
+
+                <MudTextField T="string" 
+                              @bind-Value="_quienAutoriza" 
+                              Label="¿Quién Autoriza?" 
+                              Variant="Variant.Outlined" 
+                              Margin="Margin.Dense" 
+                              Required="true" 
+                              RequiredError="Especifique quién autorizó el movimiento." 
+                              MaxLength="100" 
+                              Placeholder="Ej. Nombre del Supervisor o Encargado" 
+                              Adornment="Adornment.Start" 
+                              AdornmentIcon="@Icons.Material.Filled.VerifiedUser" />
+            </MudStack>
+        </MudForm>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancelar</MudButton>
+        <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="Submit" Disabled="@(!_isValid || _monto <= 0)">
+            Agregar Salida
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = null!;
+
+    [Parameter] public string UsuarioActual { get; set; } = string.Empty;
+
+    private MudForm _form = null!;
+    private bool _isValid;
+    private decimal _monto;
+    private string _motivo = string.Empty;
+    private string _quienAutoriza = string.Empty;
+    private System.Globalization.CultureInfo _culture = System.Globalization.CultureInfo.GetCultureInfo("es-MX");
+
+    protected override void OnInitialized()
+    {
+        if (!string.IsNullOrWhiteSpace(UsuarioActual))
+        {
+            _quienAutoriza = UsuarioActual;
+        }
+    }
+
+    private void Submit()
+    {
+        if (_monto <= 0)
+        {
+            Snackbar.Add("El monto debe ser mayor a 0", Severity.Warning);
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(_motivo) || string.IsNullOrWhiteSpace(_quienAutoriza))
+        {
+            Snackbar.Add("Complete todos los campos obligatorios", Severity.Warning);
+            return;
+        }
+
+        var salida = new ConciliacionSalidaEfectivoDto
+        {
+            Monto = Math.Round(_monto, 2, MidpointRounding.AwayFromZero),
+            Motivo = _motivo.Trim(),
+            QuienAutoriza = _quienAutoriza.Trim(),
+            FechaCreacion = DateTime.UtcNow,
+            UsuarioCreacion = UsuarioActual
+        };
+
+        MudDialog.Close(DialogResult.Ok(salida));
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+}

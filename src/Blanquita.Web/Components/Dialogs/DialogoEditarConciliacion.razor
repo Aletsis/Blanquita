@@ -1,0 +1,386 @@
+@using Blanquita.Application.Commands.Conciliaciones
+@using Blanquita.Application.DTOs
+@using Blanquita.Application.Interfaces
+@using MediatR
+@inject IConciliacionService ConciliacionService
+@inject IMediator Mediator
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+@inject ILogger<DialogoEditarConciliacion> Logger
+
+<MudDialog MaxWidth="MaxWidth.Medium" FullWidth="true">
+    <TitleContent>
+        <div class="d-flex align-center">
+            <MudIcon Icon="@Icons.Material.Filled.EditCalendar" Color="Color.Primary" Class="mr-2" />
+            <div>
+                <MudText Typo="Typo.h6" Class="font-weight-bold">Editar Conciliación de Corte</MudText>
+                @if (_conciliacion != null)
+                {
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">
+                        @_conciliacion.Sucursal - @_conciliacion.Caja | Cajero: @_conciliacion.Cajero | Turno #@_conciliacion.AperturaId
+                    </MudText>
+                }
+            </div>
+        </div>
+    </TitleContent>
+    <DialogContent>
+        @if (_loading)
+        {
+            <div class="d-flex justify-center pa-8">
+                <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+            </div>
+        }
+        else if (_conciliacion == null)
+        {
+            <MudAlert Severity="Severity.Error">No se pudo cargar la información de la conciliación seleccionada.</MudAlert>
+        }
+        else
+        {
+            <MudGrid Spacing="3">
+                <!-- Columna Izquierda: Valores en Sistema e Ingresos -->
+                <MudItem xs="12" md="6">
+                    <MudCard Outlined="true" Class="pa-4 rounded-xl mb-4 bg-light">
+                        <MudText Typo="Typo.subtitle2" Class="font-weight-bold mb-3" Color="Color.Primary">
+                            <MudIcon Icon="@Icons.Material.Filled.Receipt" Size="Size.Small" Class="mr-1" />
+                            Valores de Sistema (Referencia)
+                        </MudText>
+                        <div class="d-flex justify-space-between py-1">
+                            <MudText Typo="Typo.body2">Total Vendido:</MudText>
+                            <MudText Typo="Typo.body2" Class="font-weight-bold">@((_conciliacion.TotalEsperado + _conciliacion.Devoluciones).ToString("C2", _culture))</MudText>
+                        </div>
+                        <div class="d-flex justify-space-between py-1">
+                            <MudText Typo="Typo.body2">Devoluciones:</MudText>
+                            <MudText Typo="Typo.body2" Color="Color.Error">-@_conciliacion.Devoluciones.ToString("C2", _culture)</MudText>
+                        </div>
+                        <div class="d-flex justify-space-between py-1">
+                            <MudText Typo="Typo.body2">Recolecciones (Sis):</MudText>
+                            <MudText Typo="Typo.body2" Class="font-weight-bold">@_conciliacion.TotalRecolecciones.ToString("C2", _culture)</MudText>
+                        </div>
+                        <MudDivider Class="my-2" />
+                        <div class="d-flex justify-space-between py-1">
+                            <MudText Typo="Typo.body2" Class="font-weight-bold">Total Esperado Sistema:</MudText>
+                            <MudText Typo="Typo.subtitle2" Color="Color.Primary" Class="font-weight-bold">@_conciliacion.TotalEsperado.ToString("C2", _culture)</MudText>
+                        </div>
+                    </MudCard>
+
+                    <!-- Edición de Tarjetas Bancarias -->
+                    <MudCard Outlined="true" Class="pa-4 rounded-xl">
+                        <MudText Typo="Typo.subtitle2" Class="font-weight-bold mb-3" Color="Color.Info">
+                            <MudIcon Icon="@Icons.Material.Filled.CreditCard" Size="Size.Small" Class="mr-1" />
+                            Valores en Tarjeta Bancaria
+                        </MudText>
+                        
+                        <div class="d-flex align-center gap-2 mb-3">
+                            <MudNumericField @bind-Value="_terminalBanbajio" 
+                                            Culture="@_culture" 
+                                            Label="Terminal Banbajío" 
+                                            Variant="Variant.Outlined" 
+                                            Format="N2" 
+                                            HideSpinButtons="true" 
+                                            Margin="Margin.Dense" 
+                                            Class="flex-grow-1" />
+                            <MudIconButton Icon="@Icons.Material.Filled.ListAlt" 
+                                          Color="Color.Primary" 
+                                          Size="Size.Medium" 
+                                          Title="Desglosar terminales Banbajío" 
+                                          OnClick="@(() => AbrirDesgloseTerminales("Banbajio"))" />
+                        </div>
+
+                        <div class="d-flex align-center gap-2 mb-3">
+                            <MudNumericField @bind-Value="_terminalBanRegio" 
+                                            Culture="@_culture" 
+                                            Label="Terminal BanRegio" 
+                                            Variant="Variant.Outlined" 
+                                            Format="N2" 
+                                            HideSpinButtons="true" 
+                                            Margin="Margin.Dense" 
+                                            Class="flex-grow-1" />
+                            <MudIconButton Icon="@Icons.Material.Filled.ListAlt" 
+                                          Color="Color.Primary" 
+                                          Size="Size.Medium" 
+                                          Title="Desglosar terminales BanRegio" 
+                                          OnClick="@(() => AbrirDesgloseTerminales("Banregio"))" />
+                        </div>
+
+                        <div class="d-flex justify-space-between align-center pt-2">
+                            <MudText Typo="Typo.body2" Class="font-weight-bold">Total Tarjetas:</MudText>
+                            <MudText Typo="Typo.subtitle2" Color="Color.Info" Class="font-weight-bold">@TotalTarjetas.ToString("C2", _culture)</MudText>
+                        </div>
+                    </MudCard>
+                </MudItem>
+
+                <!-- Columna Derecha: Efectivo, Salidas y Diferencias -->
+                <MudItem xs="12" md="6">
+                    <MudCard Outlined="true" Class="pa-4 rounded-xl mb-4">
+                        <MudText Typo="Typo.subtitle2" Class="font-weight-bold mb-3" Color="Color.Success">
+                            <MudIcon Icon="@Icons.Material.Filled.AttachMoney" Size="Size.Small" Class="mr-1" />
+                            Valores en Efectivo
+                        </MudText>
+
+                        <MudNumericField @bind-Value="_efectivoRecibido" 
+                                        Culture="@_culture" 
+                                        Label="Efectivo en Caja (Físico)" 
+                                        Variant="Variant.Outlined" 
+                                        Format="N2" 
+                                        HideSpinButtons="true" 
+                                        Margin="Margin.Dense" 
+                                        Class="mb-3" />
+
+                        <!-- Salidas de Efectivo -->
+                        <div class="d-flex justify-space-between align-center mb-2">
+                            <MudText Typo="Typo.caption" Class="font-weight-bold text-muted">Salidas / Gastos de Efectivo:</MudText>
+                            <MudButton Variant="Variant.Text" 
+                                       Color="Color.Error" 
+                                       StartIcon="@Icons.Material.Filled.Add" 
+                                       Size="Size.Small" 
+                                       OnClick="AbrirDialogoAgregarSalida">
+                                Agregar Salida
+                            </MudButton>
+                        </div>
+
+                        @if (_salidas.Any())
+                        {
+                            <MudTable Items="_salidas" Dense="true" Elevation="0" Outlined="true" Class="mb-3">
+                                <HeaderContent>
+                                    <MudTh>Motivo</MudTh>
+                                    <MudTh Style="text-align: right;">Monto</MudTh>
+                                    <MudTh Style="width: 30px;"></MudTh>
+                                </HeaderContent>
+                                <RowTemplate>
+                                    <MudTd DataLabel="Motivo">
+                                        <MudText Typo="Typo.caption" Class="d-block font-weight-bold">@context.Motivo</MudText>
+                                        <MudText Typo="Typo.caption" Color="Color.Secondary">Aut: @context.QuienAutoriza</MudText>
+                                    </MudTd>
+                                    <MudTd DataLabel="Monto" Style="text-align: right;">
+                                        <MudText Typo="Typo.caption" Class="font-weight-bold">@context.Monto.ToString("C2", _culture)</MudText>
+                                    </MudTd>
+                                    <MudTd Style="text-align: center;">
+                                        <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error" OnClick="@(() => _salidas.Remove(context))" />
+                                    </MudTd>
+                                </RowTemplate>
+                            </MudTable>
+                        }
+                        else
+                        {
+                            <MudText Typo="Typo.caption" Color="Color.Secondary" Class="d-block mb-3 italic">
+                                No se han registrado salidas de efectivo para este corte.
+                            </MudText>
+                        }
+
+                        <div class="d-flex justify-space-between align-center pt-1">
+                            <MudText Typo="Typo.body2" Class="font-weight-bold">Total Efectivo Justificado:</MudText>
+                            <MudText Typo="Typo.subtitle2" Color="Color.Success" Class="font-weight-bold">@TotalEfectivo.ToString("C2", _culture)</MudText>
+                        </div>
+                    </MudCard>
+
+                    <!-- Tarjeta de Resultados y Diferencia -->
+                    <MudCard Elevation="4" Class="pa-4 rounded-xl bg-light border-light shadow-sm">
+                        <MudText Typo="Typo.subtitle2" Class="font-weight-bold mb-3">
+                            Resumen de Conciliación
+                        </MudText>
+                        <div class="d-flex justify-space-between py-1">
+                            <MudText Typo="Typo.body2">Total Entregado (Efectivo + Tarjetas):</MudText>
+                            <MudText Typo="Typo.body2" Class="font-weight-bold">@TotalEntregado.ToString("C2", _culture)</MudText>
+                        </div>
+                        <div class="d-flex justify-space-between py-1">
+                            <MudText Typo="Typo.body2">Efectivo Esperado:</MudText>
+                            <MudText Typo="Typo.body2">@EfectivoEsperado.ToString("C2", _culture)</MudText>
+                        </div>
+                        <MudDivider Class="my-2" />
+                        <div class="d-flex justify-space-between align-center pt-1">
+                            <MudText Typo="Typo.subtitle1" Class="font-weight-bold">DIFERENCIA FINAL:</MudText>
+                            <MudChip T="string" Color="@(DiferenciaEfectivo == 0 ? Color.Success : (DiferenciaEfectivo > 0 ? Color.Warning : Color.Error))" 
+                                     Variant="Variant.Filled" Size="Size.Medium" Class="font-weight-bold">
+                                @DiferenciaEfectivo.ToString("C2", _culture)
+                            </MudChip>
+                        </div>
+                    </MudCard>
+                </MudItem>
+            </MudGrid>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancelar</MudButton>
+        <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="GuardarCambios" Disabled="@(_saving || _loading || _conciliacion == null)">
+            @if (_saving)
+            {
+                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                <text>Guardando...</text>
+            }
+            else
+            {
+                <text>Guardar Cambios</text>
+            }
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = null!;
+
+    [Parameter] public int ConciliacionId { get; set; }
+    [Parameter] public string UsuarioActual { get; set; } = string.Empty;
+
+    private ConciliacionCorteDto? _conciliacion;
+    private bool _loading = true;
+    private bool _saving = false;
+    private System.Globalization.CultureInfo _culture = System.Globalization.CultureInfo.GetCultureInfo("es-MX");
+
+    private decimal _terminalBanbajio;
+    private decimal _terminalBanRegio;
+    private decimal _efectivoRecibido;
+    private List<ConciliacionSalidaEfectivoDto> _salidas = new();
+    private List<TerminalDetalleDto> _terminales = new();
+
+    private decimal TotalTarjetas => Math.Round(_terminalBanbajio + _terminalBanRegio, 2, MidpointRounding.AwayFromZero);
+    private decimal TotalSalidasEfectivo => Math.Round(_salidas.Sum(s => s.Monto), 2, MidpointRounding.AwayFromZero);
+    private decimal TotalEfectivo => Math.Round((_conciliacion?.TotalRecolecciones ?? 0) + _efectivoRecibido + TotalSalidasEfectivo, 2, MidpointRounding.AwayFromZero);
+    private decimal TotalEntregado => Math.Round(TotalEfectivo + TotalTarjetas, 2, MidpointRounding.AwayFromZero);
+    
+    // Efectivo Esperado = Total Vendido - Devoluciones - Recolecciones - Tarjetas - Salidas
+    private decimal EfectivoEsperado => Math.Round((_conciliacion?.TotalEsperado ?? 0) - (_conciliacion?.TotalRecolecciones ?? 0) - TotalTarjetas - TotalSalidasEfectivo, 2, MidpointRounding.AwayFromZero);
+    private decimal DiferenciaEfectivo => Math.Round(_efectivoRecibido - EfectivoEsperado, 2, MidpointRounding.AwayFromZero);
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarConciliacion();
+    }
+
+    private async Task CargarConciliacion()
+    {
+        _loading = true;
+        try
+        {
+            _conciliacion = await ConciliacionService.GetConciliacionByIdAsync(ConciliacionId);
+            if (_conciliacion != null)
+            {
+                _terminalBanbajio = _conciliacion.Banbajio;
+                _terminalBanRegio = _conciliacion.Banregio;
+                _efectivoRecibido = _conciliacion.EfectivoEntregado;
+                _salidas = _conciliacion.Salidas?.Select(s => new ConciliacionSalidaEfectivoDto
+                {
+                    Id = s.Id,
+                    ConciliacionCorteId = s.ConciliacionCorteId,
+                    Monto = s.Monto,
+                    Motivo = s.Motivo,
+                    QuienAutoriza = s.QuienAutoriza,
+                    FechaCreacion = s.FechaCreacion,
+                    UsuarioCreacion = s.UsuarioCreacion
+                }).ToList() ?? new();
+
+                _terminales = _conciliacion.Terminales?.Select(t => new TerminalDetalleDto
+                {
+                    Banco = t.Banco,
+                    Nombre = t.Nombre,
+                    Monto = t.Monto
+                }).ToList() ?? new();
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error al cargar conciliación para edición");
+            Snackbar.Add("Error al cargar datos de conciliación", Severity.Error);
+        }
+        finally
+        {
+            _loading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task AbrirDesgloseTerminales(string banco)
+    {
+        var parameters = new DialogParameters<DialogoDesgloseTerminales>
+        {
+            { x => x.Banco, banco },
+            { x => x.TerminalesExistentes, _terminales }
+        };
+
+        var dialog = await DialogService.ShowAsync<DialogoDesgloseTerminales>($"Desglose de Terminales - {banco}", parameters);
+        var result = await dialog.Result;
+
+        if (result != null && !result.Canceled && result.Data is List<TerminalDetalleDto> terminalesActualizadas)
+        {
+            _terminales.RemoveAll(t => string.Equals(t.Banco, banco, StringComparison.OrdinalIgnoreCase));
+            _terminales.AddRange(terminalesActualizadas);
+
+            var sumaBanco = Math.Round(terminalesActualizadas.Sum(t => t.Monto), 2, MidpointRounding.AwayFromZero);
+            if (string.Equals(banco, "Banbajio", StringComparison.OrdinalIgnoreCase))
+            {
+                _terminalBanbajio = sumaBanco;
+            }
+            else
+            {
+                _terminalBanRegio = sumaBanco;
+            }
+            StateHasChanged();
+        }
+    }
+
+    private async Task AbrirDialogoAgregarSalida()
+    {
+        var parameters = new DialogParameters<DialogoAgregarSalidaEfectivo>
+        {
+            { x => x.UsuarioActual, UsuarioActual }
+        };
+
+        var dialog = await DialogService.ShowAsync<DialogoAgregarSalidaEfectivo>("Registrar Salida de Efectivo", parameters);
+        var result = await dialog.Result;
+
+        if (result != null && !result.Canceled && result.Data is ConciliacionSalidaEfectivoDto nuevaSalida)
+        {
+            _salidas.Add(nuevaSalida);
+            StateHasChanged();
+        }
+    }
+
+    private async Task GuardarCambios()
+    {
+        if (_conciliacion == null || _saving) return;
+
+        if (Math.Abs(DiferenciaEfectivo) >= 0.01m)
+        {
+            var confirm = await DialogService.ShowMessageBoxAsync(
+                "Diferencia en efectivo detectada",
+                $"Existe una diferencia de {DiferenciaEfectivo.ToString("C2", _culture)} en el corte. ¿Desea guardar los cambios de todas formas?",
+                yesText: "Guardar de todas formas",
+                cancelText: "Corregir valores"
+            );
+
+            if (confirm != true) return;
+        }
+
+        _saving = true;
+        StateHasChanged();
+
+        try
+        {
+            var command = new UpdateConciliacionCorteCommand(
+                Id: ConciliacionId,
+                EfectivoEntregado: _efectivoRecibido,
+                SalidasEfectivo: TotalSalidasEfectivo,
+                Banregio: _terminalBanRegio,
+                Banbajio: _terminalBanbajio,
+                ModificadoPor: UsuarioActual,
+                Salidas: _salidas,
+                Terminales: _terminales
+            );
+
+            await Mediator.Send(command);
+            Snackbar.Add("Conciliación actualizada exitosamente", Severity.Success);
+            MudDialog.Close(DialogResult.Ok(true));
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error al actualizar conciliación de corte");
+            Snackbar.Add($"Error al actualizar: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _saving = false;
+            StateHasChanged();
+        }
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+}

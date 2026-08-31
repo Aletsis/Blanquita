@@ -171,27 +171,27 @@
                                         <MudStack Spacing="3">
                                             <div class="d-flex justify-space-between align-center">
                                                 <MudText Color="Color.Secondary">Cobrado en Efectivo:</MudText>
-                                                <MudText Typo="Typo.h6">@_result.CashCollected.ToString("C2")</MudText>
+                                                <MudText Typo="Typo.h6">@_result.CashCollected.ToString("C2", _mexicoCulture)</MudText>
                                             </div>
                                             <div class="d-flex justify-space-between align-center">
                                                 <MudText Color="Color.Secondary">Cobrado con Tarjeta:</MudText>
-                                                <MudText Typo="Typo.h6">@_result.CardCollected.ToString("C2")</MudText>
+                                                <MudText Typo="Typo.h6">@_result.CardCollected.ToString("C2", _mexicoCulture)</MudText>
                                             </div>
                                             <div class="d-flex justify-space-between align-center">
                                                 <MudText Color="Color.Error">Devoluciones:</MudText>
-                                                <MudText Typo="Typo.h6" Color="Color.Error">-@Math.Abs(_result.ReturnsTotal).ToString("C2")</MudText>
+                                                <MudText Typo="Typo.h6" Color="Color.Error">-@Math.Abs(_result.ReturnsTotal).ToString("C2", _mexicoCulture)</MudText>
                                             </div>
                                             <MudDivider />
                                             <div class="d-flex justify-space-between align-center">
                                                 <MudText Typo="Typo.subtitle1" Class="font-weight-bold">Total Vendido:</MudText>
-                                                <MudText Typo="Typo.h5" Color="Color.Primary" Class="font-weight-bold">@_result.TotalSold.ToString("C2")</MudText>
+                                                <MudText Typo="Typo.h5" Color="Color.Primary" Class="font-weight-bold">@_result.TotalSold.ToString("C2", _mexicoCulture)</MudText>
                                             </div>
                                         </MudStack>
                                     </MudCardContent>
                                 </MudCard>
                             </MudItem>
 
-                            <!-- Tarjeta 2: Datos Físicos / Recibidos -->
+                            <!-- Tarjeta 2: Ingreso de Valores Físicos (Tarjetas y Efectivo) -->
                             <MudItem xs="12" sm="6">
                                 <MudCard Elevation="4" Class="rounded-xl overflow-hidden h-100 border-light">
                                     <div class="pa-4 bg-secondary text-white shadow-sm">
@@ -199,40 +199,126 @@
                                     </div>
                                     <MudCardContent>
                                         <MudStack Spacing="3">
-                                            <MudNumericField @bind-Value="_terminalBanbajio" Culture="@_mexicoCulture" Label="Terminal Banbajio" Variant="Variant.Outlined" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.CreditCard" Format="N2" HideSpinButtons="true" Margin="Margin.Dense" />
-                                            <MudNumericField @bind-Value="_terminalBanRegio" Culture="@_mexicoCulture" Label="Terminal BanRegio" Variant="Variant.Outlined" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.CreditCard" Format="N2" HideSpinButtons="true" Margin="Margin.Dense" />
-                                            <MudNumericField @bind-Value="_efectivoRecibido" Culture="@_mexicoCulture" Label="Efectivo en Caja" Variant="Variant.Outlined" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.AttachMoney" Format="N2" HideSpinButtons="true" Margin="Margin.Dense" />
+                                            <div class="d-flex align-center gap-2">
+                                                <MudNumericField @bind-Value="_terminalBanbajio" 
+                                                                Culture="@_mexicoCulture" 
+                                                                Label="Terminal Banbajio (Total)" 
+                                                                Variant="Variant.Outlined" 
+                                                                Adornment="Adornment.Start" 
+                                                                AdornmentIcon="@Icons.Material.Filled.CreditCard" 
+                                                                Format="N2" 
+                                                                HideSpinButtons="true" 
+                                                                Margin="Margin.Dense" 
+                                                                Class="flex-grow-1" />
+                                                <MudIconButton Icon="@Icons.Material.Filled.ListAlt" 
+                                                              Color="Color.Primary" 
+                                                              Size="Size.Medium" 
+                                                              Title="Desglosar múltiples terminales Banbajío" 
+                                                              OnClick="@(() => AbrirDesgloseTerminales("Banbajio"))" />
+                                            </div>
+
+                                            <div class="d-flex align-center gap-2">
+                                                <MudNumericField @bind-Value="_terminalBanRegio" 
+                                                                Culture="@_mexicoCulture" 
+                                                                Label="Terminal BanRegio (Total)" 
+                                                                Variant="Variant.Outlined" 
+                                                                Adornment="Adornment.Start" 
+                                                                AdornmentIcon="@Icons.Material.Filled.CreditCard" 
+                                                                Format="N2" 
+                                                                HideSpinButtons="true" 
+                                                                Margin="Margin.Dense" 
+                                                                Class="flex-grow-1" />
+                                                <MudIconButton Icon="@Icons.Material.Filled.ListAlt" 
+                                                              Color="Color.Primary" 
+                                                              Size="Size.Medium" 
+                                                              Title="Desglosar múltiples terminales BanRegio" 
+                                                              OnClick="@(() => AbrirDesgloseTerminales("Banregio"))" />
+                                            </div>
+
+                                            <MudNumericField @bind-Value="_efectivoRecibido" 
+                                                            Culture="@_mexicoCulture" 
+                                                            Label="Efectivo en Caja (Físico)" 
+                                                            Variant="Variant.Outlined" 
+                                                            Adornment="Adornment.Start" 
+                                                            AdornmentIcon="@Icons.Material.Filled.AttachMoney" 
+                                                            Format="N2" 
+                                                            HideSpinButtons="true" 
+                                                            Margin="Margin.Dense" />
                                             
                                             <MudDivider />
                                             <div class="d-flex justify-space-between align-center mt-1">
                                                 <MudText Typo="Typo.subtitle1" Class="font-weight-bold">Total Tarjetas:</MudText>
-                                                <MudText Typo="Typo.h6" Color="Color.Info" Class="font-weight-bold">@TarjetasFisicas.ToString("C2")</MudText>
+                                                <MudText Typo="Typo.h6" Color="Color.Info" Class="font-weight-bold">@TarjetasFisicas.ToString("C2", _mexicoCulture)</MudText>
                                             </div>
                                         </MudStack>
                                     </MudCardContent>
                                 </MudCard>
                             </MudItem>
 
-                            <!-- Tarjeta 3: Recolecciones Internas -->
+                            <!-- Tarjeta 3: Salidas de Efectivo y Recolecciones -->
                             <MudItem xs="12" sm="6">
-                                <MudCard Elevation="4" Class="rounded-xl pa-4 bg-light border-light shadow-sm">
-                                    <MudText Typo="Typo.h6" Color="Color.Primary" Class="mb-4">
-                                        <MudIcon Icon="@Icons.Material.Filled.LocalAtm" Class="mr-2" />
-                                        Recolecciones Pendientes
-                                    </MudText>
-                                    <div class="d-flex justify-space-between align-center">
-                                        <MudText>Total Recolectado:</MudText>
-                                        <MudText Typo="Typo.h5" Class="font-weight-bold">@_result.TotalRecolectado.ToString("C2")</MudText>
+                                <MudCard Elevation="4" Class="rounded-xl pa-4 bg-light border-light shadow-sm h-100">
+                                    <div class="d-flex justify-space-between align-center mb-3">
+                                        <MudText Typo="Typo.h6" Color="Color.Primary">
+                                            <MudIcon Icon="@Icons.Material.Filled.LocalAtm" Class="mr-2" />
+                                            Efectivo y Salidas
+                                        </MudText>
+                                        <MudButton Variant="Variant.Outlined" 
+                                                   Color="Color.Error" 
+                                                   StartIcon="@Icons.Material.Filled.Add" 
+                                                   Size="Size.Small" 
+                                                   OnClick="AbrirDialogoAgregarSalida">
+                                            Salida de Efectivo
+                                        </MudButton>
                                     </div>
-                                    <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mt-2 d-block">
-                                        * Recolecciones realizadas durante el turno que aún no han sido procesadas en un corte global.
+
+                                    <div class="d-flex justify-space-between align-center py-1">
+                                        <MudText Typo="Typo.body2">Recolecciones (Sis):</MudText>
+                                        <MudText Typo="Typo.h6" Class="font-weight-bold">@_result.TotalRecolectado.ToString("C2", _mexicoCulture)</MudText>
+                                    </div>
+
+                                    <div class="d-flex justify-space-between align-center py-1">
+                                        <MudText Typo="Typo.body2">Salidas de Efectivo:</MudText>
+                                        <MudText Typo="Typo.h6" Color="Color.Error" Class="font-weight-bold">@TotalSalidasEfectivo.ToString("C2", _mexicoCulture)</MudText>
+                                    </div>
+
+                                    @if (_salidas.Any())
+                                    {
+                                        <MudTable Items="_salidas" Dense="true" Elevation="0" Outlined="true" Class="mt-2 mb-2">
+                                            <HeaderContent>
+                                                <MudTh>Motivo</MudTh>
+                                                <MudTh Style="text-align: right;">Monto</MudTh>
+                                                <MudTh Style="width: 30px;"></MudTh>
+                                            </HeaderContent>
+                                            <RowTemplate>
+                                                <MudTd DataLabel="Motivo">
+                                                    <MudText Typo="Typo.caption" Class="d-block font-weight-bold">@context.Motivo</MudText>
+                                                    <MudText Typo="Typo.caption" Color="Color.Secondary">Aut: @context.QuienAutoriza</MudText>
+                                                </MudTd>
+                                                <MudTd DataLabel="Monto" Style="text-align: right;">
+                                                    <MudText Typo="Typo.caption" Class="font-weight-bold">@context.Monto.ToString("C2", _mexicoCulture)</MudText>
+                                                </MudTd>
+                                                <MudTd Style="text-align: center;">
+                                                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error" OnClick="@(() => _salidas.Remove(context))" />
+                                                </MudTd>
+                                            </RowTemplate>
+                                        </MudTable>
+                                    }
+
+                                    <MudDivider Class="my-2" />
+                                    <div class="d-flex justify-space-between align-center">
+                                        <MudText Typo="Typo.subtitle2" Class="font-weight-bold">Total Efectivo Justificado:</MudText>
+                                        <MudText Typo="Typo.h6" Color="Color.Success" Class="font-weight-bold">@TotalEfectivoEntregado.ToString("C2", _mexicoCulture)</MudText>
+                                    </div>
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mt-1 d-block">
+                                        Total = Recolecciones (@_result.TotalRecolectado.ToString("C2", _mexicoCulture)) + Efectivo Caja (@_efectivoRecibido.ToString("C2", _mexicoCulture)) + Salidas (@TotalSalidasEfectivo.ToString("C2", _mexicoCulture))
                                     </MudText>
                                 </MudCard>
                             </MudItem>
 
                             <!-- Tarjeta 4: Resultados de Conciliación -->
                             <MudItem xs="12" sm="6">
-                                <MudCard Elevation="4" Class="rounded-xl overflow-hidden shadow-lg border-primary">
+                                <MudCard Elevation="4" Class="rounded-xl overflow-hidden shadow-lg border-primary h-100">
                                     <div class="pa-4 bg-dark text-white">
                                         <MudText Typo="Typo.h6">Diferencias Finales</MudText>
                                     </div>
@@ -242,14 +328,19 @@
                                             <div class="d-flex justify-space-between align-center">
                                                 <MudText Typo="Typo.body1">Dif. en Tarjetas:</MudText>
                                                 <MudText Typo="Typo.h6" Color="@(DiferenciaTarjeta == 0 ? Color.Success : Color.Error)">
-                                                    @DiferenciaTarjeta.ToString("C2")
+                                                    @DiferenciaTarjeta.ToString("C2", _mexicoCulture)
                                                 </MudText>
                                             </div>
                                             
                                             <!-- Efectivo Esperado Calculation -->
                                             <div class="d-flex justify-space-between align-center">
-                                                <MudText Typo="Typo.body2" Color="Color.Secondary">Efectivo Esperado:</MudText>
-                                                <MudText Typo="Typo.body1">@EfectivoEsperado.ToString("C2")</MudText>
+                                                <MudText Typo="Typo.body2" Color="Color.Secondary">Efectivo Esperado en Caja:</MudText>
+                                                <MudText Typo="Typo.body1">@EfectivoEsperado.ToString("C2", _mexicoCulture)</MudText>
+                                            </div>
+
+                                            <div class="d-flex justify-space-between align-center">
+                                                <MudText Typo="Typo.body2" Color="Color.Secondary">Total Entregado Global:</MudText>
+                                                <MudText Typo="Typo.body1" Class="font-weight-bold">@((TotalEfectivoEntregado + TarjetasFisicas).ToString("C2", _mexicoCulture))</MudText>
                                             </div>
 
                                             <MudDivider />
@@ -259,7 +350,7 @@
                                                 <MudText Typo="Typo.subtitle1" Class="font-weight-bold">DIFERENCIA EFECTIVO:</MudText>
                                                 <MudChip T="string" Color="@(DiferenciaEfectivo == 0 ? Color.Success : (DiferenciaEfectivo > 0 ? Color.Warning : Color.Error))" 
                                                          Variant="Variant.Filled" Size="Size.Large" Class="font-weight-bold">
-                                                    @DiferenciaEfectivo.ToString("C2")
+                                                    @DiferenciaEfectivo.ToString("C2", _mexicoCulture)
                                                 </MudChip>
                                             </div>
                                         </MudStack>
@@ -339,15 +430,19 @@
     private decimal _terminalBanbajio;
     private decimal _terminalBanRegio;
     private decimal _efectivoRecibido;
+    private List<ConciliacionSalidaEfectivoDto> _salidas = new();
+    private List<TerminalDetalleDto> _terminales = new();
 
     // Fórmulas de Diferencias
     private decimal TarjetasFisicas => Math.Round(_terminalBanbajio + _terminalBanRegio, 2, MidpointRounding.AwayFromZero);
+    private decimal TotalSalidasEfectivo => Math.Round(_salidas.Sum(s => s.Monto), 2, MidpointRounding.AwayFromZero);
+    private decimal TotalEfectivoEntregado => Math.Round((_result?.TotalRecolectado ?? 0) + _efectivoRecibido + TotalSalidasEfectivo, 2, MidpointRounding.AwayFromZero);
     
     // Diferencia Tarjeta = Físico (TarjetasFisicas) - Sistema (CardCollected)
     private decimal DiferenciaTarjeta => Math.Round(TarjetasFisicas - (_result?.CardCollected ?? 0), 2, MidpointRounding.AwayFromZero);
 
-    // Efectivo Esperado = Total Vendido - Devoluciones - Efectivo Recolectado - TarjetasFisicas
-    private decimal EfectivoEsperado => Math.Round((_result?.TotalSold ?? 0) - Math.Abs(_result?.ReturnsTotal ?? 0) - (_result?.TotalRecolectado ?? 0) - TarjetasFisicas, 2, MidpointRounding.AwayFromZero);
+    // Efectivo Esperado = Total Vendido - Devoluciones - Efectivo Recolectado - TarjetasFisicas - SalidasEfectivo
+    private decimal EfectivoEsperado => Math.Round((_result?.TotalSold ?? 0) - Math.Abs(_result?.ReturnsTotal ?? 0) - (_result?.TotalRecolectado ?? 0) - TarjetasFisicas - TotalSalidasEfectivo, 2, MidpointRounding.AwayFromZero);
     
     // Diferencia Efectivo = Efectivo Recibido - Efectivo Esperado
     private decimal DiferenciaEfectivo => Math.Round(_efectivoRecibido - EfectivoEsperado, 2, MidpointRounding.AwayFromZero);
@@ -461,6 +556,8 @@
         _terminalBanbajio = 0;
         _terminalBanRegio = 0;
         _efectivoRecibido = 0;
+        _salidas.Clear();
+        _terminales.Clear();
         StateHasChanged();
 
         try
@@ -488,6 +585,52 @@
         {
             _loading = false;
             _isProcessing = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task AbrirDesgloseTerminales(string banco)
+    {
+        var parameters = new DialogParameters<DialogoDesgloseTerminales>
+        {
+            { x => x.Banco, banco },
+            { x => x.TerminalesExistentes, _terminales }
+        };
+
+        var dialog = await DialogService.ShowAsync<DialogoDesgloseTerminales>($"Desglose de Terminales - {banco}", parameters);
+        var result = await dialog.Result;
+
+        if (result != null && !result.Canceled && result.Data is List<TerminalDetalleDto> terminalesActualizadas)
+        {
+            _terminales.RemoveAll(t => string.Equals(t.Banco, banco, StringComparison.OrdinalIgnoreCase));
+            _terminales.AddRange(terminalesActualizadas);
+
+            var sumaBanco = Math.Round(terminalesActualizadas.Sum(t => t.Monto), 2, MidpointRounding.AwayFromZero);
+            if (string.Equals(banco, "Banbajio", StringComparison.OrdinalIgnoreCase))
+            {
+                _terminalBanbajio = sumaBanco;
+            }
+            else
+            {
+                _terminalBanRegio = sumaBanco;
+            }
+            StateHasChanged();
+        }
+    }
+
+    private async Task AbrirDialogoAgregarSalida()
+    {
+        var parameters = new DialogParameters<DialogoAgregarSalidaEfectivo>
+        {
+            { x => x.UsuarioActual, _supervisorName }
+        };
+
+        var dialog = await DialogService.ShowAsync<DialogoAgregarSalidaEfectivo>("Registrar Salida de Efectivo", parameters);
+        var result = await dialog.Result;
+
+        if (result != null && !result.Canceled && result.Data is ConciliacionSalidaEfectivoDto nuevaSalida)
+        {
+            _salidas.Add(nuevaSalida);
             StateHasChanged();
         }
     }
@@ -526,7 +669,11 @@
                 Banbajio: _terminalBanbajio,
                 ReturnsTotal: _result.ReturnsTotal,
                 TotalSold: _result.TotalSold,
-                Fecha: _result.Fecha
+                Fecha: _result.Fecha,
+                SalidasEfectivo: TotalSalidasEfectivo,
+                Usuario: _supervisorName,
+                Salidas: _salidas,
+                Terminales: _terminales
             );
 
             await Mediator.Send(command);
@@ -536,6 +683,8 @@
             _selectedShiftId = 0;
             _selectedBoxId = 0;
             _result = null;
+            _salidas.Clear();
+            _terminales.Clear();
             await CargarCajas();
         }
         catch (Exception ex)

@@ -49,13 +49,38 @@ public class WhatsAppServiceTests
     }
 
     [Fact]
+    public async Task SendMessageAsync_ShouldReturnFalse_WhenWhatsAppDisabled()
+    {
+        // Arrange
+        var config = new ConfiguracionDto 
+        { 
+            WhatsAppServiceUrl = "http://whatsapp-service:3001",
+            WhatsAppApiKey = "my-secret-key",
+            IsWhatsAppEnabled = false 
+        };
+        _configServiceMock.Setup(s => s.ObtenerConfiguracionAsync()).ReturnsAsync(config);
+
+        var service = new WhatsAppService(
+            _httpClientFactoryMock.Object,
+            _configServiceMock.Object,
+            _loggerMock.Object);
+
+        // Act
+        var result = await service.SendMessageAsync("1234567890", "Hello");
+
+        // Assert
+        Assert.False(result);
+    }
+
+    [Fact]
     public async Task SendMessageAsync_ShouldSendPostRequest_WithCorrectHeadersAndBody()
     {
         // Arrange
         var config = new ConfiguracionDto 
         { 
             WhatsAppServiceUrl = "http://whatsapp-service:3001",
-            WhatsAppApiKey = "my-secret-key"
+            WhatsAppApiKey = "my-secret-key",
+            IsWhatsAppEnabled = true
         };
         _configServiceMock.Setup(s => s.ObtenerConfiguracionAsync()).ReturnsAsync(config);
 
@@ -105,7 +130,8 @@ public class WhatsAppServiceTests
         var config = new ConfiguracionDto 
         { 
             WhatsAppServiceUrl = "http://whatsapp-service:3001",
-            WhatsAppApiKey = "my-secret-key"
+            WhatsAppApiKey = "my-secret-key",
+            IsWhatsAppEnabled = true
         };
         _configServiceMock.Setup(s => s.ObtenerConfiguracionAsync()).ReturnsAsync(config);
 
@@ -139,7 +165,7 @@ public class WhatsAppServiceTests
     public async Task SendDocumentAsync_ShouldReturnFalse_WhenUrlNotConfigured()
     {
         // Arrange
-        var config = new ConfiguracionDto { WhatsAppServiceUrl = "" };
+        var config = new ConfiguracionDto { WhatsAppServiceUrl = "", IsWhatsAppEnabled = true };
         _configServiceMock.Setup(s => s.ObtenerConfiguracionAsync()).ReturnsAsync(config);
 
         var service = new WhatsAppService(
@@ -161,7 +187,8 @@ public class WhatsAppServiceTests
         var config = new ConfiguracionDto 
         { 
             WhatsAppServiceUrl = "http://whatsapp-service:3001",
-            WhatsAppApiKey = "my-secret-key"
+            WhatsAppApiKey = "my-secret-key",
+            IsWhatsAppEnabled = true
         };
         _configServiceMock.Setup(s => s.ObtenerConfiguracionAsync()).ReturnsAsync(config);
 
@@ -210,7 +237,8 @@ public class WhatsAppServiceTests
         var config = new ConfiguracionDto 
         { 
             WhatsAppServiceUrl = "http://whatsapp-service:3001",
-            WhatsAppApiKey = "my-secret-key"
+            WhatsAppApiKey = "my-secret-key",
+            IsWhatsAppEnabled = true
         };
         _configServiceMock.Setup(s => s.ObtenerConfiguracionAsync()).ReturnsAsync(config);
 
