@@ -45,6 +45,12 @@ public class WhatsAppService : IWhatsAppService
         {
             var config = await _configuracionService.ObtenerConfiguracionAsync();
             
+            if (!config.IsWhatsAppEnabled)
+            {
+                _logger.LogInformation("Envío de WhatsApp omitido: El servicio está deshabilitado en la configuración.");
+                return false;
+            }
+
             if (string.IsNullOrWhiteSpace(config.WhatsAppServiceUrl))
             {
                 _logger.LogWarning("No se puede enviar mensaje por WhatsApp: La URL del servicio no está configurada.");
@@ -120,6 +126,12 @@ public class WhatsAppService : IWhatsAppService
         {
             var config = await _configuracionService.ObtenerConfiguracionAsync();
             
+            if (!config.IsWhatsAppEnabled)
+            {
+                _logger.LogInformation("Envío de documento por WhatsApp omitido: El servicio está deshabilitado en la configuración.");
+                return false;
+            }
+
             if (string.IsNullOrWhiteSpace(config.WhatsAppServiceUrl))
             {
                 _logger.LogWarning("No se puede enviar documento por WhatsApp: La URL del servicio no está configurada.");

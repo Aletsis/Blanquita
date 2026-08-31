@@ -7,6 +7,8 @@ public interface IConciliacionService
     Task<ConciliacionResultDto> GetConciliacionAsync(int cashRegisterId, int shiftId, int cashierId, DateTime date, CancellationToken cancellationToken = default);
     Task<IEnumerable<AvailableBoxDto>> GetAvailableBoxesAsync(DateTime date, int? branchId = null, CancellationToken cancellationToken = default);
     Task SaveConciliacionCorteAsync(ConciliacionCorteDto dto, CancellationToken cancellationToken = default);
+    Task UpdateConciliacionCorteAsync(ConciliacionCorteDto dto, CancellationToken cancellationToken = default);
+    Task<ConciliacionCorteDto?> GetConciliacionByIdAsync(int id, CancellationToken cancellationToken = default);
     Task<IEnumerable<ConciliacionCorteDto>> GetConciliacionesByBranchAndDateAsync(string branchName, DateTime date, CancellationToken cancellationToken = default);
 }
 

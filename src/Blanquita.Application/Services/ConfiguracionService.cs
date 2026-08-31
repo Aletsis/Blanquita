@@ -378,7 +378,8 @@ public class ConfiguracionService : IConfiguracionService
             CommercialApiUrl = entity.CommercialApiUrl,
             CommercialApiKey = entity.CommercialApiKey,
             WhatsAppServiceUrl = entity.WhatsAppServiceUrl,
-            WhatsAppApiKey = entity.WhatsAppApiKey
+            WhatsAppApiKey = entity.WhatsAppApiKey,
+            IsWhatsAppEnabled = entity.IsWhatsAppEnabled
         };
     }
  
@@ -413,5 +414,6 @@ public class ConfiguracionService : IConfiguracionService
         entity.CommercialApiKey = dto.CommercialApiKey;
         entity.WhatsAppServiceUrl = dto.WhatsAppServiceUrl;
         entity.WhatsAppApiKey = dto.WhatsAppApiKey;
+        entity.IsWhatsAppEnabled = dto.IsWhatsAppEnabled;
     }
 }

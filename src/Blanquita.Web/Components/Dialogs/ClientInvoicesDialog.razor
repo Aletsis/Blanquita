@@ -6,6 +6,7 @@
 @inject ISnackbar Snackbar
 @inject IFoxProDocumentRepository DocumentRepository
 @inject IWhatsAppService WhatsAppService
+@inject IConfiguracionService ConfiguracionService
 @inject IClientCatalogRepository ClientCatalogRepository
 @inject ILogger<ClientInvoicesDialog> Logger
 @inject IJSRuntime JS
@@ -15,22 +16,25 @@
         <MudText Typo="Typo.h6" Class="mb-2">Facturas de @ClientName</MudText>
         <MudText Typo="Typo.caption" Class="mb-4 d-block">Ruta: @InvoicePath</MudText>
 
-        <MudCard Outlined="true" Class="pa-4 mb-4">
-            <MudStack Row="true" AlignItems="AlignItems.Center">
-                <MudTextField @bind-Value="DestinationPhone" 
-                              Label="Enviar por WhatsApp (Número Celular)" 
-                              Placeholder="Ej. 3312345678" 
-                              Adornment="Adornment.Start" 
-                              AdornmentIcon="@Icons.Custom.Brands.WhatsApp" 
-                              HelperText="Ingrese el número de 10 dígitos del cliente para habilitar el envío."
-                              Variant="Variant.Outlined" 
-                              Margin="Margin.Dense" />
-                @if (isSendingWhatsApp)
-                {
-                    <MudProgressCircular Size="Size.Small" Indeterminate="true" Color="Color.Success" />
-                }
-            </MudStack>
-        </MudCard>
+        @if (isWhatsAppEnabled)
+        {
+            <MudCard Outlined="true" Class="pa-4 mb-4">
+                <MudStack Row="true" AlignItems="AlignItems.Center">
+                    <MudTextField @bind-Value="DestinationPhone" 
+                                  Label="Enviar por WhatsApp (Número Celular)" 
+                                  Placeholder="Ej. 3312345678" 
+                                  Adornment="Adornment.Start" 
+                                  AdornmentIcon="@Icons.Custom.Brands.WhatsApp" 
+                                  HelperText="Ingrese el número de 10 dígitos del cliente para habilitar el envío."
+                                  Variant="Variant.Outlined" 
+                                  Margin="Margin.Dense" />
+                    @if (isSendingWhatsApp)
+                    {
+                        <MudProgressCircular Size="Size.Small" Indeterminate="true" Color="Color.Success" />
+                    }
+                </MudStack>
+            </MudCard>
+        }
         
         @if (isLoading)
         {
@@ -70,13 +74,16 @@
                                               OnClick="@(() => DownloadFile(context.FileName + ".xml"))" />
                             </MudTooltip>
 
-                            <MudTooltip Text="@(xmlExists && !string.IsNullOrWhiteSpace(DestinationPhone) ? "Enviar XML por WhatsApp" : "XML no disponible o sin número")">
-                                <MudIconButton Icon="@Icons.Custom.Brands.WhatsApp" 
-                                              Color="@(xmlExists && !string.IsNullOrWhiteSpace(DestinationPhone) ? Color.Success : Color.Default)" 
-                                              Size="Size.Small" 
-                                              Disabled="@(!xmlExists || string.IsNullOrWhiteSpace(DestinationPhone) || isSendingWhatsApp)"
-                                              OnClick="@(() => SendWhatsApp(context.FileName + ".xml", "text/xml"))" />
-                            </MudTooltip>
+                            @if (isWhatsAppEnabled)
+                            {
+                                <MudTooltip Text="@(xmlExists && !string.IsNullOrWhiteSpace(DestinationPhone) ? "Enviar XML por WhatsApp" : "XML no disponible o sin número")">
+                                    <MudIconButton Icon="@Icons.Custom.Brands.WhatsApp" 
+                                                  Color="@(xmlExists && !string.IsNullOrWhiteSpace(DestinationPhone) ? Color.Success : Color.Default)" 
+                                                  Size="Size.Small" 
+                                                  Disabled="@(!xmlExists || string.IsNullOrWhiteSpace(DestinationPhone) || isSendingWhatsApp)"
+                                                  OnClick="@(() => SendWhatsApp(context.FileName + ".xml", "text/xml"))" />
+                                </MudTooltip>
+                            }
                             
                             <MudDivider Vertical="true" FlexItem="true" Style="height: 20px;" />
                             
@@ -88,13 +95,16 @@
                                               OnClick="@(() => DownloadFile(context.FileName + ".pdf"))" />
                             </MudTooltip>
 
-                            <MudTooltip Text="@(pdfExists && !string.IsNullOrWhiteSpace(DestinationPhone) ? "Enviar PDF por WhatsApp" : "PDF no disponible o sin número")">
-                                <MudIconButton Icon="@Icons.Custom.Brands.WhatsApp" 
-                                              Color="@(pdfExists && !string.IsNullOrWhiteSpace(DestinationPhone) ? Color.Success : Color.Default)" 
-                                              Size="Size.Small" 
-                                              Disabled="@(!pdfExists || string.IsNullOrWhiteSpace(DestinationPhone) || isSendingWhatsApp)"
-                                              OnClick="@(() => SendWhatsApp(context.FileName + ".pdf", "application/pdf"))" />
-                            </MudTooltip>
+                            @if (isWhatsAppEnabled)
+                            {
+                                <MudTooltip Text="@(pdfExists && !string.IsNullOrWhiteSpace(DestinationPhone) ? "Enviar PDF por WhatsApp" : "PDF no disponible o sin número")">
+                                    <MudIconButton Icon="@Icons.Custom.Brands.WhatsApp" 
+                                                  Color="@(pdfExists && !string.IsNullOrWhiteSpace(DestinationPhone) ? Color.Success : Color.Default)" 
+                                                  Size="Size.Small" 
+                                                  Disabled="@(!pdfExists || string.IsNullOrWhiteSpace(DestinationPhone) || isSendingWhatsApp)"
+                                                  OnClick="@(() => SendWhatsApp(context.FileName + ".pdf", "application/pdf"))" />
+                                </MudTooltip>
+                            }
 
                             <MudDivider Vertical="true" FlexItem="true" Style="height: 20px;" />
 
@@ -138,11 +148,25 @@
     private bool isLoading = true;
     private string DestinationPhone { get; set; } = string.Empty;
     private bool isSendingWhatsApp = false;
+    private bool isWhatsAppEnabled = false;
 
     protected override async Task OnInitializedAsync()
     {
+        try
+        {
+            var config = await ConfiguracionService.ObtenerConfiguracionAsync();
+            isWhatsAppEnabled = config.IsWhatsAppEnabled;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "No se pudo obtener la configuración de WhatsApp");
+        }
+
         await LoadInvoices();
-        await LoadClientPhone();
+        if (isWhatsAppEnabled)
+        {
+            await LoadClientPhone();
+        }
     }
 
     private async Task LoadInvoices()

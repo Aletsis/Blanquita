@@ -60,7 +60,7 @@ public class SaveConciliacionCorteCommandHandler : IRequestHandler<SaveConciliac
             }
 
             // Fórmulas financieras centralizadas
-            var totalEfectivo = request.TotalRecolecciones + request.EfectivoEntregado;
+            var totalEfectivo = request.TotalRecolecciones + request.EfectivoEntregado + request.SalidasEfectivo;
             var totalTarjetas = request.Banregio + request.Banbajio;
             var devoluciones = Math.Abs(request.ReturnsTotal);
             var totalEntregado = totalEfectivo + totalTarjetas;
@@ -75,6 +75,7 @@ public class SaveConciliacionCorteCommandHandler : IRequestHandler<SaveConciliac
                 Cajero = request.CashierName,
                 TotalRecolecciones = request.TotalRecolecciones,
                 EfectivoEntregado = request.EfectivoEntregado,
+                SalidasEfectivo = request.SalidasEfectivo,
                 TotalEfectivo = totalEfectivo,
                 Banregio = request.Banregio,
                 Banbajio = request.Banbajio,
@@ -83,7 +84,10 @@ public class SaveConciliacionCorteCommandHandler : IRequestHandler<SaveConciliac
                 TotalEntregado = totalEntregado,
                 TotalEsperado = totalEsperado,
                 Diferencia = diferencia,
-                Fecha = request.Fecha
+                Fecha = request.Fecha,
+                Usuario = request.Usuario,
+                Salidas = request.Salidas ?? new(),
+                Terminales = request.Terminales ?? new()
             };
 
             await _conciliacionService.SaveConciliacionCorteAsync(dto, cancellationToken);

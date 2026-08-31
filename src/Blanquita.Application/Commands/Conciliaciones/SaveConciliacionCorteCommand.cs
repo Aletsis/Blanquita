@@ -1,3 +1,6 @@
+using System;
+using System.Collections.Generic;
+using Blanquita.Application.DTOs;
 using MediatR;
 
 namespace Blanquita.Application.Commands.Conciliaciones;
@@ -16,5 +19,9 @@ public record SaveConciliacionCorteCommand(
     decimal Banbajio,
     decimal ReturnsTotal,
     decimal TotalSold,
-    DateTime Fecha
+    DateTime Fecha,
+    decimal SalidasEfectivo = 0,
+    string? Usuario = null,
+    List<ConciliacionSalidaEfectivoDto>? Salidas = null,
+    List<TerminalDetalleDto>? Terminales = null
 ) : IRequest<bool>;

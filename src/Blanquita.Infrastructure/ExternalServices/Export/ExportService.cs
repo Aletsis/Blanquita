@@ -132,7 +132,7 @@ public class ExportService : IExportService
                 {
                     var propName = properties[col].Name;
                     
-                    if (propName == "Neto" || propName == "Impuesto1" || propName == "Total")
+                    if (propName == "Neto" || propName == "Impuesto1" || propName == "Impuesto" || propName == "Total")
                     {
                          var sum = dataList.Sum(item => 
                          {
@@ -330,12 +330,13 @@ public class ExportService : IExportService
                                 }
 
                                 // Totals Row
+                                bool labelAdded = false;
                                 for (int i = 0; i < properties.Length; i++)
                                 {
                                      var prop = properties[i];
                                      var cell = table.Cell().Background(Colors.Grey.Lighten3).BorderTop(1).Padding(3);
                                      
-                                     if (prop.Name == "Neto" || prop.Name == "Impuesto1" || prop.Name == "Total")
+                                     if (prop.Name == "Neto" || prop.Name == "Impuesto1" || prop.Name == "Impuesto" || prop.Name == "Total")
                                      {
                                          var sum = dataList.Sum(item => 
                                          {
@@ -345,9 +346,10 @@ public class ExportService : IExportService
                                          
                                          cell.AlignRight().Text(sum.ToString("C2", _culturaMX)).FontSize(7).Bold().LineHeight(1);
                                      }
-                                     else if (i == 5) // First column
+                                     else if (!labelAdded && (i == 5 || i == properties.Length - 4 || i == 0))
                                      {
                                          cell.Text("TOTALES").FontSize(7).Bold().LineHeight(1);
+                                         labelAdded = true;
                                      }
                                      else
                                      {

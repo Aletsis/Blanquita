@@ -152,4 +152,9 @@ public class ConfiguracionDto
     /// API Key para autenticar las peticiones al microservicio de WhatsApp
     /// </summary>
     public string WhatsAppApiKey { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Indica si el servicio de WhatsApp está activo en el sistema
+    /// </summary>
+    public bool IsWhatsAppEnabled { get; set; }
 }

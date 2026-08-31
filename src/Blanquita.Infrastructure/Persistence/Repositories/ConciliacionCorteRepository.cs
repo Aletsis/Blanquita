@@ -25,9 +25,24 @@ public class ConciliacionCorteRepository : IConciliacionCorteRepository
         await _context.SaveChangesAsync(cancellationToken);
     }
 
+    public async Task UpdateAsync(ConciliacionCorte conciliacion, CancellationToken cancellationToken = default)
+    {
+        _context.ConciliacionCortes.Update(conciliacion);
+        await _context.SaveChangesAsync(cancellationToken);
+    }
+
     public async Task<ConciliacionCorte?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
     {
-        return await _context.ConciliacionCortes.FindAsync(new object?[] { id }, cancellationToken);
+        return await _context.ConciliacionCortes
+            .Include(c => c.Salidas)
+            .FirstOrDefaultAsync(c => c.Id == id, cancellationToken);
+    }
+
+    public async Task<ConciliacionCorte?> GetByAperturaIdAsync(int aperturaId, CancellationToken cancellationToken = default)
+    {
+        return await _context.ConciliacionCortes
+            .Include(c => c.Salidas)
+            .FirstOrDefaultAsync(c => c.AperturaId == aperturaId, cancellationToken);
     }
 
     public async Task<IEnumerable<ConciliacionCorte>> GetByBranchAndDateAsync(string branchName, DateTime date, CancellationToken cancellationToken = default)
@@ -37,6 +52,7 @@ public class ConciliacionCorteRepository : IConciliacionCorteRepository
         var endUtc = startUtc.AddDays(1);
 
         return await _context.ConciliacionCortes
+            .Include(c => c.Salidas)
             .Where(c => c.Sucursal == branchName && c.Fecha >= startUtc && c.Fecha < endUtc)
             .OrderByDescending(c => c.Fecha)
             .ToListAsync(cancellationToken);

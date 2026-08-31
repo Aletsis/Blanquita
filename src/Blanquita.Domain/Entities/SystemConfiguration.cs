@@ -80,4 +80,6 @@ public class SystemConfiguration : BaseEntity
 
     [MaxLength(500)]
     public string WhatsAppApiKey { get; set; } = string.Empty;
+
+    public bool IsWhatsAppEnabled { get; set; } = false;
 }

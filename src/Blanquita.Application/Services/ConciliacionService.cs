@@ -86,6 +86,11 @@ public class ConciliacionService : IConciliacionService
         _logger.LogInformation("Guardando conciliación de corte para Sucursal: {Sucursal}, Caja: {Caja}, Cajero: {Cajero}", 
             dto.Sucursal, dto.Caja, dto.Cajero);
 
+        if (string.IsNullOrWhiteSpace(dto.TerminalesJson) && dto.Terminales != null && dto.Terminales.Any())
+        {
+            dto.TerminalesJson = System.Text.Json.JsonSerializer.Serialize(dto.Terminales);
+        }
+
         var conciliacion = new Domain.Entities.ConciliacionCorte(
             dto.AperturaId,
             dto.Sucursal,
@@ -93,6 +98,7 @@ public class ConciliacionService : IConciliacionService
             dto.Cajero,
             dto.TotalRecolecciones,
             dto.EfectivoEntregado,
+            dto.SalidasEfectivo,
             dto.TotalEfectivo,
             dto.Banregio,
             dto.Banbajio,
@@ -101,11 +107,80 @@ public class ConciliacionService : IConciliacionService
             dto.TotalEntregado,
             dto.TotalEsperado,
             dto.Diferencia,
-            dto.Fecha
+            dto.Fecha,
+            dto.TerminalesJson,
+            dto.Usuario
         );
+
+        if (dto.Salidas != null && dto.Salidas.Any())
+        {
+            foreach (var s in dto.Salidas)
+            {
+                conciliacion.Salidas.Add(new Domain.Entities.ConciliacionSalidaEfectivo(
+                    s.Monto,
+                    s.Motivo,
+                    s.QuienAutoriza,
+                    !string.IsNullOrWhiteSpace(s.UsuarioCreacion) ? s.UsuarioCreacion : (dto.Usuario ?? string.Empty)
+                ));
+            }
+        }
 
         await _conciliacionCorteRepository.AddAsync(conciliacion, cancellationToken);
         _logger.LogInformation("Conciliación de corte guardada exitosamente en la base de datos.");
+    }
+
+    public async Task UpdateConciliacionCorteAsync(ConciliacionCorteDto dto, CancellationToken cancellationToken = default)
+    {
+        _logger.LogInformation("Actualizando conciliación de corte ID: {Id}", dto.Id);
+
+        var entity = await _conciliacionCorteRepository.GetByIdAsync(dto.Id, cancellationToken);
+        if (entity == null)
+        {
+            throw new KeyNotFoundException($"No se encontró la conciliación con ID {dto.Id}");
+        }
+
+        if (string.IsNullOrWhiteSpace(dto.TerminalesJson) && dto.Terminales != null && dto.Terminales.Any())
+        {
+            dto.TerminalesJson = System.Text.Json.JsonSerializer.Serialize(dto.Terminales);
+        }
+
+        entity.Actualizar(
+            dto.EfectivoEntregado,
+            dto.SalidasEfectivo,
+            dto.TotalEfectivo,
+            dto.Banregio,
+            dto.Banbajio,
+            dto.TotalTarjetas,
+            dto.TotalEntregado,
+            dto.Diferencia,
+            dto.TerminalesJson,
+            dto.ModificadoPor
+        );
+
+        entity.Salidas.Clear();
+        if (dto.Salidas != null && dto.Salidas.Any())
+        {
+            foreach (var s in dto.Salidas)
+            {
+                entity.Salidas.Add(new Domain.Entities.ConciliacionSalidaEfectivo(
+                    s.Monto,
+                    s.Motivo,
+                    s.QuienAutoriza,
+                    !string.IsNullOrWhiteSpace(s.UsuarioCreacion) ? s.UsuarioCreacion : (dto.ModificadoPor ?? string.Empty)
+                ));
+            }
+        }
+
+        await _conciliacionCorteRepository.UpdateAsync(entity, cancellationToken);
+        _logger.LogInformation("Conciliación de corte ID {Id} actualizada exitosamente.", dto.Id);
+    }
+
+    public async Task<ConciliacionCorteDto?> GetConciliacionByIdAsync(int id, CancellationToken cancellationToken = default)
+    {
+        var c = await _conciliacionCorteRepository.GetByIdAsync(id, cancellationToken);
+        if (c == null) return null;
+
+        return MapToDto(c);
     }
 
     public async Task<IEnumerable<ConciliacionCorteDto>> GetConciliacionesByBranchAndDateAsync(string branchName, DateTime date, CancellationToken cancellationToken = default)
@@ -113,14 +188,21 @@ public class ConciliacionService : IConciliacionService
         _logger.LogInformation("Obteniendo conciliaciones para la sucursal: {BranchName} en la fecha {Date}", branchName, date);
         var entities = await _conciliacionCorteRepository.GetByBranchAndDateAsync(branchName, date, cancellationToken);
         
-        return entities.Select(c => new ConciliacionCorteDto
+        return entities.Select(MapToDto).ToList();
+    }
+
+    private static ConciliacionCorteDto MapToDto(Domain.Entities.ConciliacionCorte c)
+    {
+        var dto = new ConciliacionCorteDto
         {
+            Id = c.Id,
             AperturaId = c.AperturaId,
             Sucursal = c.Sucursal,
             Caja = c.Caja,
             Cajero = c.Cajero,
             TotalRecolecciones = c.TotalRecolecciones,
             EfectivoEntregado = c.EfectivoEntregado,
+            SalidasEfectivo = c.SalidasEfectivo,
             TotalEfectivo = c.TotalEfectivo,
             Banregio = c.Banregio,
             Banbajio = c.Banbajio,
@@ -129,9 +211,37 @@ public class ConciliacionService : IConciliacionService
             TotalEntregado = c.TotalEntregado,
             TotalEsperado = c.TotalEsperado,
             Diferencia = c.Diferencia,
+            TerminalesJson = c.TerminalesJson,
+            Usuario = c.Usuario,
             Fecha = c.Fecha,
-            FechaCreacion = c.FechaCreacion
-        }).ToList();
+            FechaCreacion = c.FechaCreacion,
+            FechaModificacion = c.FechaModificacion,
+            ModificadoPor = c.ModificadoPor,
+            Salidas = c.Salidas.Select(s => new ConciliacionSalidaEfectivoDto
+            {
+                Id = s.Id,
+                ConciliacionCorteId = s.ConciliacionCorteId,
+                Monto = s.Monto,
+                Motivo = s.Motivo,
+                QuienAutoriza = s.QuienAutoriza,
+                FechaCreacion = s.FechaCreacion,
+                UsuarioCreacion = s.UsuarioCreacion
+            }).ToList()
+        };
+
+        if (!string.IsNullOrWhiteSpace(c.TerminalesJson))
+        {
+            try
+            {
+                dto.Terminales = System.Text.Json.JsonSerializer.Deserialize<List<TerminalDetalleDto>>(c.TerminalesJson) ?? new();
+            }
+            catch
+            {
+                dto.Terminales = new();
+            }
+        }
+
+        return dto;
     }
 
     public async Task<IEnumerable<AvailableBoxDto>> GetAvailableBoxesAsync(DateTime date, int? branchId = null, CancellationToken cancellationToken = default)

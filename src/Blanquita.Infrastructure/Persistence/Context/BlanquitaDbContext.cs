@@ -29,6 +29,7 @@ public class BlanquitaDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<DetalleReporte> DetallesReporte { get; set; } = null!;
     public DbSet<Deliverer> Deliverers { get; set; } = null!;
     public DbSet<ConciliacionCorte> ConciliacionCortes { get; set; } = null!;
+    public DbSet<ConciliacionSalidaEfectivo> ConciliacionSalidasEfectivo { get; set; } = null!;
     public DbSet<SystemConfigurationAuditLog> SystemConfigurationAuditLogs { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -264,6 +265,8 @@ public class BlanquitaDbContext : IdentityDbContext<ApplicationUser>
             entity.Property(e => e.CommercialApiUrl).HasMaxLength(500);
             entity.Property(e => e.CommercialApiKey).HasMaxLength(500);
             entity.Property(e => e.WhatsAppServiceUrl).HasMaxLength(500);
+            entity.Property(e => e.WhatsAppApiKey).HasMaxLength(500);
+            entity.Property(e => e.IsWhatsAppEnabled).HasDefaultValue(false);
         });
 
         // Configure LabelDesign
@@ -381,6 +384,7 @@ public class BlanquitaDbContext : IdentityDbContext<ApplicationUser>
             
             entity.Property(e => e.TotalRecolecciones).HasColumnName("TotalRecolecciones").HasColumnType("decimal(18,2)").IsRequired();
             entity.Property(e => e.EfectivoEntregado).HasColumnName("EfectivoEntregado").HasColumnType("decimal(18,2)").IsRequired();
+            entity.Property(e => e.SalidasEfectivo).HasColumnName("SalidasEfectivo").HasColumnType("decimal(18,2)").HasDefaultValue(0);
             entity.Property(e => e.TotalEfectivo).HasColumnName("TotalEfectivo").HasColumnType("decimal(18,2)").IsRequired();
             
             entity.Property(e => e.Banregio).HasColumnName("Banregio").HasColumnType("decimal(18,2)").IsRequired();
@@ -392,14 +396,39 @@ public class BlanquitaDbContext : IdentityDbContext<ApplicationUser>
             entity.Property(e => e.TotalEsperado).HasColumnName("TotalEsperado").HasColumnType("decimal(18,2)").IsRequired();
             entity.Property(e => e.Diferencia).HasColumnName("Diferencia").HasColumnType("decimal(18,2)").IsRequired();
             
+            entity.Property(e => e.TerminalesJson).HasColumnName("TerminalesJson").HasColumnType("text");
+            entity.Property(e => e.Usuario).HasColumnName("Usuario").HasMaxLength(100);
             entity.Property(e => e.FechaCreacion).HasColumnName("FechaCreacion").IsRequired();
             entity.Property(e => e.Fecha).HasColumnName("Fecha").IsRequired();
+            entity.Property(e => e.FechaModificacion).HasColumnName("FechaModificacion");
+            entity.Property(e => e.ModificadoPor).HasColumnName("ModificadoPor").HasMaxLength(100);
+
+            entity.HasMany(e => e.Salidas)
+                .WithOne(s => s.ConciliacionCorte)
+                .HasForeignKey(s => s.ConciliacionCorteId)
+                .OnDelete(DeleteBehavior.Cascade);
             
             entity.HasIndex(e => e.FechaCreacion);
             entity.HasIndex(e => e.Fecha);
             entity.HasIndex(e => e.Sucursal);
             entity.HasIndex(e => e.Caja);
             entity.HasIndex(e => e.AperturaId);
+        });
+
+        // Configure ConciliacionSalidaEfectivo
+        modelBuilder.Entity<ConciliacionSalidaEfectivo>(entity =>
+        {
+            entity.ToTable("ConciliacionSalidasEfectivo");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.ConciliacionCorteId).HasColumnName("ConciliacionCorteId").IsRequired();
+            entity.Property(e => e.Monto).HasColumnName("Monto").HasColumnType("decimal(18,2)").IsRequired();
+            entity.Property(e => e.Motivo).HasColumnName("Motivo").IsRequired().HasMaxLength(250);
+            entity.Property(e => e.QuienAutoriza).HasColumnName("QuienAutoriza").IsRequired().HasMaxLength(100);
+            entity.Property(e => e.FechaCreacion).HasColumnName("FechaCreacion").IsRequired();
+            entity.Property(e => e.UsuarioCreacion).HasColumnName("UsuarioCreacion").IsRequired().HasMaxLength(100);
+
+            entity.HasIndex(e => e.ConciliacionCorteId);
+            entity.HasIndex(e => e.FechaCreacion);
         });
 
         // Configure SystemConfigurationAuditLog

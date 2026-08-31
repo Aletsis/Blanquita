@@ -1,0 +1,106 @@
+@using Blanquita.Application.DTOs
+@inject ISnackbar Snackbar
+
+<MudDialog MaxWidth="MaxWidth.Small" FullWidth="true">
+    <TitleContent>
+        <div class="d-flex align-center">
+            <MudIcon Icon="@Icons.Material.Filled.PointOfSale" Color="Color.Primary" Class="mr-2" />
+            <MudText Typo="Typo.h6">Desglose de Terminales - @Banco</MudText>
+        </div>
+    </TitleContent>
+    <DialogContent>
+        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
+            Capture los montos individuales de cada terminal bancaria de <b>@Banco</b>.
+        </MudText>
+
+        <MudTable Items="_terminalesLocales" Dense="true" Hover="true" Elevation="0" Outlined="true" Class="mb-3">
+            <HeaderContent>
+                <MudTh>Terminal</MudTh>
+                <MudTh Style="text-align: right;">Monto</MudTh>
+                <MudTh Style="width: 50px;"></MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd DataLabel="Terminal">
+                    <MudTextField @bind-Value="context.Nombre" Placeholder="Ej. Terminal 1" Variant="Variant.Text" Margin="Margin.Dense" />
+                </MudTd>
+                <MudTd DataLabel="Monto" Style="text-align: right;">
+                    <MudNumericField @bind-Value="context.Monto" Culture="@_culture" Format="N2" HideSpinButtons="true" Variant="Variant.Text" Margin="Margin.Dense" />
+                </MudTd>
+                <MudTd Style="text-align: center;">
+                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error" OnClick="@(() => EliminarTerminal(context))" />
+                </MudTd>
+            </RowTemplate>
+            <FooterContent>
+                <MudTFootRow>
+                    <MudTd><MudText Typo="Typo.subtitle2" Class="font-weight-bold">Total @Banco:</MudText></MudTd>
+                    <MudTd Style="text-align: right;">
+                        <MudText Typo="Typo.subtitle1" Color="Color.Primary" Class="font-weight-bold">
+                            @TotalSuma.ToString("C2", _culture)
+                        </MudText>
+                    </MudTd>
+                    <MudTd></MudTd>
+                </MudTFootRow>
+            </FooterContent>
+        </MudTable>
+
+        <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" Size="Size.Small" OnClick="AgregarTerminal">
+            Agregar Terminal
+        </MudButton>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancelar</MudButton>
+        <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="Submit">Guardar Desglose</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = null!;
+
+    [Parameter] public string Banco { get; set; } = "Banbajio";
+    [Parameter] public List<TerminalDetalleDto> TerminalesExistentes { get; set; } = new();
+
+    private List<TerminalDetalleDto> _terminalesLocales = new();
+    private System.Globalization.CultureInfo _culture = System.Globalization.CultureInfo.GetCultureInfo("es-MX");
+
+    private decimal TotalSuma => Math.Round(_terminalesLocales.Sum(t => t.Monto), 2, MidpointRounding.AwayFromZero);
+
+    protected override void OnInitialized()
+    {
+        _terminalesLocales = TerminalesExistentes
+            .Where(t => string.Equals(t.Banco, Banco, StringComparison.OrdinalIgnoreCase))
+            .Select(t => new TerminalDetalleDto
+            {
+                Banco = t.Banco,
+                Nombre = t.Nombre,
+                Monto = t.Monto
+            }).ToList();
+
+        if (!_terminalesLocales.Any())
+        {
+            _terminalesLocales.Add(new TerminalDetalleDto { Banco = Banco, Nombre = "Terminal 1", Monto = 0 });
+        }
+    }
+
+    private void AgregarTerminal()
+    {
+        int nextNum = _terminalesLocales.Count + 1;
+        _terminalesLocales.Add(new TerminalDetalleDto
+        {
+            Banco = Banco,
+            Nombre = $"Terminal {nextNum}",
+            Monto = 0
+        });
+    }
+
+    private void EliminarTerminal(TerminalDetalleDto item)
+    {
+        _terminalesLocales.Remove(item);
+    }
+
+    private void Submit()
+    {
+        MudDialog.Close(DialogResult.Ok(_terminalesLocales));
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+}

@@ -444,44 +444,222 @@ public class FoxProDocumentRepository : IFoxProDocumentRepository
 
         try
         {
-            using var reader = _readerFactory.CreateReader(documentsPath);
-            
-            ValidateColumns(reader, "MGW10008", "CSERIEDO01", "CFOLIO", "CFECHA", "CNETO", "CIMPUESTO1", "CTOTAL");
-
-            while (reader.Read())
+            // 1. Leer devoluciones desde MGW10008
+            using (var reader = _readerFactory.CreateReader(documentsPath))
             {
-                cancellationToken.ThrowIfCancellationRequested();
+                ValidateColumns(reader, "MGW10008", "CSERIEDO01", "CFOLIO", "CFECHA", "CNETO", "CIMPUESTO1", "CTOTAL");
 
+                while (reader.Read())
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+
+                    try
+                    {
+                        var docDate = reader.GetDateTimeSafe("CFECHA");
+                        var docSerie = reader.GetStringSafe("CSERIEDO01");
+
+                        if (docDate.Year == year && docDate.Month == month && docSerie.Equals(serie, StringComparison.OrdinalIgnoreCase))
+                        {
+                            var folio = reader.GetDecimalSafe("CFOLIO");
+                            var neto = reader.GetDecimalSafe("CNETO");
+                            var impuesto = reader.GetDecimalSafe("CIMPUESTO1");
+                            var total = reader.GetDecimalSafe("CTOTAL");
+
+                            returns.Add(new ReturnReportItemDto
+                            {
+                                Serie = docSerie,
+                                Folio = folio.ToString("0"),
+                                Fecha = docDate,
+                                Neto = neto,
+                                Impuesto = impuesto,
+                                Total = total
+                            });
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogDebug(ex, "Error al leer registro de devolución");
+                    }
+                }
+            }
+
+            if (!returns.Any())
+            {
+                return returns;
+            }
+
+            // 2. Cruzar con POS10042 para obtener los CIDAPERTUR por (Serie, Folio) de CDEVOLUCIO
+            var pos10042Path = config.Pos10042Path;
+            var docToAperturas = new Dictionary<(string Serie, decimal Folio), List<int>>();
+            var allAperturaIds = new HashSet<int>();
+
+            if (!string.IsNullOrEmpty(pos10042Path) && File.Exists(pos10042Path))
+            {
                 try
                 {
-                    var docDate = reader.GetDateTimeSafe("CFECHA");
-                    var docSerie = reader.GetStringSafe("CSERIEDO01");
+                    using var reader42 = _readerFactory.CreateReader(pos10042Path);
+                    ValidateColumns(reader42, "POS10042", "CDEVOLUCIO", "CIDAPERTUR");
 
-                    if (docDate.Year == year && docDate.Month == month && docSerie.Equals(serie, StringComparison.OrdinalIgnoreCase))
+                    while (reader42.Read())
                     {
-                        var folio = reader.GetDecimalSafe("CFOLIO");
-                        var neto = reader.GetDecimalSafe("CNETO");
-                        var impuesto = reader.GetDecimalSafe("CIMPUESTO1");
-                        var total = reader.GetDecimalSafe("CTOTAL");
+                        cancellationToken.ThrowIfCancellationRequested();
 
-                        returns.Add(new ReturnReportItemDto
+                        try
                         {
-                            Serie = docSerie,
-                            Folio = folio.ToString("0"),
-                            Fecha = docDate,
-                            Neto = neto,
-                            Impuesto = impuesto,
-                            Total = total
-                        });
+                            var rawDevolucio = reader42.GetStringSafe("CDEVOLUCIO");
+                            if (string.IsNullOrWhiteSpace(rawDevolucio)) continue;
+
+                            var cidApertur = reader42.GetInt32Safe("CIDAPERTUR");
+                            if (cidApertur <= 0) continue;
+
+                            var partes = rawDevolucio.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries);
+                            foreach (var parte in partes)
+                            {
+                                var trimmedParte = parte.Trim();
+                                if (string.IsNullOrEmpty(trimmedParte)) continue;
+
+                                string devSerie = string.Empty;
+                                string devFolioStr = string.Empty;
+
+                                if (parte.Length >= 30)
+                                {
+                                    devSerie = parte.Substring(10, 20).Trim();
+                                    devFolioStr = parte.Substring(30).Trim();
+                                }
+                                else
+                                {
+                                    var tokens = trimmedParte.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                                    if (tokens.Length >= 3)
+                                    {
+                                        devSerie = tokens[1].Trim();
+                                        devFolioStr = tokens[2].Trim();
+                                    }
+                                    else if (tokens.Length == 2)
+                                    {
+                                        devSerie = tokens[0].Trim();
+                                        devFolioStr = tokens[1].Trim();
+                                    }
+                                }
+
+                                if (!string.IsNullOrEmpty(devSerie) && decimal.TryParse(devFolioStr, out var devFolio))
+                                {
+                                    var key = (devSerie.ToUpperInvariant(), devFolio);
+                                    if (!docToAperturas.TryGetValue(key, out var list))
+                                    {
+                                        list = new List<int>();
+                                        docToAperturas[key] = list;
+                                    }
+                                    if (!list.Contains(cidApertur))
+                                    {
+                                        list.Add(cidApertur);
+                                    }
+                                    allAperturaIds.Add(cidApertur);
+                                }
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogDebug(ex, "Error al procesar registro en POS10042 para devoluciones");
+                        }
                     }
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogDebug(ex, "Error al leer registro de devolución");
+                    _logger.LogWarning(ex, "Error al leer POS10042 para cruce de devoluciones");
                 }
             }
+            else
+            {
+                _logger.LogWarning("Archivo POS10042 no encontrado o no configurado: {FilePath}", pos10042Path);
+            }
 
-            return returns.OrderBy(x => decimal.Parse(x.Folio)).ToList();
+            // 3. Cruzar con POS10008 para obtener las notas de devolución (CIDDOCUM02 = 36) para cada CIDAPERTUR
+            var pos10008Path = config.Pos10008Path;
+            var aperturaToNotas = new Dictionary<int, List<string>>();
+
+            if (allAperturaIds.Any() && !string.IsNullOrEmpty(pos10008Path) && File.Exists(pos10008Path))
+            {
+                try
+                {
+                    using var reader08 = _readerFactory.CreateReader(pos10008Path);
+                    ValidateColumns(reader08, "POS10008", "CIDAPERTUR", "CIDDOCUM02", "CSERIEDO01", "CFOLIO");
+
+                    while (reader08.Read())
+                    {
+                        cancellationToken.ThrowIfCancellationRequested();
+
+                        try
+                        {
+                            var docType = reader08.GetInt32Safe("CIDDOCUM02");
+                            if (docType != 36) continue;
+
+                            var cidApertur = reader08.GetInt32Safe("CIDAPERTUR");
+                            if (!allAperturaIds.Contains(cidApertur)) continue;
+
+                            var notaSerie = reader08.GetStringSafe("CSERIEDO01")?.Trim() ?? string.Empty;
+                            var notaFolio = reader08.GetDecimalSafe("CFOLIO").ToString("0");
+                            if (string.IsNullOrEmpty(notaFolio) || notaFolio == "0")
+                            {
+                                notaFolio = reader08.GetStringSafe("CFOLIO")?.Trim() ?? string.Empty;
+                            }
+
+                            var notaCompleta = string.IsNullOrEmpty(notaSerie) ? notaFolio : $"{notaSerie}{notaFolio}";
+
+                            if (!string.IsNullOrEmpty(notaCompleta))
+                            {
+                                if (!aperturaToNotas.TryGetValue(cidApertur, out var notasList))
+                                {
+                                    notasList = new List<string>();
+                                    aperturaToNotas[cidApertur] = notasList;
+                                }
+                                if (!notasList.Contains(notaCompleta))
+                                {
+                                    notasList.Add(notaCompleta);
+                                }
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogDebug(ex, "Error al procesar registro en POS10008 para devoluciones");
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Error al leer POS10008 para cruce de notas de devolución");
+                }
+            }
+            else if (allAperturaIds.Any())
+            {
+                _logger.LogWarning("Archivo POS10008 no encontrado o no configurado: {FilePath}", pos10008Path);
+            }
+
+            // 4. Asignar Referencia a cada ReturnReportItemDto
+            var result = new List<ReturnReportItemDto>();
+            foreach (var item in returns)
+            {
+                var referencia = string.Empty;
+                if (decimal.TryParse(item.Folio, out var itemFolio))
+                {
+                    var key = (item.Serie.ToUpperInvariant(), itemFolio);
+                    if (docToAperturas.TryGetValue(key, out var aperturas))
+                    {
+                        var notas = new List<string>();
+                        foreach (var apId in aperturas)
+                        {
+                            if (aperturaToNotas.TryGetValue(apId, out var notasDeApertura))
+                            {
+                                notas.AddRange(notasDeApertura);
+                            }
+                        }
+                        referencia = string.Join(", ", notas.Distinct());
+                    }
+                }
+
+                result.Add(item with { Referencia = referencia });
+            }
+
+            return result.OrderBy(x => decimal.Parse(x.Folio)).ToList();
         }
         catch (Exception ex)
         {

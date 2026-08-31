@@ -309,6 +309,12 @@
             <MudGrid>
                 <MudItem xs="12" md="6">
                     <MudCard Outlined="true" Class="pa-4 mb-4">
+                        <MudSwitch @bind-Value="_configuracion.IsWhatsAppEnabled" 
+                                   Label="Habilitar Servicio de WhatsApp (Envío de mensajes y alertas)" 
+                                   Color="Color.Success" 
+                                   Class="mb-4 font-weight-bold" />
+                        <MudDivider Class="mb-4" />
+
                         <MudTextField @bind-Value="_configuracion.WhatsAppServiceUrl" 
                                       Label="URL del Microservicio de WhatsApp" 
                                       Variant="Variant.Outlined" 
