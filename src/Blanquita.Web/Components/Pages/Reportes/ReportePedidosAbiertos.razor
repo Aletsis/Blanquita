@@ -182,9 +182,7 @@
                                     <HeaderContent>
                                         <MudTh>Folio</MudTh>
                                         <MudTh>Fecha</MudTh>
-                                        <MudTh>Sucursal</MudTh>
-                                        <MudTh>Comanda</MudTh>
-                                        <MudTh>Ruta</MudTh>
+                                        <MudTh>Serie</MudTh>
                                         <MudTh>Cliente</MudTh>
                                         <MudTh Style="text-align: center;">Antigüedad</MudTh>
                                         <MudTh Style="text-align: center;">Partidas</MudTh>
@@ -197,30 +195,6 @@
                                         </MudTd>
                                         <MudTd DataLabel="Fecha">@context.Fecha.ToString("dd/MM/yyyy")</MudTd>
                                         <MudTd DataLabel="Sucursal">@context.Sucursal</MudTd>
-                                        <MudTd DataLabel="Comanda">
-                                            @if (!string.IsNullOrEmpty(context.Comanda))
-                                            {
-                                                <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Secondary">
-                                                    @context.Comanda
-                                                </MudChip>
-                                            }
-                                            else
-                                            {
-                                                <text>-</text>
-                                            }
-                                        </MudTd>
-                                        <MudTd DataLabel="Ruta">
-                                            @if (!string.IsNullOrEmpty(context.Ruta))
-                                            {
-                                                <MudChip T="string" Size="Size.Small" Variant="Variant.Filled" Color="Color.Info">
-                                                    @context.Ruta
-                                                </MudChip>
-                                            }
-                                            else
-                                            {
-                                                <text>-</text>
-                                            }
-                                        </MudTd>
                                         <MudTd DataLabel="Cliente">@context.Cliente</MudTd>
                                         <MudTd DataLabel="Antigüedad" Style="text-align: center;">
                                             <MudChip T="string" Size="Size.Small" Variant="Variant.Filled" Color="@GetAntiguedadColor(context.DiasAbierto)">

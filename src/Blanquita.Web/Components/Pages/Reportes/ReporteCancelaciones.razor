@@ -11,6 +11,7 @@
 @inject IJSRuntime JS
 @inject ILogger<ReporteCancelaciones> Logger
 @inject IExportService ExportService
+@inject IDialogService DialogService
 
 <PageTitle>Reporte de Cancelaciones</PageTitle>
 
@@ -172,11 +173,11 @@
                                         <MudTh>Serie</MudTh>
                                         <MudTh>Folio</MudTh>
                                         <MudTh>Tipo</MudTh>
-                                        <MudTh>Documento</MudTh>
                                         <MudTh Style="text-align: center;">Partidas Canceladas</MudTh>
                                         <MudTh Style="text-align: right;">Neto</MudTh>
                                         <MudTh Style="text-align: right;">Impuesto</MudTh>
                                         <MudTh Style="text-align: right;">Total Cancelado</MudTh>
+                                        <MudTh Style="text-align: center;">Acciones</MudTh>
                                     </HeaderContent>
                                     <RowTemplate>
                                         <MudTd DataLabel="Fecha">@context.Fecha.ToString("dd/MM/yyyy")</MudTd>
@@ -187,7 +188,6 @@
                                                 @context.TipoCancelacion
                                             </MudChip>
                                         </MudTd>
-                                        <MudTd DataLabel="Documento">@context.TipoDocumento</MudTd>
                                         <MudTd DataLabel="Partidas Canceladas" Style="text-align: center;">
                                             @if (context.Detalles.Any())
                                             {
@@ -205,12 +205,21 @@
                                         <MudTd DataLabel="Neto" Style="text-align: right;">@context.Neto.ToString("C2", _culture)</MudTd>
                                         <MudTd DataLabel="Impuesto" Style="text-align: right;">@context.Impuesto.ToString("C2", _culture)</MudTd>
                                         <MudTd DataLabel="Total Cancelado" Style="text-align: right; font-weight:bold; color: #d32f2f;">@context.Total.ToString("C2", _culture)</MudTd>
+                                        <MudTd DataLabel="Acciones" Style="text-align: center;">
+                                            <MudTooltip Text="Ver Nota Completa">
+                                                <MudIconButton Icon="@Icons.Material.Filled.ReceiptLong"
+                                                               Color="Color.Primary"
+                                                               Size="Size.Small"
+                                                               OnClick="@(() => VerNota(context))" />
+                                            </MudTooltip>
+                                        </MudTd>
                                     </RowTemplate>
                                     <FooterContent>
-                                        <MudTh Style="font-weight: bold; text-align: right;" colspan="6">TOTALES:</MudTh>
+                                        <MudTh Style="font-weight: bold; text-align: right;" colspan="5">TOTALES:</MudTh>
                                         <MudTh Style="font-weight: bold; text-align: right;">@datosReporte.Sum(x => x.Neto).ToString("C2", _culture)</MudTh>
                                         <MudTh Style="font-weight: bold; text-align: right;">@datosReporte.Sum(x => x.Impuesto).ToString("C2", _culture)</MudTh>
                                         <MudTh Style="font-weight: bold; text-align: right; color: #d32f2f;">@TotalCancelado.ToString("C2", _culture)</MudTh>
+                                        <MudTh></MudTh>
                                     </FooterContent>
                                 </MudTable>
                             }
@@ -337,6 +346,17 @@
         {
             Snackbar.Add($"Error al exportar a PDF: {ex.Message}", Severity.Error);
         }
+    }
+
+    private async Task VerNota(CancellationReportItemDto item)
+    {
+        var parameters = new DialogParameters<Dialogs.DialogoDetalleNota>
+        {
+            { x => x.Item, item }
+        };
+
+        var options = new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true, CloseButton = true };
+        await DialogService.ShowAsync<Dialogs.DialogoDetalleNota>("Detalle de Nota", parameters, options);
     }
 
     private async Task DescargarArchivo(byte[] contenido, string nombreArchivo, string contentType)

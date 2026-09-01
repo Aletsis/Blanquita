@@ -1,0 +1,265 @@
+@inject IFoxProPedidoRepository PedidoRepository
+@using Blanquita.Application.Interfaces.Repositories
+@using Blanquita.Application.DTOs
+
+<MudDialog>
+    <TitleContent>
+        <MudStack Row="true" AlignItems="AlignItems.Center">
+            <MudIcon Icon="@Icons.Material.Filled.ReceiptLong" Color="Color.Primary" />
+            <MudText Typo="Typo.h6">Detalle de Nota: @(string.IsNullOrEmpty(Item.Serie) ? Item.Folio : $"{Item.Serie}-{Item.Folio}")</MudText>
+        </MudStack>
+    </TitleContent>
+    <DialogContent>
+        <MudContainer Style="max-height: 700px; overflow-y: auto" Class="pa-0">
+            <MudGrid Spacing="2">
+                <!-- Información General (Cabecera) -->
+                <MudItem xs="12">
+                    <MudPaper Elevation="0" Class="pa-4 rounded-xl bg-light-gradient border-light mb-3">
+                        <MudGrid>
+                            <MudItem xs="6" sm="3">
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">Folio / Serie</MudText>
+                                <MudText Typo="Typo.body2" Class="font-weight-bold">
+                                    @(string.IsNullOrEmpty(Item.Serie) ? Item.Folio : $"{Item.Serie}-{Item.Folio}")
+                                </MudText>
+                            </MudItem>
+                            <MudItem xs="6" sm="3">
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">Fecha</MudText>
+                                <MudText Typo="Typo.body2" Class="font-weight-bold">@Item.Fecha.ToString("dd/MM/yyyy")</MudText>
+                            </MudItem>
+                            <MudItem xs="6" sm="3">
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">Tipo Documento</MudText>
+                                <MudText Typo="Typo.body2" Class="font-weight-bold">@Item.TipoDocumento</MudText>
+                            </MudItem>
+                            <MudItem xs="6" sm="3">
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">Tipo de Cancelación</MudText>
+                                <div>
+                                    <MudChip T="string" Size="Size.Small"
+                                             Color="@(Item.TipoCancelacion == "Completa" ? Color.Error : Color.Warning)"
+                                             Icon="@(Item.TipoCancelacion == "Completa" ? Icons.Material.Filled.Cancel : Icons.Material.Filled.RemoveCircleOutline)"
+                                             Variant="Variant.Filled" Class="ma-0">
+                                        @Item.TipoCancelacion
+                                    </MudChip>
+                                </div>
+                            </MudItem>
+                            <MudItem xs="12" sm="8">
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">Cliente</MudText>
+                                <MudText Typo="Typo.body2" Class="font-weight-bold">@Item.Cliente</MudText>
+                            </MudItem>
+                            <MudItem xs="12" sm="4">
+                                <div class="d-flex flex-column align-end">
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">Monto Cancelado</MudText>
+                                    <MudText Typo="Typo.h6" Color="Color.Error" Class="font-weight-bold">
+                                        @Item.Total.ToString("C2", _culture)
+                                    </MudText>
+                                </div>
+                            </MudItem>
+                        </MudGrid>
+                    </MudPaper>
+                </MudItem>
+
+                <!-- Partidas de la Nota (POS10010) -->
+                <MudItem xs="12">
+                    <div class="d-flex align-center justify-space-between mb-2">
+                        <div class="d-flex align-center">
+                            <MudIcon Icon="@Icons.Material.Filled.ListAlt" Color="Color.Primary" Class="mr-2" Size="Size.Small" />
+                            <MudText Typo="Typo.subtitle1" Class="font-weight-bold">Partidas de la Nota Completa (POS10010)</MudText>
+                        </div>
+                        @if (!_loading && _partidas.Any())
+                        {
+                            <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Primary">
+                                @_partidas.Count partidas
+                            </MudChip>
+                        }
+                    </div>
+
+                    @if (_loading)
+                    {
+                        <div class="d-flex justify-center align-center pa-8">
+                            <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Medium" />
+                            <MudText Typo="Typo.body2" Class="ml-3">Cargando partidas de la nota...</MudText>
+                        </div>
+                    }
+                    else if (!_partidas.Any())
+                    {
+                        @if (Item.Detalles.Any())
+                        {
+                            <!-- Fallback a los detalles ya recopilados en el reporte -->
+                            <MudAlert Severity="Severity.Info" Class="mb-3">
+                                Mostrando partidas canceladas registradas en el reporte:
+                            </MudAlert>
+                            <MudTable Items="Item.Detalles" Hover="true" Dense="true" Elevation="0" Outlined="true" Class="rounded-xl border-light" Striped="true">
+                                <HeaderContent>
+                                    <MudTh>Cód. Producto</MudTh>
+                                    <MudTh>Descripción</MudTh>
+                                    <MudTh Style="text-align: center;">Cantidad</MudTh>
+                                    <MudTh Style="text-align: right;">P. Unitario</MudTh>
+                                    <MudTh Style="text-align: right;">Total</MudTh>
+                                </HeaderContent>
+                                <RowTemplate>
+                                    <MudTd DataLabel="Cód. Producto">@context.ProductId</MudTd>
+                                    <MudTd DataLabel="Descripción">@(string.IsNullOrEmpty(context.ProductName) ? "Producto sin descripción" : context.ProductName)</MudTd>
+                                    <MudTd DataLabel="Cantidad" Style="text-align: center; color: #d32f2f; font-weight: bold;">
+                                        @context.Units.ToString("N2")
+                                    </MudTd>
+                                    <MudTd DataLabel="P. Unitario" Style="text-align: right;">@context.Price.ToString("C2", _culture)</MudTd>
+                                    <MudTd DataLabel="Total" Style="text-align: right; color: #d32f2f; font-weight: bold;">
+                                        @context.Total.ToString("C2", _culture)
+                                    </MudTd>
+                                </RowTemplate>
+                            </MudTable>
+                        }
+                        else
+                        {
+                            <MudAlert Severity="Severity.Warning" Class="mt-2">
+                                No se encontraron partidas registradas para este documento en POS10010.
+                            </MudAlert>
+                        }
+                    }
+                    else
+                    {
+                        <MudTable Items="_partidas" Hover="true" Dense="true" Elevation="0" Outlined="true" Class="rounded-xl overflow-hidden border-light" Striped="true">
+                            <HeaderContent>
+                                <MudTh Class="bg-surface">Cód. Artículo</MudTh>
+                                <MudTh Class="bg-surface">Descripción</MudTh>
+                                <MudTh Class="bg-surface" Style="text-align: center;">Cantidad</MudTh>
+                                <MudTh Class="bg-surface" Style="text-align: right;">P. Unitario</MudTh>
+                                <MudTh Class="bg-surface" Style="text-align: right;">Subtotal</MudTh>
+                                <MudTh Class="bg-surface" Style="text-align: center;">Estado</MudTh>
+                            </HeaderContent>
+                            <RowTemplate>
+                                @{
+                                    bool esCancelada = context.Cantidad < 0 || context.Subtotal < 0;
+                                }
+                                <MudTd DataLabel="Cód. Artículo">
+                                    <MudText Typo="Typo.body2" Class="font-mono">@context.Codigo</MudText>
+                                </MudTd>
+                                <MudTd DataLabel="Descripción">
+                                    <MudText Typo="Typo.body2" Color="@(esCancelada ? Color.Error : Color.Default)">
+                                        @context.Descripcion
+                                    </MudText>
+                                </MudTd>
+                                <MudTd DataLabel="Cantidad" Style="text-align: center;">
+                                    @if (esCancelada)
+                                    {
+                                        <MudChip T="string" Size="Size.Small" Color="Color.Error" Variant="Variant.Filled" Class="font-weight-bold">
+                                            @context.Cantidad.ToString("N2")
+                                        </MudChip>
+                                    }
+                                    else
+                                    {
+                                        <MudText Typo="Typo.body2">@context.Cantidad.ToString("N2")</MudText>
+                                    }
+                                </MudTd>
+                                <MudTd DataLabel="P. Unitario" Style="text-align: right;">
+                                    @context.Precio.ToString("C2", _culture)
+                                </MudTd>
+                                <MudTd DataLabel="Subtotal" Style="text-align: right;">
+                                    <MudText Typo="Typo.body2" Class="font-weight-bold" Color="@(esCancelada ? Color.Error : Color.Default)">
+                                        @context.Subtotal.ToString("C2", _culture)
+                                    </MudText>
+                                </MudTd>
+                                <MudTd DataLabel="Estado" Style="text-align: center;">
+                                    @if (esCancelada)
+                                    {
+                                        <MudChip T="string" Size="Size.Small" Color="Color.Error" Variant="Variant.Outlined">
+                                            Cancelada (Resta)
+                                        </MudChip>
+                                    }
+                                    else
+                                    {
+                                        <MudChip T="string" Size="Size.Small" Color="Color.Success" Variant="Variant.Outlined">
+                                            Vigente
+                                        </MudChip>
+                                    }
+                                </MudTd>
+                            </RowTemplate>
+                            <FooterContent>
+                                <MudTFootRow Class="bg-light">
+                                    <MudTd colspan="4" Style="text-align: right;">
+                                        <MudText Typo="Typo.body2" Class="font-weight-bold">SUBTOTAL:</MudText>
+                                    </MudTd>
+                                    <MudTd Style="text-align: right;">
+                                        <MudText Typo="Typo.body2" Class="font-weight-bold">
+                                            @_partidas.Sum(p => p.Subtotal).ToString("C2", _culture)
+                                        </MudText>
+                                    </MudTd>
+                                    <MudTd></MudTd>
+                                </MudTFootRow>
+                                <MudTFootRow Class="bg-light">
+                                    <MudTd colspan="4" Style="text-align: right;">
+                                        <MudText Typo="Typo.body2" Class="font-weight-bold">IVA:</MudText>
+                                    </MudTd>
+                                    <MudTd Style="text-align: right;">
+                                        <MudText Typo="Typo.body2" Class="font-weight-bold">
+                                            @_partidas.Sum(p => p.Impuesto).ToString("C2", _culture)
+                                        </MudText>
+                                    </MudTd>
+                                    <MudTd></MudTd>
+                                </MudTFootRow>
+                                <MudTFootRow Style="background-color: var(--mud-palette-primary-hover)">
+                                    <MudTd colspan="4" Style="text-align: right;">
+                                        <MudText Typo="Typo.subtitle1" Class="font-weight-bold" Color="Color.Primary">TOTAL VIGENTE DE NOTA:</MudText>
+                                    </MudTd>
+                                    <MudTd Style="text-align: right;">
+                                        <MudText Typo="Typo.subtitle1" Class="font-weight-bold" Color="Color.Primary">
+                                            @((_partidas.Sum(p => p.Subtotal) + _partidas.Sum(p => p.Impuesto)).ToString("C2", _culture))
+                                        </MudText>
+                                    </MudTd>
+                                    <MudTd></MudTd>
+                                </MudTFootRow>
+                            </FooterContent>
+                        </MudTable>
+                    }
+                </MudItem>
+            </MudGrid>
+        </MudContainer>
+    </DialogContent>
+    <DialogActions>
+        <MudButton Variant="Variant.Filled" OnClick="Cerrar" Color="Color.Primary" Class="rounded-pill px-6">
+            Cerrar
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+<style>
+    .bg-light-gradient { background: linear-gradient(135deg, #fdfbfb 0%, #ebedee 100%); }
+    .border-light { border: 1px solid rgba(0,0,0,0.06) !important; }
+    .font-weight-bold { font-weight: 700; }
+    .font-mono { font-family: 'Cascadia Code', 'Consolas', monospace; }
+    .rounded-xl { border-radius: 16px !important; }
+    .bg-light { background-color: rgba(0,0,0,0.02); }
+</style>
+
+@code {
+    [CascadingParameter] IMudDialogInstance MudDialog { get; set; } = default!;
+
+    [Parameter] public CancellationReportItemDto Item { get; set; } = new();
+
+    private List<PedidoItemDto> _partidas = new();
+    private bool _loading = true;
+    private System.Globalization.CultureInfo _culture = System.Globalization.CultureInfo.GetCultureInfo("es-MX");
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _loading = true;
+            if (!string.IsNullOrWhiteSpace(Item.IdDocumento))
+            {
+                var partidas = await PedidoRepository.GetPedidoItemsAsync(Item.IdDocumento);
+                _partidas = partidas.ToList();
+            }
+        }
+        catch (Exception)
+        {
+            // Fallback a partidas vacías
+            _partidas = new List<PedidoItemDto>();
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private void Cerrar() => MudDialog.Cancel();
+}

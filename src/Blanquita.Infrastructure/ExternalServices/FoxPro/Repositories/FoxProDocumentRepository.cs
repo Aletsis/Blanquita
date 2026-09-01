@@ -821,7 +821,7 @@ public class FoxProDocumentRepository : IFoxProDocumentRepository
                 try
                 {
                     using var reader10 = _readerFactory.CreateReader(pos10010Path);
-                    ValidateColumns(reader10, "POS10010", "CIDDOCUM01", "CIDPRODU01", "CUNIDADES", "CPRECIO", "CTOTAL", "CCANCELADO");
+                    ValidateColumns(reader10, "POS10010", "CIDDOCUM01", "CIDPRODU01", "CUNIDADES");
 
                     while (reader10.Read())
                     {
@@ -833,27 +833,33 @@ public class FoxProDocumentRepository : IFoxProDocumentRepository
                             if (string.IsNullOrEmpty(docId)) continue;
 
                             var prodId = reader10.GetStringSafe("CIDPRODU01")?.Trim() ?? string.Empty;
+                            if (string.IsNullOrEmpty(prodId) || prodId == "0")
+                            {
+                                prodId = reader10.GetStringSafe("CIDPRODU02")?.Trim() ?? string.Empty;
+                            }
+
                             var movCancelado = reader10.GetInt32Safe("CCANCELADO");
                             var units = (double)reader10.GetDecimalSafe("CUNIDADES");
                             var price = reader10.GetDecimalSafe("CPRECIO");
                             var movTotal = reader10.GetDecimalSafe("CTOTAL");
+                            var movNeto = reader10.GetDecimalSafe("CNETO");
 
                             if (!string.IsNullOrEmpty(prodId))
                             {
                                 productIds.Add(prodId);
                             }
 
-                            var detail = new CancellationDetailDto
-                            {
-                                ProductId = prodId,
-                                Units = units,
-                                Price = price,
-                                Total = movTotal
-                            };
-
                             // Si pertenece a documento con cancelación completa
                             if (allTargetDocIds.Contains(docId))
                             {
+                                var detail = new CancellationDetailDto
+                                {
+                                    ProductId = prodId,
+                                    Units = Math.Abs(units),
+                                    Price = price != 0 ? price : (units != 0 ? Math.Abs(movTotal / (decimal)units) : 0),
+                                    Total = Math.Abs(movTotal != 0 ? movTotal : (decimal)units * price)
+                                };
+
                                 if (!docDetails.TryGetValue(docId, out var list))
                                 {
                                     list = new List<CancellationDetailDto>();
@@ -861,15 +867,27 @@ public class FoxProDocumentRepository : IFoxProDocumentRepository
                                 }
                                 list.Add(detail);
                             }
-                            // Si pertenece a documento activo pero la partida está cancelada -> Cancelación Parcial
-                            else if (movCancelado == 1 && activeDocDict.ContainsKey(docId))
+                            // Si pertenece a documento activo pero la partida es una cancelación parcial (marcada o que resta)
+                            else if (activeDocDict.ContainsKey(docId))
                             {
-                                if (!partialCancelledDocDetails.TryGetValue(docId, out var pList))
+                                bool isPartialCancellation = movCancelado == 1 || units < 0 || movTotal < 0 || movNeto < 0;
+                                if (isPartialCancellation)
                                 {
-                                    pList = new List<CancellationDetailDto>();
-                                    partialCancelledDocDetails[docId] = pList;
+                                    var detail = new CancellationDetailDto
+                                    {
+                                        ProductId = prodId,
+                                        Units = Math.Abs(units),
+                                        Price = price != 0 ? price : (units != 0 ? Math.Abs(movTotal / (decimal)units) : 0),
+                                        Total = Math.Abs(movTotal != 0 ? movTotal : (decimal)units * price)
+                                    };
+
+                                    if (!partialCancelledDocDetails.TryGetValue(docId, out var pList))
+                                    {
+                                        pList = new List<CancellationDetailDto>();
+                                        partialCancelledDocDetails[docId] = pList;
+                                    }
+                                    pList.Add(detail);
                                 }
-                                pList.Add(detail);
                             }
                         }
                         catch (Exception ex)
