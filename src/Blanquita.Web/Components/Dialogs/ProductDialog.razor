@@ -30,7 +30,19 @@
             <strong>Impuesto:</strong> @TaxRate%
         </MudText>
     </DialogContent>
+    <DialogActions>
+        <MudButton Variant="Variant.Text" OnClick="Cancel">Cerrar</MudButton>
+        <MudButton Variant="Variant.Filled" 
+                   Color="Color.Success" 
+                   StartIcon="@Icons.Material.Filled.Print" 
+                   OnClick="AbrirImpresion">
+            Imprimir Etiqueta
+        </MudButton>
+    </DialogActions>
 </MudDialog>
+@using Blanquita.Application.DTOs
+@inject IDialogService DialogService
+
 @code {
     [CascadingParameter]
     IMudDialogInstance MudDialog { get; set; } = default!;
@@ -54,5 +66,24 @@
     private void Cancel()
     {
         MudDialog.Cancel();
+    }
+
+    private async Task AbrirImpresion()
+    {
+        var productDto = new ProductSearchDto
+        {
+            Code = ProductCode,
+            Name = ProductName,
+            Price = ProductPriceSinImpuesto,
+            Tax = TaxRate
+        };
+
+        var parameters = new DialogParameters<DialogoImprimirEtiquetaRapida>
+        {
+            { x => x.Producto, productDto }
+        };
+
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Small, FullWidth = true };
+        await DialogService.ShowAsync<DialogoImprimirEtiquetaRapida>("Imprimir Etiqueta", parameters, options);
     }
 }

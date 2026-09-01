@@ -75,12 +75,22 @@
                         <MudTd DataLabel="Nombre">@context.Name</MudTd>
                         <MudTd DataLabel="Precio">@((context.Price * (1 + context.Tax / 100)).ToString("C2"))</MudTd>
                         <MudTd DataLabel="Acciones">
-                            <MudButton Variant="Variant.Outlined" 
-                                       Color="Color.Primary" 
-                                       Size="Size.Small"
-                                       OnClick="@(() => VerDetalles(context))">
-                                Ver detalles
-                            </MudButton>
+                            <MudStack Row="true" Spacing="2">
+                                <MudButton Variant="Variant.Outlined" 
+                                           Color="Color.Primary" 
+                                           Size="Size.Small"
+                                           StartIcon="@Icons.Material.Filled.Info"
+                                           OnClick="@(() => VerDetalles(context))">
+                                    Detalles
+                                </MudButton>
+                                <MudButton Variant="Variant.Filled" 
+                                           Color="Color.Success" 
+                                           Size="Size.Small"
+                                           StartIcon="@Icons.Material.Filled.Print"
+                                           OnClick="@(() => AbrirImpresionEtiqueta(context))">
+                                    Imprimir Etiqueta
+                                </MudButton>
+                            </MudStack>
                         </MudTd>
                     </RowTemplate>
                     <PagerContent>
@@ -157,8 +167,7 @@
         if (string.IsNullOrWhiteSpace(searchTerm)) return;
 
         buscando = true;
-        hasSearched = false; // Reset to avoid showing "No results" while searching? Or just keep it.
-                             // Actually, logic: searching... then showing results.
+        hasSearched = false;
         
         try
         {
@@ -203,5 +212,16 @@
 
         var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Small, FullWidth = true };
         await DialogService.ShowAsync<ProductDialog>("Detalles", parameters, options);
+    }
+
+    private async Task AbrirImpresionEtiqueta(ProductSearchDto producto)
+    {
+        var parameters = new DialogParameters<DialogoImprimirEtiquetaRapida>
+        {
+            { x => x.Producto, producto }
+        };
+
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Small, FullWidth = true };
+        await DialogService.ShowAsync<DialogoImprimirEtiquetaRapida>("Imprimir Etiqueta", parameters, options);
     }
 }

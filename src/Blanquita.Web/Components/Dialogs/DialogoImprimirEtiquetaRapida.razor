@@ -1,0 +1,183 @@
+@using Blanquita.Application.DTOs
+@using Blanquita.Application.Interfaces
+@using Blanquita.Application.Commands.Printing
+@using MediatR
+@inject IPrinterService PrinterService
+@inject IMediator Mediator
+@inject ISnackbar Snackbar
+@inject ILogger<DialogoImprimirEtiquetaRapida> Logger
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6" Class="font-weight-bold" Style="background: linear-gradient(45deg, #1e88e5, #5e35b1); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+            <MudIcon Icon="@Icons.Material.Filled.Print" Class="mr-2" Color="Color.Primary" />
+            Imprimir Etiqueta de Producto
+        </MudText>
+    </TitleContent>
+    <DialogContent>
+        @if (Producto != null)
+        {
+            <!-- Tarjeta Informativa del Producto -->
+            <MudCard Elevation="2" Class="pa-4 rounded-xl mb-4 bg-light border-light">
+                <MudStack Spacing="1">
+                    <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                        <MudText Typo="Typo.subtitle1" Class="font-weight-bold" Color="Color.Primary">
+                            @Producto.Name
+                        </MudText>
+                        <MudText Typo="Typo.h6" Class="font-weight-bold" Color="Color.Success">
+                            @PrecioFinal.ToString("C2", _culture)
+                        </MudText>
+                    </MudStack>
+                    <MudStack Row="true" Spacing="2" Class="mt-1">
+                        <MudChip T="string" Color="Color.Primary" Size="Size.Small" Variant="Variant.Text">
+                            Código: @Producto.Code
+                        </MudChip>
+                        @if (!string.IsNullOrEmpty(Producto.Plu))
+                        {
+                            <MudChip T="string" Color="Color.Secondary" Size="Size.Small" Variant="Variant.Outlined">
+                                PLU: @Producto.Plu
+                            </MudChip>
+                        }
+                        @if (Producto.Tax > 0)
+                        {
+                            <MudChip T="string" Color="Color.Info" Size="Size.Small" Variant="Variant.Text">
+                                IVA: @Producto.Tax%
+                            </MudChip>
+                        }
+                    </MudStack>
+                </MudStack>
+            </MudCard>
+
+            <!-- Configuración de Impresión -->
+            <MudGrid Spacing="2">
+                <MudItem xs="12" sm="8">
+                    <MudSelect T="int" 
+                               Label="Seleccionar Impresora" 
+                               @bind-Value="_selectedPrinterId" 
+                               Variant="Variant.Outlined" 
+                               AnchorOrigin="Origin.BottomCenter" 
+                               Margin="Margin.Dense">
+                        @foreach (var printer in _printers)
+                        {
+                            <MudSelectItem Value="@printer.Id">
+                                <div class="d-flex align-center">
+                                    <MudIcon Icon="@Icons.Material.Filled.Print" Size="Size.Small" Class="mr-2" Color="Color.Primary" />
+                                    @printer.Name
+                                    <MudText Typo="Typo.caption" Class="ml-2 text-muted">(@printer.IpAddress)</MudText>
+                                </div>
+                            </MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+
+                <MudItem xs="12" sm="4">
+                    <MudNumericField @bind-Value="_cantidadEtiquetas" 
+                                     Label="Cantidad" 
+                                     Variant="Variant.Outlined" 
+                                     Margin="Margin.Dense"
+                                     Min="1" 
+                                     Max="100" 
+                                     Adornment="Adornment.Start" 
+                                     AdornmentIcon="@Icons.Material.Filled.ContentCopy" />
+                </MudItem>
+            </MudGrid>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton Variant="Variant.Text" OnClick="Cancelar" Disabled="_imprimiendo">
+            Cancelar
+        </MudButton>
+        <MudButton Variant="Variant.Filled" 
+                   Color="Color.Success" 
+                   StartIcon="@Icons.Material.Filled.Print" 
+                   OnClick="ImprimirEtiquetas" 
+                   Disabled="@(_imprimiendo || _selectedPrinterId <= 0 || _cantidadEtiquetas <= 0)">
+            @if (_imprimiendo)
+            {
+                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                <text>Imprimiendo...</text>
+            }
+            else
+            {
+                <text>Imprimir (@_cantidadEtiquetas)</text>
+            }
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+<style>
+    .rounded-xl { border-radius: 16px !important; }
+    .border-light { border: 1px solid rgba(0,0,0,0.08) !important; }
+    .bg-light { background-color: #f8fafc; }
+    .font-weight-bold { font-weight: 700; }
+</style>
+
+@code {
+    [CascadingParameter]
+    IMudDialogInstance MudDialog { get; set; } = default!;
+
+    [Parameter]
+    public ProductSearchDto? Producto { get; set; }
+
+    private IEnumerable<PrinterDto> _printers = new List<PrinterDto>();
+    private int _selectedPrinterId;
+    private int _cantidadEtiquetas = 1;
+    private bool _imprimiendo = false;
+    private System.Globalization.CultureInfo _culture = System.Globalization.CultureInfo.GetCultureInfo("es-MX");
+
+    private decimal PrecioFinal => Producto != null ? Producto.Price * (1 + (Producto.Tax / 100m)) : 0;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _printers = await PrinterService.GetAllAsync();
+            if (_printers.Any())
+            {
+                _selectedPrinterId = _printers.First().Id;
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error al cargar impresoras en diálogo");
+            Snackbar.Add("Error al cargar impresoras", Severity.Error);
+        }
+    }
+
+    private async Task ImprimirEtiquetas()
+    {
+        if (Producto == null || _selectedPrinterId <= 0 || _cantidadEtiquetas <= 0) return;
+
+        _imprimiendo = true;
+        var printerName = _printers.FirstOrDefault(p => p.Id == _selectedPrinterId)?.Name ?? "la impresora";
+
+        try
+        {
+            var command = new PrintProductLabelCommand(
+                ProductCode: Producto.Code,
+                ProductName: Producto.Name,
+                Price: PrecioFinal,
+                PrinterId: _selectedPrinterId,
+                Quantity: _cantidadEtiquetas
+            );
+
+            await Mediator.Send(command);
+            Snackbar.Add($"{_cantidadEtiquetas} etiqueta(s) enviada(s) a {printerName}", Severity.Success);
+            MudDialog.Close(DialogResult.Ok(true));
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error al enviar impresión de etiquetas para {Codigo}", Producto.Code);
+            Snackbar.Add($"Error al imprimir: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _imprimiendo = false;
+        }
+    }
+
+    private void Cancelar()
+    {
+        MudDialog.Cancel();
+    }
+}
