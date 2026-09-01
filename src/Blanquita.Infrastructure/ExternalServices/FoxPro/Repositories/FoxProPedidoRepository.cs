@@ -869,6 +869,234 @@ public class FoxProPedidoRepository : IFoxProPedidoRepository
         return report.OrderBy(r => r.ProductCode).ToList();
     }
 
+    public async Task<IEnumerable<OpenPedidoReportItemDto>> GetOpenPedidosReportAsync(
+        DateTime? startDate = null,
+        DateTime? endDate = null,
+        IEnumerable<string>? series = null,
+        string? comanda = null,
+        string? ruta = null,
+        string? sucursalNombre = null,
+        CancellationToken cancellationToken = default)
+    {
+        var config = await _configService.ObtenerConfiguracionAsync();
+        var filePath = config.Pos10008Path;
+
+        if (string.IsNullOrEmpty(filePath) || !File.Exists(filePath))
+        {
+            _logger.LogWarning("Archivo POS10008 no configurado o no existe: {FilePath}", filePath);
+            return Enumerable.Empty<OpenPedidoReportItemDto>();
+        }
+
+        var openPedidos = new List<OpenPedidoReportItemDto>();
+        var seriesList = series?.Select(s => s.Trim().ToUpper()).Where(s => !string.IsNullOrEmpty(s)).ToList() ?? new List<string>();
+        var clientIdsToFetch = new HashSet<int>();
+        var clientNames = new Dictionary<int, string>();
+        var docIds = new HashSet<string>();
+        var pedidoClienteIds = new Dictionary<string, int>();
+
+        try
+        {
+            using var reader = _readerFactory.CreateReader(filePath);
+            ValidateColumns(reader, "POS10008", "CIDDOCUM01", "CSERIEDO01", "CFOLIO", "CFECHA", "CNETO", "CIMPUESTO1", "CTOTAL", "CABIERTO", "CCANCELADO");
+
+            while (reader.Read())
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                try
+                {
+                    var cabierto = reader.GetInt32Safe("CABIERTO");
+                    if (cabierto != 1) continue; // Solo pedidos abiertos
+
+                    var ccancelado = reader.GetInt32Safe("CCANCELADO");
+                    if (ccancelado == 1) continue; // Excluir cancelados
+
+                    var cfecha = reader.GetDateTimeSafe("CFECHA");
+                    if (cfecha == DateTime.MinValue || cfecha.Year < 2010) continue;
+
+                    // Filtro de fecha
+                    if (startDate.HasValue && endDate.HasValue)
+                    {
+                        if (cfecha.Date < startDate.Value.Date || cfecha.Date > endDate.Value.Date) continue;
+                    }
+
+                    var cseriedo01 = reader.GetStringSafe("CSERIEDO01")?.Trim() ?? string.Empty;
+                    if (seriesList.Any() && !seriesList.Contains(cseriedo01.ToUpper())) continue;
+
+                    var ctextoex01 = reader.GetStringSafe("CTEXTOEX01") ?? string.Empty;
+                    var (extractedRuta, extractedNomina) = ExtractRutaAndNomina(ctextoex01);
+
+                    var ctextoex02 = reader.GetStringSafe("CTEXTOEX02") ?? string.Empty;
+                    var extractedComanda = ExtractComanda(ctextoex02);
+
+                    if (!string.IsNullOrEmpty(comanda))
+                    {
+                        if (!CompareComanda(extractedComanda, comanda)) continue;
+                    }
+
+                    if (!string.IsNullOrEmpty(ruta))
+                    {
+                        if (!extractedRuta.Contains(ruta.Trim(), StringComparison.OrdinalIgnoreCase)) continue;
+                    }
+
+                    var docId = reader.GetStringSafe("CIDDOCUM01")?.Trim() ?? string.Empty;
+                    var folioStr = reader.GetStringSafe("CFOLIO")?.Trim() ?? string.Empty;
+                    var cIdClien = reader.GetInt32Safe("CIDCLIEN01");
+
+                    if (cIdClien > 0)
+                    {
+                        clientIdsToFetch.Add(cIdClien);
+                    }
+
+                    if (!string.IsNullOrEmpty(docId))
+                    {
+                        docIds.Add(docId);
+                        pedidoClienteIds[docId] = cIdClien;
+                    }
+
+                    var diasAbierto = Math.Max(0, (DateTime.Today - cfecha.Date).Days);
+
+                    openPedidos.Add(new OpenPedidoReportItemDto
+                    {
+                        IdDocumento = docId,
+                        Serie = cseriedo01,
+                        Folio = folioStr,
+                        Fecha = cfecha,
+                        Comanda = extractedComanda,
+                        Sucursal = !string.IsNullOrEmpty(sucursalNombre) ? sucursalNombre : cseriedo01,
+                        Ruta = extractedRuta,
+                        Repartidor = extractedNomina,
+                        Cliente = "PUBLICO GENERAL",
+                        DiasAbierto = diasAbierto,
+                        Neto = reader.GetDecimalSafe("CNETO"),
+                        Impuesto = reader.GetDecimalSafe("CIMPUESTO1"),
+                        Total = reader.GetDecimalSafe("CTOTAL")
+                    });
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogDebug(ex, "Error al leer registro en POS10008 para pedidos abiertos");
+                }
+            }
+
+            // Resolver nombres de clientes
+            if (clientIdsToFetch.Any())
+            {
+                try
+                {
+                    var clients = await _clientRepository.GetByIdsAsync(clientIdsToFetch, cancellationToken);
+                    clientNames = clients.ToDictionary(c => c.Id, c => c.Name);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Error al resolver nombres de clientes para pedidos abiertos");
+                }
+            }
+
+            // Leer partidas de POS10010 para los pedidos abiertos
+            var pos10010Path = config.Pos10010Path;
+            var docItems = new Dictionary<string, List<PedidoItemDto>>();
+
+            if (!string.IsNullOrEmpty(pos10010Path) && File.Exists(pos10010Path) && docIds.Any())
+            {
+                try
+                {
+                    using var reader10 = _readerFactory.CreateReader(pos10010Path);
+                    ValidateColumns(reader10, "POS10010", "CIDDOCUM01", "CIDPRODU01", "CUNIDADES", "CPRECIO", "CTOTAL");
+
+                    while (reader10.Read())
+                    {
+                        cancellationToken.ThrowIfCancellationRequested();
+
+                        try
+                        {
+                            var docId = reader10.GetStringSafe("CIDDOCUM01")?.Trim() ?? string.Empty;
+                            if (!docIds.Contains(docId)) continue;
+
+                            var prodId = reader10.GetStringSafe("CIDPRODU01")?.Trim() ?? string.Empty;
+                            var units = reader10.GetDecimalSafe("CUNIDADES");
+                            var price = reader10.GetDecimalSafe("CPRECIO");
+                            var movTotal = reader10.GetDecimalSafe("CTOTAL");
+
+                            var itemDto = new PedidoItemDto
+                            {
+                                Codigo = prodId,
+                                Descripcion = prodId,
+                                Cantidad = units,
+                                Precio = price,
+                                Subtotal = units * price,
+                                Impuesto = Math.Max(0, movTotal - (units * price))
+                            };
+
+                            if (!docItems.TryGetValue(docId, out var list))
+                            {
+                                list = new List<PedidoItemDto>();
+                                docItems[docId] = list;
+                            }
+                            list.Add(itemDto);
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogDebug(ex, "Error al leer partida en POS10010 para pedidos abiertos");
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Error al leer POS10010 para pedidos abiertos");
+                }
+            }
+
+            // Ensamblar resultados finales
+            var result = new List<OpenPedidoReportItemDto>();
+            foreach (var p in openPedidos)
+            {
+                string clientName = "PUBLICO GENERAL";
+                if (pedidoClienteIds.TryGetValue(p.IdDocumento, out var cId) && clientNames.TryGetValue(cId, out var resolvedName))
+                {
+                    clientName = resolvedName;
+                }
+
+                var items = docItems.TryGetValue(p.IdDocumento, out var dList) ? dList : new List<PedidoItemDto>();
+
+                result.Add(p with
+                {
+                    Cliente = clientName,
+                    PartidasCount = items.Count,
+                    Detalles = items
+                });
+            }
+
+            return result.OrderByDescending(x => x.DiasAbierto).ThenBy(x => x.Fecha).ToList();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error al obtener reporte de pedidos abiertos desde POS10008");
+            throw;
+        }
+    }
+
+    private void ValidateColumns(IFoxProDataReader reader, string fileName, params string[] columns)
+    {
+        var missingColumns = new List<string>();
+        foreach (var col in columns)
+        {
+            try
+            {
+                reader.GetOrdinal(col);
+            }
+            catch
+            {
+                missingColumns.Add(col);
+            }
+        }
+
+        if (missingColumns.Any())
+        {
+            throw new InvalidOperationException($"Faltan las siguientes columnas en {fileName}: {string.Join(", ", missingColumns)}. Verifique la estructura del archivo.");
+        }
+    }
+
     private string DetermineStatus(IFoxProDataReader reader)
     {
         var cancelado = reader.GetInt32Safe("CCANCELADO");

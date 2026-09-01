@@ -15,6 +15,13 @@ public class GetReturnReportQueryHandler : IRequestHandler<GetReturnReportQuery,
 
     public async Task<IEnumerable<ReturnReportItemDto>> Handle(GetReturnReportQuery request, CancellationToken cancellationToken)
     {
-        return await _foxProRepository.GetReturnsReportAsync(request.Year, request.Month, request.Serie, cancellationToken);
+        return await _foxProRepository.GetReturnsReportAsync(
+            request.Year, 
+            request.Month, 
+            request.Serie, 
+            request.StartDate, 
+            request.EndDate, 
+            request.Tipo, 
+            cancellationToken);
     }
 }

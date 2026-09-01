@@ -39,12 +39,25 @@ public interface IFoxProDocumentRepository
     Task<IEnumerable<InvoiceDto>> GetRecentInvoicesAsync(DateTime sinceDate, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Obtiene las devoluciones de una sucursal específica desde MGW10008
+    /// Obtiene el reporte de devoluciones exclusivamente desde POS10008 (CIDDOCUM02 = 36) cruzando con POS10042 y POS10010.
     /// </summary>
     Task<IEnumerable<ReturnReportItemDto>> GetReturnsReportAsync(
-        int year,
-        int month,
-        string serie, 
+        int? year,
+        int? month,
+        string? serie, 
+        DateTime? startDate = null,
+        DateTime? endDate = null,
+        string? tipo = null,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Obtiene el reporte de cancelaciones completas y parciales exclusivamente desde POS10008 cruzando con POS10010.
+    /// </summary>
+    Task<IEnumerable<CancellationReportItemDto>> GetCancellationsReportAsync(
+        DateTime? startDate = null,
+        DateTime? endDate = null,
+        string? serie = null,
+        string? tipo = null,
         CancellationToken cancellationToken = default);
 }
 

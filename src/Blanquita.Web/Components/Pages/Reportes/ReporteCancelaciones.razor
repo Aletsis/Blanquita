@@ -1,24 +1,23 @@
-@page "/reportes/devoluciones"
-@page "/reportes/NotasCreditoDevoluciones"
+@page "/reportes/cancelaciones"
 @using Microsoft.AspNetCore.Authorization
 @attribute [Authorize(Roles = "Admin,Security,Supervisor")]
 @using Blanquita.Application.DTOs
-@using Blanquita.Application.Queries.FoxPro.GetReturnReport
+@using Blanquita.Application.Queries.FoxPro.GetCancellationReport
 @using MediatR
 @using Blanquita.Application.Interfaces
 @inject IMediator Mediator
 @inject IBranchService BranchService
 @inject ISnackbar Snackbar
 @inject IJSRuntime JS
-@inject ILogger<ReporteDevoluciones> Logger
+@inject ILogger<ReporteCancelaciones> Logger
 @inject IExportService ExportService
 
-<PageTitle>Reporte de Devoluciones</PageTitle>
+<PageTitle>Reporte de Cancelaciones</PageTitle>
 
 <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4 animate-fade-in">
-    <MudText Typo="Typo.h4" Class="mb-6 font-weight-bold" Style="background: linear-gradient(45deg, #f44336, #e91e63); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
-        <MudIcon Icon="@Icons.Material.Filled.AssignmentReturn" Class="mr-2" Size="Size.Large" Color="Color.Error" />
-        Reporte de Devoluciones (POS)
+    <MudText Typo="Typo.h4" Class="mb-6 font-weight-bold" Style="background: linear-gradient(45deg, #d32f2f, #ff9800); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+        <MudIcon Icon="@Icons.Material.Filled.Cancel" Class="mr-2" Size="Size.Large" Color="Color.Error" />
+        Reporte de Cancelaciones (POS)
     </MudText>
 
     <MudGrid>
@@ -34,7 +33,6 @@
                     <MudSelect T="BranchDto" @bind-Value="sucursalSeleccionada"
                                Label="Sucursal"
                                Variant="Variant.Outlined"
-                               Required="true"
                                Margin="Margin.Dense"
                                Class="mb-3"
                                ToStringFunc="@(b => b?.Name)"
@@ -49,7 +47,7 @@
                     </MudSelect>
 
                     <MudSelect T="string" @bind-Value="_tipoSeleccionado"
-                               Label="Tipo de Devolución"
+                               Label="Tipo de Cancelación"
                                Variant="Variant.Outlined"
                                Margin="Margin.Dense"
                                Class="mb-3"
@@ -75,21 +73,14 @@
                                    MaxDate="DateTime.Today"
                                    Class="mb-3" />
 
-                    @if (sucursalSeleccionada != null)
-                    {
-                         <MudText Typo="Typo.caption" Class="mb-2 d-block" Color="Color.Secondary">
-                            Serie Devolución: <strong>@(string.IsNullOrEmpty(sucursalSeleccionada.SeriesDevolucion) ? "(Todas / POS)" : sucursalSeleccionada.SeriesDevolucion)</strong>
-                        </MudText>
-                    }
-
                     <MudDivider Class="my-3" />
 
                     <MudButton Variant="Variant.Filled"
-                               Color="Color.Primary"
+                               Color="Color.Error"
                                FullWidth="true"
                                StartIcon="@Icons.Material.Filled.Search"
                                OnClick="GenerarReporte"
-                               Disabled="@(generando || sucursalSeleccionada == null || _fechaInicio == null || _fechaFin == null)"
+                               Disabled="@(generando || _fechaInicio == null || _fechaFin == null)"
                                Size="Size.Large"
                                Class="py-2 rounded-lg shadow-sm">
                         @if (generando)
@@ -112,8 +103,8 @@
             {
                 <MudCard Elevation="4" Class="rounded-xl pa-8 text-center animate-fade-in">
                     <MudCardContent>
-                        <MudProgressCircular Size="Size.Large" Indeterminate="true" Color="Color.Primary" />
-                        <MudText Typo="Typo.h6" Class="mt-4">Consultando devoluciones en punto de venta...</MudText>
+                        <MudProgressCircular Size="Size.Large" Indeterminate="true" Color="Color.Error" />
+                        <MudText Typo="Typo.h6" Class="mt-4">Consultando cancelaciones en punto de venta...</MudText>
                     </MudCardContent>
                 </MudCard>
             }
@@ -124,25 +115,25 @@
                     <MudGrid Class="mb-4" Spacing="2">
                         <MudItem xs="12" sm="6" md="3">
                             <MudPaper Elevation="3" Class="pa-3 rounded-xl border-light bg-light text-center">
-                                <MudText Typo="Typo.caption" Color="Color.Secondary">Total Devoluciones</MudText>
-                                <MudText Typo="Typo.h5" Class="font-weight-bold" Color="Color.Primary">@datosReporte.Count</MudText>
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">Total Cancelaciones</MudText>
+                                <MudText Typo="Typo.h5" Class="font-weight-bold" Color="Color.Error">@datosReporte.Count</MudText>
                             </MudPaper>
                         </MudItem>
                         <MudItem xs="12" sm="6" md="3">
                             <MudPaper Elevation="3" Class="pa-3 rounded-xl border-light bg-light text-center">
-                                <MudText Typo="Typo.caption" Color="Color.Secondary">Monto Total Devuelto</MudText>
-                                <MudText Typo="Typo.h5" Class="font-weight-bold" Color="Color.Error">@TotalDevuelto.ToString("C2", _culture)</MudText>
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">Monto Total Cancelado</MudText>
+                                <MudText Typo="Typo.h5" Class="font-weight-bold" Color="Color.Error">@TotalCancelado.ToString("C2", _culture)</MudText>
                             </MudPaper>
                         </MudItem>
                         <MudItem xs="12" sm="6" md="3">
                             <MudPaper Elevation="3" Class="pa-3 rounded-xl border-light bg-light text-center">
-                                <MudText Typo="Typo.caption" Color="Color.Secondary">Devoluciones Completas</MudText>
-                                <MudText Typo="Typo.h5" Class="font-weight-bold" Color="Color.Success">@CountCompletas (@TotalCompletas.ToString("C2", _culture))</MudText>
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">Cancelaciones Completas</MudText>
+                                <MudText Typo="Typo.h5" Class="font-weight-bold" Color="Color.Dark">@CountCompletas (@TotalCompletas.ToString("C2", _culture))</MudText>
                             </MudPaper>
                         </MudItem>
                         <MudItem xs="12" sm="6" md="3">
                             <MudPaper Elevation="3" Class="pa-3 rounded-xl border-light bg-light text-center">
-                                <MudText Typo="Typo.caption" Color="Color.Secondary">Devoluciones Parciales</MudText>
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">Cancelaciones Parciales</MudText>
                                 <MudText Typo="Typo.h5" Class="font-weight-bold" Color="Color.Warning">@CountParciales (@TotalParciales.ToString("C2", _culture))</MudText>
                             </MudPaper>
                         </MudItem>
@@ -153,7 +144,7 @@
                             <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-3">
                                  <MudText Typo="Typo.h6" Color="Color.Primary">
                                     <MudIcon Icon="@Icons.Material.Filled.TableChart" Class="mr-2" />
-                                    Detalle de Devoluciones
+                                    Detalle de Cancelaciones
                                 </MudText>
                                 <MudStack Row="true" Spacing="2">
                                     <MudButton Variant="Variant.Outlined"
@@ -181,51 +172,51 @@
                                         <MudTh>Serie</MudTh>
                                         <MudTh>Folio</MudTh>
                                         <MudTh>Tipo</MudTh>
-                                        <MudTh>Referencia / Ticket</MudTh>
-                                        <MudTh Style="text-align: center;">Partidas</MudTh>
+                                        <MudTh>Documento</MudTh>
+                                        <MudTh Style="text-align: center;">Partidas Canceladas</MudTh>
                                         <MudTh Style="text-align: right;">Neto</MudTh>
                                         <MudTh Style="text-align: right;">Impuesto</MudTh>
-                                        <MudTh Style="text-align: right;">Total Devuelto</MudTh>
+                                        <MudTh Style="text-align: right;">Total Cancelado</MudTh>
                                     </HeaderContent>
                                     <RowTemplate>
                                         <MudTd DataLabel="Fecha">@context.Fecha.ToString("dd/MM/yyyy")</MudTd>
                                         <MudTd DataLabel="Serie">@context.Serie</MudTd>
                                         <MudTd DataLabel="Folio">@context.Folio</MudTd>
                                         <MudTd DataLabel="Tipo">
-                                            <MudChip T="string" Color="@(context.Tipo == "Completa" ? Color.Success : Color.Warning)" Size="Size.Small" Variant="Variant.Filled">
-                                                @context.Tipo
+                                            <MudChip T="string" Color="@(context.TipoCancelacion == "Completa" ? Color.Error : Color.Warning)" Size="Size.Small" Variant="Variant.Filled">
+                                                @context.TipoCancelacion
                                             </MudChip>
                                         </MudTd>
-                                        <MudTd DataLabel="Referencia">@context.Referencia</MudTd>
-                                        <MudTd DataLabel="Partidas" Style="text-align: center;">
+                                        <MudTd DataLabel="Documento">@context.TipoDocumento</MudTd>
+                                        <MudTd DataLabel="Partidas Canceladas" Style="text-align: center;">
                                             @if (context.Detalles.Any())
                                             {
-                                                <MudTooltip Text="@string.Join(", ", context.Detalles.Select(d => $"{d.Units:0.##}x {d.ProductName}"))">
-                                                    <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Info">
+                                                <MudTooltip Text="@string.Join(", ", context.Detalles.Select(d => $"{d.Units:0.##}x {d.ProductName} ({d.Total.ToString("C2", _culture)})"))">
+                                                    <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Error">
                                                         @context.Detalles.Count art.
                                                     </MudChip>
                                                 </MudTooltip>
                                             }
                                             else
                                             {
-                                                <text>-</text>
+                                                <text>Doc. Completo</text>
                                             }
                                         </MudTd>
                                         <MudTd DataLabel="Neto" Style="text-align: right;">@context.Neto.ToString("C2", _culture)</MudTd>
                                         <MudTd DataLabel="Impuesto" Style="text-align: right;">@context.Impuesto.ToString("C2", _culture)</MudTd>
-                                        <MudTd DataLabel="Total" Style="text-align: right; font-weight:bold; color: #d32f2f;">@context.Total.ToString("C2", _culture)</MudTd>
+                                        <MudTd DataLabel="Total Cancelado" Style="text-align: right; font-weight:bold; color: #d32f2f;">@context.Total.ToString("C2", _culture)</MudTd>
                                     </RowTemplate>
                                     <FooterContent>
                                         <MudTh Style="font-weight: bold; text-align: right;" colspan="6">TOTALES:</MudTh>
                                         <MudTh Style="font-weight: bold; text-align: right;">@datosReporte.Sum(x => x.Neto).ToString("C2", _culture)</MudTh>
                                         <MudTh Style="font-weight: bold; text-align: right;">@datosReporte.Sum(x => x.Impuesto).ToString("C2", _culture)</MudTh>
-                                        <MudTh Style="font-weight: bold; text-align: right; color: #d32f2f;">@TotalDevuelto.ToString("C2", _culture)</MudTh>
+                                        <MudTh Style="font-weight: bold; text-align: right; color: #d32f2f;">@TotalCancelado.ToString("C2", _culture)</MudTh>
                                     </FooterContent>
                                 </MudTable>
                             }
                             else
                             {
-                                <MudAlert Severity="Severity.Info" Class="mt-2">No se encontraron devoluciones para los filtros seleccionados.</MudAlert>
+                                <MudAlert Severity="Severity.Info" Class="mt-2">No se encontraron cancelaciones para los filtros seleccionados.</MudAlert>
                             }
                         </MudCardContent>
                     </MudCard>
@@ -254,24 +245,20 @@
     private string _tipoSeleccionado = "Todas";
     private bool generando = false;
     private bool reporteGenerado = false;
-    private List<ReturnReportItemDto>? datosReporte;
+    private List<CancellationReportItemDto>? datosReporte;
     private System.Globalization.CultureInfo _culture = System.Globalization.CultureInfo.GetCultureInfo("es-MX");
 
-    private decimal TotalDevuelto => datosReporte?.Sum(x => x.Total) ?? 0;
-    private int CountCompletas => datosReporte?.Count(x => x.Tipo == "Completa") ?? 0;
-    private decimal TotalCompletas => datosReporte?.Where(x => x.Tipo == "Completa").Sum(x => x.Total) ?? 0;
-    private int CountParciales => datosReporte?.Count(x => x.Tipo == "Parcial") ?? 0;
-    private decimal TotalParciales => datosReporte?.Where(x => x.Tipo == "Parcial").Sum(x => x.Total) ?? 0;
+    private decimal TotalCancelado => datosReporte?.Sum(x => x.Total) ?? 0;
+    private int CountCompletas => datosReporte?.Count(x => x.TipoCancelacion == "Completa") ?? 0;
+    private decimal TotalCompletas => datosReporte?.Where(x => x.TipoCancelacion == "Completa").Sum(x => x.Total) ?? 0;
+    private int CountParciales => datosReporte?.Count(x => x.TipoCancelacion == "Parcial") ?? 0;
+    private decimal TotalParciales => datosReporte?.Where(x => x.TipoCancelacion == "Parcial").Sum(x => x.Total) ?? 0;
 
     protected override async Task OnInitializedAsync()
     {
         try
         {
             sucursales = await BranchService.GetAllAsync();
-            if (sucursales.Any())
-            {
-                sucursalSeleccionada = sucursales.First();
-            }
         }
         catch (Exception ex)
         {
@@ -282,7 +269,7 @@
 
     private async Task GenerarReporte()
     {
-        if (sucursalSeleccionada == null || _fechaInicio == null || _fechaFin == null)
+        if (_fechaInicio == null || _fechaFin == null)
             return;
 
         generando = true;
@@ -291,10 +278,10 @@
 
         try
         {
-            var query = new GetReturnReportQuery(
+            var query = new GetCancellationReportQuery(
                 StartDate: _fechaInicio.Value,
                 EndDate: _fechaFin.Value,
-                Serie: sucursalSeleccionada.SeriesDevolucion,
+                Serie: sucursalSeleccionada?.SeriesCliente,
                 Tipo: _tipoSeleccionado
             );
             
@@ -303,14 +290,14 @@
             reporteGenerado = true;
             
             if (datosReporte.Any())
-                Snackbar.Add($"Se encontraron {datosReporte.Count} devoluciones", Severity.Success);
+                Snackbar.Add($"Se encontraron {datosReporte.Count} cancelaciones", Severity.Success);
             else
                 Snackbar.Add("No se encontraron registros para los filtros seleccionados", Severity.Info);
         }
         catch (Exception ex)
         {
             Snackbar.Add($"Error al consultar: {ex.Message}", Severity.Error);
-            Logger.LogError(ex, "Error al generar reporte de devoluciones");
+            Logger.LogError(ex, "Error al generar reporte de cancelaciones");
         }
         finally
         {
@@ -324,8 +311,8 @@
 
         try
         {
-            var contenido = await ExportService.ExportToExcelAsync(datosReporte, "Devoluciones");
-            var nombreArchivo = $"Devoluciones_{sucursalSeleccionada?.Name}_{_fechaInicio:yyyyMMdd}_{_fechaFin:yyyyMMdd}.xlsx";
+            var contenido = await ExportService.ExportToExcelAsync(datosReporte, "Cancelaciones");
+            var nombreArchivo = $"Cancelaciones_{sucursalSeleccionada?.Name ?? "General"}_{_fechaInicio:yyyyMMdd}_{_fechaFin:yyyyMMdd}.xlsx";
             await DescargarArchivo(contenido, nombreArchivo, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
             Snackbar.Add("Reporte exportado exitosamente a Excel", Severity.Success);
         }
@@ -341,8 +328,8 @@
 
         try
         {
-            var contenido = await ExportService.ExportToPdfAsync(datosReporte, $"Reporte de Devoluciones POS - {sucursalSeleccionada?.Name}");
-            var nombreArchivo = $"Devoluciones_{sucursalSeleccionada?.Name}_{_fechaInicio:yyyyMMdd}_{_fechaFin:yyyyMMdd}.pdf";
+            var contenido = await ExportService.ExportToPdfAsync(datosReporte, $"Reporte de Cancelaciones POS - {sucursalSeleccionada?.Name ?? "General"}");
+            var nombreArchivo = $"Cancelaciones_{sucursalSeleccionada?.Name ?? "General"}_{_fechaInicio:yyyyMMdd}_{_fechaFin:yyyyMMdd}.pdf";
             await DescargarArchivo(contenido, nombreArchivo, "application/pdf");
             Snackbar.Add("Reporte exportado exitosamente a PDF", Severity.Success);
         }

@@ -35,4 +35,16 @@ public interface IFoxProPedidoRepository
         IEnumerable<string> productCodes,
         IEnumerable<string> series,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Obtiene el reporte de pedidos abiertos directamente desde POS10008 donde CABIERTO = 1 y CCANCELADO = 0.
+    /// </summary>
+    Task<IEnumerable<OpenPedidoReportItemDto>> GetOpenPedidosReportAsync(
+        DateTime? startDate = null,
+        DateTime? endDate = null,
+        IEnumerable<string>? series = null,
+        string? comanda = null,
+        string? ruta = null,
+        string? sucursalNombre = null,
+        CancellationToken cancellationToken = default);
 }

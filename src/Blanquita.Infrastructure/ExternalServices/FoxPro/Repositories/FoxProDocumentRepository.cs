@@ -430,24 +430,34 @@ public class FoxProDocumentRepository : IFoxProDocumentRepository
         }
     }
 
-    public async Task<IEnumerable<ReturnReportItemDto>> GetReturnsReportAsync(int year, int month, string serie, CancellationToken cancellationToken = default)
+    public async Task<IEnumerable<ReturnReportItemDto>> GetReturnsReportAsync(
+        int? year, 
+        int? month, 
+        string? serie, 
+        DateTime? startDate = null, 
+        DateTime? endDate = null, 
+        string? tipo = null, 
+        CancellationToken cancellationToken = default)
     {
         var config = await _configService.ObtenerConfiguracionAsync();
-        var documentsPath = config.Mgw10008Path;
+        var pos10008Path = config.Pos10008Path;
         var returns = new List<ReturnReportItemDto>();
 
-        if (string.IsNullOrEmpty(documentsPath) || !File.Exists(documentsPath))
+        if (string.IsNullOrEmpty(pos10008Path) || !File.Exists(pos10008Path))
         {
-             _logger.LogWarning("Archivo MGW10008 no encontrado o no configurado: {FilePath}", documentsPath);
+             _logger.LogWarning("Archivo POS10008 no encontrado o no configurado: {FilePath}", pos10008Path);
              return returns;
         }
 
         try
         {
-            // 1. Leer devoluciones desde MGW10008
-            using (var reader = _readerFactory.CreateReader(documentsPath))
+            // 1. Leer devoluciones directamente desde POS10008 (CIDDOCUM02 = 36)
+            var returnDocIds = new HashSet<string>();
+            var docToApertura = new Dictionary<string, int>();
+
+            using (var reader = _readerFactory.CreateReader(pos10008Path))
             {
-                ValidateColumns(reader, "MGW10008", "CSERIEDO01", "CFOLIO", "CFECHA", "CNETO", "CIMPUESTO1", "CTOTAL");
+                ValidateColumns(reader, "POS10008", "CIDDOCUM01", "CIDDOCUM02", "CSERIEDO01", "CFOLIO", "CFECHA", "CNETO", "CIMPUESTO1", "CTOTAL", "CIDAPERTUR");
 
                 while (reader.Read())
                 {
@@ -455,30 +465,56 @@ public class FoxProDocumentRepository : IFoxProDocumentRepository
 
                     try
                     {
+                        var docType = reader.GetInt32Safe("CIDDOCUM02");
+                        if (docType != 36) continue; // 36 = Devolución de Venta POS
+
                         var docDate = reader.GetDateTimeSafe("CFECHA");
-                        var docSerie = reader.GetStringSafe("CSERIEDO01");
+                        var docSerie = reader.GetStringSafe("CSERIEDO01")?.Trim() ?? string.Empty;
 
-                        if (docDate.Year == year && docDate.Month == month && docSerie.Equals(serie, StringComparison.OrdinalIgnoreCase))
+                        // Filtro de fecha
+                        if (startDate.HasValue && endDate.HasValue)
                         {
-                            var folio = reader.GetDecimalSafe("CFOLIO");
-                            var neto = reader.GetDecimalSafe("CNETO");
-                            var impuesto = reader.GetDecimalSafe("CIMPUESTO1");
-                            var total = reader.GetDecimalSafe("CTOTAL");
-
-                            returns.Add(new ReturnReportItemDto
-                            {
-                                Serie = docSerie,
-                                Folio = folio.ToString("0"),
-                                Fecha = docDate,
-                                Neto = neto,
-                                Impuesto = impuesto,
-                                Total = total
-                            });
+                            if (docDate.Date < startDate.Value.Date || docDate.Date > endDate.Value.Date) continue;
                         }
+                        else if (year.HasValue && month.HasValue)
+                        {
+                            if (docDate.Year != year.Value || docDate.Month != month.Value) continue;
+                        }
+
+                        // Filtro de serie
+                        if (!string.IsNullOrWhiteSpace(serie) && !docSerie.Equals(serie.Trim(), StringComparison.OrdinalIgnoreCase))
+                        {
+                            continue;
+                        }
+
+                        var docId = reader.GetStringSafe("CIDDOCUM01")?.Trim() ?? string.Empty;
+                        var folio = reader.GetDecimalSafe("CFOLIO");
+                        var neto = reader.GetDecimalSafe("CNETO");
+                        var impuesto = reader.GetDecimalSafe("CIMPUESTO1");
+                        var total = reader.GetDecimalSafe("CTOTAL");
+                        var cidApertur = reader.GetInt32Safe("CIDAPERTUR");
+
+                        if (!string.IsNullOrEmpty(docId))
+                        {
+                            returnDocIds.Add(docId);
+                            docToApertura[docId] = cidApertur;
+                        }
+
+                        returns.Add(new ReturnReportItemDto
+                        {
+                            IdDocumento = docId,
+                            Serie = docSerie,
+                            Folio = folio.ToString("0"),
+                            Fecha = docDate,
+                            Neto = neto,
+                            Impuesto = impuesto,
+                            Total = total,
+                            Tipo = "Completa" // Por defecto, se recalculará al cruzar con partidas y venta original
+                        });
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogDebug(ex, "Error al leer registro de devolución");
+                        _logger.LogDebug(ex, "Error al leer registro de devolución en POS10008");
                     }
                 }
             }
@@ -488,10 +524,95 @@ public class FoxProDocumentRepository : IFoxProDocumentRepository
                 return returns;
             }
 
-            // 2. Cruzar con POS10042 para obtener los CIDAPERTUR por (Serie, Folio) de CDEVOLUCIO
+            // 2. Leer partidas de POS10010 para cada devolución encontrada
+            var pos10010Path = config.Pos10010Path;
+            var docDetails = new Dictionary<string, List<ReturnDetailDto>>();
+            var productIds = new HashSet<string>();
+
+            if (!string.IsNullOrEmpty(pos10010Path) && File.Exists(pos10010Path) && returnDocIds.Any())
+            {
+                try
+                {
+                    using var detailReader = _readerFactory.CreateReader(pos10010Path);
+                    ValidateColumns(detailReader, "POS10010", "CIDDOCUM01", "CIDPRODU01", "CUNIDADES", "CPRECIO", "CNETO", "CIMPUESTO1", "CTOTAL");
+
+                    while (detailReader.Read())
+                    {
+                        cancellationToken.ThrowIfCancellationRequested();
+
+                        try
+                        {
+                            var detailDocId = detailReader.GetStringSafe("CIDDOCUM01")?.Trim() ?? string.Empty;
+                            if (!returnDocIds.Contains(detailDocId)) continue;
+
+                            var prodId = detailReader.GetStringSafe("CIDPRODU01")?.Trim() ?? string.Empty;
+                            if (!string.IsNullOrEmpty(prodId))
+                            {
+                                productIds.Add(prodId);
+                            }
+
+                            var detailDto = new ReturnDetailDto
+                            {
+                                ProductId = prodId,
+                                Units = (double)detailReader.GetDecimalSafe("CUNIDADES"),
+                                Price = detailReader.GetDecimalSafe("CPRECIO"),
+                                Net = detailReader.GetDecimalSafe("CNETO"),
+                                Tax = detailReader.GetDecimalSafe("CIMPUESTO1"),
+                                Total = detailReader.GetDecimalSafe("CTOTAL")
+                            };
+
+                            if (!docDetails.TryGetValue(detailDocId, out var dList))
+                            {
+                                dList = new List<ReturnDetailDto>();
+                                docDetails[detailDocId] = dList;
+                            }
+                            dList.Add(detailDto);
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogDebug(ex, "Error al leer detalle en POS10010");
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Error al leer POS10010 para detalle de devoluciones");
+                }
+            }
+
+            // 3. Obtener nombres de productos desde MGW10005
+            var productsFilePath = config.Mgw10005Path;
+            var productNames = new Dictionary<string, string>();
+            if (productIds.Any() && !string.IsNullOrEmpty(productsFilePath) && File.Exists(productsFilePath))
+            {
+                try
+                {
+                    using var productReader = _readerFactory.CreateReader(productsFilePath);
+                    ValidateColumns(productReader, "MGW10005", "CIDPRODU01", "CNOMBREP01");
+
+                    while (productReader.Read())
+                    {
+                        cancellationToken.ThrowIfCancellationRequested();
+                        var pId = productReader.GetStringSafe("CIDPRODU01")?.Trim() ?? string.Empty;
+
+                        if (productIds.Contains(pId))
+                        {
+                            var pName = productReader.GetStringSafe("CNOMBREP01");
+                            productNames[pId] = pName;
+                        }
+
+                        if (productNames.Count == productIds.Count) break;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogDebug(ex, "Error al leer nombres de productos en MGW10005");
+                }
+            }
+
+            // 4. Cruzar con POS10042 para obtener referencia de ticket/venta original y calcular si es Completa o Parcial
             var pos10042Path = config.Pos10042Path;
-            var docToAperturas = new Dictionary<(string Serie, decimal Folio), List<int>>();
-            var allAperturaIds = new HashSet<int>();
+            var aperturaToVentaRef = new Dictionary<int, (string Referencia, decimal? TotalVenta)>();
 
             if (!string.IsNullOrEmpty(pos10042Path) && File.Exists(pos10042Path))
             {
@@ -512,54 +633,11 @@ public class FoxProDocumentRepository : IFoxProDocumentRepository
                             var cidApertur = reader42.GetInt32Safe("CIDAPERTUR");
                             if (cidApertur <= 0) continue;
 
-                            var partes = rawDevolucio.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries);
-                            foreach (var parte in partes)
-                            {
-                                var trimmedParte = parte.Trim();
-                                if (string.IsNullOrEmpty(trimmedParte)) continue;
-
-                                string devSerie = string.Empty;
-                                string devFolioStr = string.Empty;
-
-                                if (parte.Length >= 30)
-                                {
-                                    devSerie = parte.Substring(10, 20).Trim();
-                                    devFolioStr = parte.Substring(30).Trim();
-                                }
-                                else
-                                {
-                                    var tokens = trimmedParte.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-                                    if (tokens.Length >= 3)
-                                    {
-                                        devSerie = tokens[1].Trim();
-                                        devFolioStr = tokens[2].Trim();
-                                    }
-                                    else if (tokens.Length == 2)
-                                    {
-                                        devSerie = tokens[0].Trim();
-                                        devFolioStr = tokens[1].Trim();
-                                    }
-                                }
-
-                                if (!string.IsNullOrEmpty(devSerie) && decimal.TryParse(devFolioStr, out var devFolio))
-                                {
-                                    var key = (devSerie.ToUpperInvariant(), devFolio);
-                                    if (!docToAperturas.TryGetValue(key, out var list))
-                                    {
-                                        list = new List<int>();
-                                        docToAperturas[key] = list;
-                                    }
-                                    if (!list.Contains(cidApertur))
-                                    {
-                                        list.Add(cidApertur);
-                                    }
-                                    allAperturaIds.Add(cidApertur);
-                                }
-                            }
+                            aperturaToVentaRef[cidApertur] = (rawDevolucio.Trim(), null);
                         }
                         catch (Exception ex)
                         {
-                            _logger.LogDebug(ex, "Error al procesar registro en POS10042 para devoluciones");
+                            _logger.LogDebug(ex, "Error al procesar registro en POS10042");
                         }
                     }
                 }
@@ -568,103 +646,347 @@ public class FoxProDocumentRepository : IFoxProDocumentRepository
                     _logger.LogWarning(ex, "Error al leer POS10042 para cruce de devoluciones");
                 }
             }
-            else
+
+            // 5. Ensamblar DTO final con clasificación Completa / Parcial
+            var result = new List<ReturnReportItemDto>();
+            foreach (var item in returns)
             {
-                _logger.LogWarning("Archivo POS10042 no encontrado o no configurado: {FilePath}", pos10042Path);
+                var details = docDetails.TryGetValue(item.IdDocumento, out var dList) ? dList : new List<ReturnDetailDto>();
+                foreach (var d in details)
+                {
+                    if (productNames.TryGetValue(d.ProductId, out var pName))
+                    {
+                        d.ProductName = pName;
+                    }
+                }
+
+                string referencia = string.Empty;
+                decimal? ventaOriginal = null;
+                if (docToApertura.TryGetValue(item.IdDocumento, out var apId) && aperturaToVentaRef.TryGetValue(apId, out var vRef))
+                {
+                    referencia = vRef.Referencia;
+                    ventaOriginal = vRef.TotalVenta;
+                }
+
+                // Determinación Completa vs Parcial:
+                // Si la venta original existe y difiere del total devuelto, o si tiene 1 partida de N, se clasifica
+                string tipoDevolucion = "Completa";
+                if (ventaOriginal.HasValue && ventaOriginal.Value > 0)
+                {
+                    tipoDevolucion = Math.Abs(item.Total - ventaOriginal.Value) < 0.05m ? "Completa" : "Parcial";
+                }
+                else if (details.Count > 0 && details.Count < 2 && item.Total < 200m)
+                {
+                    // Heurística en devoluciones de mostrador con pocas piezas
+                    tipoDevolucion = "Parcial";
+                }
+
+                var finalItem = item with
+                {
+                    Referencia = referencia,
+                    Tipo = tipoDevolucion,
+                    VentaOriginalTotal = ventaOriginal,
+                    PartidasCount = details.Count,
+                    Detalles = details
+                };
+
+                // Filtro por tipo si fue especificado
+                if (!string.IsNullOrWhiteSpace(tipo) && !string.Equals(tipo, "Todas", StringComparison.OrdinalIgnoreCase))
+                {
+                    if (!string.Equals(finalItem.Tipo, tipo.Trim(), StringComparison.OrdinalIgnoreCase))
+                    {
+                        continue;
+                    }
+                }
+
+                result.Add(finalItem);
             }
 
-            // 3. Cruzar con POS10008 para obtener las notas de devolución (CIDDOCUM02 = 36) para cada CIDAPERTUR
-            var pos10008Path = config.Pos10008Path;
-            var aperturaToNotas = new Dictionary<int, List<string>>();
+            return result.OrderByDescending(x => x.Fecha).ThenBy(x => x.Folio).ToList();
+        }
+        catch (Exception ex)
+        {
+             _logger.LogError(ex, "Error al obtener reporte de devoluciones desde POS10008");
+             throw;
+        }
+    }
 
-            if (allAperturaIds.Any() && !string.IsNullOrEmpty(pos10008Path) && File.Exists(pos10008Path))
+    public async Task<IEnumerable<CancellationReportItemDto>> GetCancellationsReportAsync(
+        DateTime? startDate = null,
+        DateTime? endDate = null,
+        string? serie = null,
+        string? tipo = null,
+        CancellationToken cancellationToken = default)
+    {
+        var config = await _configService.ObtenerConfiguracionAsync();
+        var pos10008Path = config.Pos10008Path;
+        var pos10010Path = config.Pos10010Path;
+        var cancellations = new List<CancellationReportItemDto>();
+
+        if (string.IsNullOrEmpty(pos10008Path) || !File.Exists(pos10008Path))
+        {
+            _logger.LogWarning("Archivo POS10008 no configurado o no existe: {FilePath}", pos10008Path);
+            return cancellations;
+        }
+
+        try
+        {
+            // 1. Leer POS10008 buscando documentos cancelados (CCANCELADO = 1) y documentos activos para verificar partidas canceladas
+            var completeCancelledDocs = new List<CancellationReportItemDto>();
+            var activeDocDict = new Dictionary<string, (DateTime Fecha, string Serie, string Folio, string Cliente, int DocType, decimal Neto, decimal Impuesto, decimal Total)>();
+            var allTargetDocIds = new HashSet<string>();
+
+            using (var reader08 = _readerFactory.CreateReader(pos10008Path))
+            {
+                ValidateColumns(reader08, "POS10008", "CIDDOCUM01", "CIDDOCUM02", "CSERIEDO01", "CFOLIO", "CFECHA", "CNETO", "CIMPUESTO1", "CTOTAL", "CCANCELADO");
+
+                while (reader08.Read())
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+
+                    try
+                    {
+                        var docDate = reader08.GetDateTimeSafe("CFECHA");
+
+                        // Filtro de fechas
+                        if (startDate.HasValue && endDate.HasValue)
+                        {
+                            if (docDate.Date < startDate.Value.Date || docDate.Date > endDate.Value.Date) continue;
+                        }
+
+                        var docSerie = reader08.GetStringSafe("CSERIEDO01")?.Trim() ?? string.Empty;
+
+                        // Filtro de serie
+                        if (!string.IsNullOrWhiteSpace(serie) && !docSerie.Equals(serie.Trim(), StringComparison.OrdinalIgnoreCase))
+                        {
+                            continue;
+                        }
+
+                        var docId = reader08.GetStringSafe("CIDDOCUM01")?.Trim() ?? string.Empty;
+                        if (string.IsNullOrEmpty(docId)) continue;
+
+                        var docType = reader08.GetInt32Safe("CIDDOCUM02");
+                        var cancelado = reader08.GetInt32Safe("CCANCELADO");
+                        var folio = reader08.GetDecimalSafe("CFOLIO").ToString("0");
+                        var neto = reader08.GetDecimalSafe("CNETO");
+                        var impuesto = reader08.GetDecimalSafe("CIMPUESTO1");
+                        var total = reader08.GetDecimalSafe("CTOTAL");
+
+                        string docTypeName = docType switch
+                        {
+                            35 => "Venta POS",
+                            36 => "Devolución POS",
+                            17 => "Pedido POS",
+                            _ => "Documento POS"
+                        };
+
+                        if (cancelado == 1)
+                        {
+                            // Cancelación Completa
+                            completeCancelledDocs.Add(new CancellationReportItemDto
+                            {
+                                IdDocumento = docId,
+                                Fecha = docDate,
+                                Serie = docSerie,
+                                Folio = folio,
+                                TipoCancelacion = "Completa",
+                                TipoDocumento = docTypeName,
+                                Cliente = "PUBLICO GENERAL",
+                                Neto = neto,
+                                Impuesto = impuesto,
+                                Total = total
+                            });
+                            allTargetDocIds.Add(docId);
+                        }
+                        else
+                        {
+                            // Documento activo guardado para cruzar si tiene partidas canceladas
+                            activeDocDict[docId] = (docDate, docSerie, folio, "PUBLICO GENERAL", docType, neto, impuesto, total);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogDebug(ex, "Error al leer registro en POS10008 para cancelaciones");
+                    }
+                }
+            }
+
+            // 2. Leer POS10010 para extraer partidas de cancelaciones completas y detectar cancelaciones parciales
+            var docDetails = new Dictionary<string, List<CancellationDetailDto>>();
+            var partialCancelledDocDetails = new Dictionary<string, List<CancellationDetailDto>>();
+            var productIds = new HashSet<string>();
+
+            if (!string.IsNullOrEmpty(pos10010Path) && File.Exists(pos10010Path))
             {
                 try
                 {
-                    using var reader08 = _readerFactory.CreateReader(pos10008Path);
-                    ValidateColumns(reader08, "POS10008", "CIDAPERTUR", "CIDDOCUM02", "CSERIEDO01", "CFOLIO");
+                    using var reader10 = _readerFactory.CreateReader(pos10010Path);
+                    ValidateColumns(reader10, "POS10010", "CIDDOCUM01", "CIDPRODU01", "CUNIDADES", "CPRECIO", "CTOTAL", "CCANCELADO");
 
-                    while (reader08.Read())
+                    while (reader10.Read())
                     {
                         cancellationToken.ThrowIfCancellationRequested();
 
                         try
                         {
-                            var docType = reader08.GetInt32Safe("CIDDOCUM02");
-                            if (docType != 36) continue;
+                            var docId = reader10.GetStringSafe("CIDDOCUM01")?.Trim() ?? string.Empty;
+                            if (string.IsNullOrEmpty(docId)) continue;
 
-                            var cidApertur = reader08.GetInt32Safe("CIDAPERTUR");
-                            if (!allAperturaIds.Contains(cidApertur)) continue;
+                            var prodId = reader10.GetStringSafe("CIDPRODU01")?.Trim() ?? string.Empty;
+                            var movCancelado = reader10.GetInt32Safe("CCANCELADO");
+                            var units = (double)reader10.GetDecimalSafe("CUNIDADES");
+                            var price = reader10.GetDecimalSafe("CPRECIO");
+                            var movTotal = reader10.GetDecimalSafe("CTOTAL");
 
-                            var notaSerie = reader08.GetStringSafe("CSERIEDO01")?.Trim() ?? string.Empty;
-                            var notaFolio = reader08.GetDecimalSafe("CFOLIO").ToString("0");
-                            if (string.IsNullOrEmpty(notaFolio) || notaFolio == "0")
+                            if (!string.IsNullOrEmpty(prodId))
                             {
-                                notaFolio = reader08.GetStringSafe("CFOLIO")?.Trim() ?? string.Empty;
+                                productIds.Add(prodId);
                             }
 
-                            var notaCompleta = string.IsNullOrEmpty(notaSerie) ? notaFolio : $"{notaSerie}{notaFolio}";
-
-                            if (!string.IsNullOrEmpty(notaCompleta))
+                            var detail = new CancellationDetailDto
                             {
-                                if (!aperturaToNotas.TryGetValue(cidApertur, out var notasList))
+                                ProductId = prodId,
+                                Units = units,
+                                Price = price,
+                                Total = movTotal
+                            };
+
+                            // Si pertenece a documento con cancelación completa
+                            if (allTargetDocIds.Contains(docId))
+                            {
+                                if (!docDetails.TryGetValue(docId, out var list))
                                 {
-                                    notasList = new List<string>();
-                                    aperturaToNotas[cidApertur] = notasList;
+                                    list = new List<CancellationDetailDto>();
+                                    docDetails[docId] = list;
                                 }
-                                if (!notasList.Contains(notaCompleta))
+                                list.Add(detail);
+                            }
+                            // Si pertenece a documento activo pero la partida está cancelada -> Cancelación Parcial
+                            else if (movCancelado == 1 && activeDocDict.ContainsKey(docId))
+                            {
+                                if (!partialCancelledDocDetails.TryGetValue(docId, out var pList))
                                 {
-                                    notasList.Add(notaCompleta);
+                                    pList = new List<CancellationDetailDto>();
+                                    partialCancelledDocDetails[docId] = pList;
                                 }
+                                pList.Add(detail);
                             }
                         }
                         catch (Exception ex)
                         {
-                            _logger.LogDebug(ex, "Error al procesar registro en POS10008 para devoluciones");
+                            _logger.LogDebug(ex, "Error al leer registro en POS10010 para cancelaciones");
                         }
                     }
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogWarning(ex, "Error al leer POS10008 para cruce de notas de devolución");
+                    _logger.LogWarning(ex, "Error al leer POS10010 para cancelaciones");
                 }
             }
-            else if (allAperturaIds.Any())
+
+            // 3. Obtener nombres de productos desde MGW10005
+            var productsFilePath = config.Mgw10005Path;
+            var productNames = new Dictionary<string, string>();
+            if (productIds.Any() && !string.IsNullOrEmpty(productsFilePath) && File.Exists(productsFilePath))
             {
-                _logger.LogWarning("Archivo POS10008 no encontrado o no configurado: {FilePath}", pos10008Path);
+                try
+                {
+                    using var productReader = _readerFactory.CreateReader(productsFilePath);
+                    ValidateColumns(productReader, "MGW10005", "CIDPRODU01", "CNOMBREP01");
+
+                    while (productReader.Read())
+                    {
+                        cancellationToken.ThrowIfCancellationRequested();
+                        var pId = productReader.GetStringSafe("CIDPRODU01")?.Trim() ?? string.Empty;
+
+                        if (productIds.Contains(pId))
+                        {
+                            var pName = productReader.GetStringSafe("CNOMBREP01");
+                            productNames[pId] = pName;
+                        }
+
+                        if (productNames.Count == productIds.Count) break;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogDebug(ex, "Error al leer nombres de productos en MGW10005 para cancelaciones");
+                }
             }
 
-            // 4. Asignar Referencia a cada ReturnReportItemDto
-            var result = new List<ReturnReportItemDto>();
-            foreach (var item in returns)
+            // 4. Armar lista completa de cancelaciones
+            // 4a. Cancelaciones completas
+            foreach (var doc in completeCancelledDocs)
             {
-                var referencia = string.Empty;
-                if (decimal.TryParse(item.Folio, out var itemFolio))
+                var details = docDetails.TryGetValue(doc.IdDocumento, out var dList) ? dList : new List<CancellationDetailDto>();
+                foreach (var d in details)
                 {
-                    var key = (item.Serie.ToUpperInvariant(), itemFolio);
-                    if (docToAperturas.TryGetValue(key, out var aperturas))
+                    if (productNames.TryGetValue(d.ProductId, out var name))
                     {
-                        var notas = new List<string>();
-                        foreach (var apId in aperturas)
-                        {
-                            if (aperturaToNotas.TryGetValue(apId, out var notasDeApertura))
-                            {
-                                notas.AddRange(notasDeApertura);
-                            }
-                        }
-                        referencia = string.Join(", ", notas.Distinct());
+                        d.ProductName = name;
                     }
                 }
 
-                result.Add(item with { Referencia = referencia });
+                cancellations.Add(doc with
+                {
+                    PartidasCanceladasCount = details.Count,
+                    Detalles = details
+                });
             }
 
-            return result.OrderBy(x => decimal.Parse(x.Folio)).ToList();
+            // 4b. Cancelaciones parciales
+            foreach (var kvp in partialCancelledDocDetails)
+            {
+                var docId = kvp.Key;
+                var pDetails = kvp.Value;
+                var parentDoc = activeDocDict[docId];
+
+                foreach (var d in pDetails)
+                {
+                    if (productNames.TryGetValue(d.ProductId, out var name))
+                    {
+                        d.ProductName = name;
+                    }
+                }
+
+                var totalCancelado = pDetails.Sum(d => d.Total);
+                string docTypeName = parentDoc.DocType switch
+                {
+                    35 => "Venta POS",
+                    36 => "Devolución POS",
+                    17 => "Pedido POS",
+                    _ => "Documento POS"
+                };
+
+                cancellations.Add(new CancellationReportItemDto
+                {
+                    IdDocumento = docId,
+                    Fecha = parentDoc.Fecha,
+                    Serie = parentDoc.Serie,
+                    Folio = parentDoc.Folio,
+                    TipoCancelacion = "Parcial",
+                    TipoDocumento = docTypeName,
+                    Cliente = parentDoc.Cliente,
+                    Neto = totalCancelado / 1.16m, // Estimación base para la partida cancelada
+                    Impuesto = totalCancelado - (totalCancelado / 1.16m),
+                    Total = totalCancelado,
+                    PartidasCanceladasCount = pDetails.Count,
+                    Detalles = pDetails
+                });
+            }
+
+            // 5. Filtrar por tipo si aplica ("Completa" / "Parcial")
+            if (!string.IsNullOrWhiteSpace(tipo) && !string.Equals(tipo, "Todas", StringComparison.OrdinalIgnoreCase))
+            {
+                cancellations = cancellations.Where(x => string.Equals(x.TipoCancelacion, tipo.Trim(), StringComparison.OrdinalIgnoreCase)).ToList();
+            }
+
+            return cancellations.OrderByDescending(x => x.Fecha).ThenBy(x => x.Folio).ToList();
         }
         catch (Exception ex)
         {
-             _logger.LogError(ex, "Error al obtener devoluciones");
-             throw;
+            _logger.LogError(ex, "Error al obtener reporte de cancelaciones desde POS10008");
+            throw;
         }
     }
 

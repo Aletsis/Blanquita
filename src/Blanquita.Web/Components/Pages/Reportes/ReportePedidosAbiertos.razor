@@ -1,24 +1,25 @@
-@page "/reportes/devoluciones"
-@page "/reportes/NotasCreditoDevoluciones"
+@page "/reportes/PedidosAbiertos"
+@page "/reportes/pedidos-abiertos"
 @using Microsoft.AspNetCore.Authorization
 @attribute [Authorize(Roles = "Admin,Security,Supervisor")]
 @using Blanquita.Application.DTOs
-@using Blanquita.Application.Queries.FoxPro.GetReturnReport
+@using Blanquita.Application.Queries.FoxPro.GetOpenPedidosReport
 @using MediatR
 @using Blanquita.Application.Interfaces
 @inject IMediator Mediator
 @inject IBranchService BranchService
 @inject ISnackbar Snackbar
+@inject IDialogService DialogService
 @inject IJSRuntime JS
-@inject ILogger<ReporteDevoluciones> Logger
+@inject ILogger<ReportePedidosAbiertos> Logger
 @inject IExportService ExportService
 
-<PageTitle>Reporte de Devoluciones</PageTitle>
+<PageTitle>Reporte de Pedidos Abiertos</PageTitle>
 
 <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4 animate-fade-in">
-    <MudText Typo="Typo.h4" Class="mb-6 font-weight-bold" Style="background: linear-gradient(45deg, #f44336, #e91e63); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
-        <MudIcon Icon="@Icons.Material.Filled.AssignmentReturn" Class="mr-2" Size="Size.Large" Color="Color.Error" />
-        Reporte de Devoluciones (POS)
+    <MudText Typo="Typo.h4" Class="mb-6 font-weight-bold" Style="background: linear-gradient(45deg, #1976d2, #4caf50); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+        <MudIcon Icon="@Icons.Material.Filled.AssignmentLate" Class="mr-2" Size="Size.Large" Color="Color.Primary" />
+        Reporte de Pedidos Abiertos (POS)
     </MudText>
 
     <MudGrid>
@@ -34,11 +35,11 @@
                     <MudSelect T="BranchDto" @bind-Value="sucursalSeleccionada"
                                Label="Sucursal"
                                Variant="Variant.Outlined"
-                               Required="true"
                                Margin="Margin.Dense"
                                Class="mb-3"
                                ToStringFunc="@(b => b?.Name)"
                                AnchorOrigin="Origin.BottomCenter">
+                        <MudSelectItem Value="@((BranchDto?)null)">Todas las sucursales</MudSelectItem>
                         @if (sucursales != null)
                         {
                             @foreach (var suc in sucursales)
@@ -48,22 +49,31 @@
                         }
                     </MudSelect>
 
-                    <MudSelect T="string" @bind-Value="_tipoSeleccionado"
-                               Label="Tipo de Devolución"
-                               Variant="Variant.Outlined"
-                               Margin="Margin.Dense"
-                               Class="mb-3"
-                               AnchorOrigin="Origin.BottomCenter">
-                        <MudSelectItem Value="@("Todas")">Todas</MudSelectItem>
-                        <MudSelectItem Value="@("Completa")">Completas</MudSelectItem>
-                        <MudSelectItem Value="@("Parcial")">Parciales</MudSelectItem>
-                    </MudSelect>
+                    <MudTextField @bind-Value="_comanda"
+                                  Label="Comanda"
+                                  Variant="Variant.Outlined"
+                                  Margin="Margin.Dense"
+                                  Adornment="Adornment.Start"
+                                  AdornmentIcon="@Icons.Material.Filled.ConfirmationNumber"
+                                  Placeholder="Ej: 12345"
+                                  Clearable="true"
+                                  Class="mb-3" />
+
+                    <MudTextField @bind-Value="_ruta"
+                                  Label="Ruta"
+                                  Variant="Variant.Outlined"
+                                  Margin="Margin.Dense"
+                                  Adornment="Adornment.Start"
+                                  AdornmentIcon="@Icons.Material.Filled.AltRoute"
+                                  Placeholder="Ej: R1"
+                                  Clearable="true"
+                                  Class="mb-3" />
 
                     <MudDatePicker @bind-Date="_fechaInicio"
                                    Label="Fecha Inicial"
                                    Variant="Variant.Outlined"
                                    Margin="Margin.Dense"
-                                   Required="true"
+                                   Clearable="true"
                                    MaxDate="DateTime.Today"
                                    Class="mb-3" />
 
@@ -71,16 +81,9 @@
                                    Label="Fecha Final"
                                    Variant="Variant.Outlined"
                                    Margin="Margin.Dense"
-                                   Required="true"
+                                   Clearable="true"
                                    MaxDate="DateTime.Today"
                                    Class="mb-3" />
-
-                    @if (sucursalSeleccionada != null)
-                    {
-                         <MudText Typo="Typo.caption" Class="mb-2 d-block" Color="Color.Secondary">
-                            Serie Devolución: <strong>@(string.IsNullOrEmpty(sucursalSeleccionada.SeriesDevolucion) ? "(Todas / POS)" : sucursalSeleccionada.SeriesDevolucion)</strong>
-                        </MudText>
-                    }
 
                     <MudDivider Class="my-3" />
 
@@ -89,7 +92,7 @@
                                FullWidth="true"
                                StartIcon="@Icons.Material.Filled.Search"
                                OnClick="GenerarReporte"
-                               Disabled="@(generando || sucursalSeleccionada == null || _fechaInicio == null || _fechaFin == null)"
+                               Disabled="@generando"
                                Size="Size.Large"
                                Class="py-2 rounded-lg shadow-sm">
                         @if (generando)
@@ -113,7 +116,7 @@
                 <MudCard Elevation="4" Class="rounded-xl pa-8 text-center animate-fade-in">
                     <MudCardContent>
                         <MudProgressCircular Size="Size.Large" Indeterminate="true" Color="Color.Primary" />
-                        <MudText Typo="Typo.h6" Class="mt-4">Consultando devoluciones en punto de venta...</MudText>
+                        <MudText Typo="Typo.h6" Class="mt-4">Consultando pedidos abiertos en punto de venta...</MudText>
                     </MudCardContent>
                 </MudCard>
             }
@@ -124,26 +127,26 @@
                     <MudGrid Class="mb-4" Spacing="2">
                         <MudItem xs="12" sm="6" md="3">
                             <MudPaper Elevation="3" Class="pa-3 rounded-xl border-light bg-light text-center">
-                                <MudText Typo="Typo.caption" Color="Color.Secondary">Total Devoluciones</MudText>
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">Pedidos Abiertos</MudText>
                                 <MudText Typo="Typo.h5" Class="font-weight-bold" Color="Color.Primary">@datosReporte.Count</MudText>
                             </MudPaper>
                         </MudItem>
                         <MudItem xs="12" sm="6" md="3">
                             <MudPaper Elevation="3" Class="pa-3 rounded-xl border-light bg-light text-center">
-                                <MudText Typo="Typo.caption" Color="Color.Secondary">Monto Total Devuelto</MudText>
-                                <MudText Typo="Typo.h5" Class="font-weight-bold" Color="Color.Error">@TotalDevuelto.ToString("C2", _culture)</MudText>
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">Monto Total Pendiente</MudText>
+                                <MudText Typo="Typo.h5" Class="font-weight-bold" Color="Color.Success">@TotalPendiente.ToString("C2", _culture)</MudText>
                             </MudPaper>
                         </MudItem>
                         <MudItem xs="12" sm="6" md="3">
                             <MudPaper Elevation="3" Class="pa-3 rounded-xl border-light bg-light text-center">
-                                <MudText Typo="Typo.caption" Color="Color.Secondary">Devoluciones Completas</MudText>
-                                <MudText Typo="Typo.h5" Class="font-weight-bold" Color="Color.Success">@CountCompletas (@TotalCompletas.ToString("C2", _culture))</MudText>
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">Antigüedad Promedio</MudText>
+                                <MudText Typo="Typo.h5" Class="font-weight-bold" Color="Color.Info">@PromedioDias.ToString("0.0") días</MudText>
                             </MudPaper>
                         </MudItem>
                         <MudItem xs="12" sm="6" md="3">
                             <MudPaper Elevation="3" Class="pa-3 rounded-xl border-light bg-light text-center">
-                                <MudText Typo="Typo.caption" Color="Color.Secondary">Devoluciones Parciales</MudText>
-                                <MudText Typo="Typo.h5" Class="font-weight-bold" Color="Color.Warning">@CountParciales (@TotalParciales.ToString("C2", _culture))</MudText>
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">Críticos (> 7 Días)</MudText>
+                                <MudText Typo="Typo.h5" Class="font-weight-bold" Color="Color.Error">@CountCriticos (@TotalCriticos.ToString("C2", _culture))</MudText>
                             </MudPaper>
                         </MudItem>
                     </MudGrid>
@@ -153,7 +156,7 @@
                             <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-3">
                                  <MudText Typo="Typo.h6" Color="Color.Primary">
                                     <MudIcon Icon="@Icons.Material.Filled.TableChart" Class="mr-2" />
-                                    Detalle de Devoluciones
+                                    Listado de Pedidos Abiertos
                                 </MudText>
                                 <MudStack Row="true" Spacing="2">
                                     <MudButton Variant="Variant.Outlined"
@@ -177,55 +180,76 @@
                             {
                                 <MudTable Items="@datosReporte" Dense="true" Hover="true" Striped="true" Elevation="0" Bordered="true" Breakpoint="Breakpoint.None">
                                     <HeaderContent>
-                                        <MudTh>Fecha</MudTh>
-                                        <MudTh>Serie</MudTh>
                                         <MudTh>Folio</MudTh>
-                                        <MudTh>Tipo</MudTh>
-                                        <MudTh>Referencia / Ticket</MudTh>
+                                        <MudTh>Fecha</MudTh>
+                                        <MudTh>Sucursal</MudTh>
+                                        <MudTh>Comanda</MudTh>
+                                        <MudTh>Ruta</MudTh>
+                                        <MudTh>Cliente</MudTh>
+                                        <MudTh Style="text-align: center;">Antigüedad</MudTh>
                                         <MudTh Style="text-align: center;">Partidas</MudTh>
-                                        <MudTh Style="text-align: right;">Neto</MudTh>
-                                        <MudTh Style="text-align: right;">Impuesto</MudTh>
-                                        <MudTh Style="text-align: right;">Total Devuelto</MudTh>
+                                        <MudTh Style="text-align: right;">Total</MudTh>
+                                        <MudTh Style="text-align: center;">Acciones</MudTh>
                                     </HeaderContent>
                                     <RowTemplate>
-                                        <MudTd DataLabel="Fecha">@context.Fecha.ToString("dd/MM/yyyy")</MudTd>
-                                        <MudTd DataLabel="Serie">@context.Serie</MudTd>
-                                        <MudTd DataLabel="Folio">@context.Folio</MudTd>
-                                        <MudTd DataLabel="Tipo">
-                                            <MudChip T="string" Color="@(context.Tipo == "Completa" ? Color.Success : Color.Warning)" Size="Size.Small" Variant="Variant.Filled">
-                                                @context.Tipo
-                                            </MudChip>
+                                        <MudTd DataLabel="Folio">
+                                            <MudText Typo="Typo.body2" Class="font-weight-bold">@context.Folio</MudText>
                                         </MudTd>
-                                        <MudTd DataLabel="Referencia">@context.Referencia</MudTd>
-                                        <MudTd DataLabel="Partidas" Style="text-align: center;">
-                                            @if (context.Detalles.Any())
+                                        <MudTd DataLabel="Fecha">@context.Fecha.ToString("dd/MM/yyyy")</MudTd>
+                                        <MudTd DataLabel="Sucursal">@context.Sucursal</MudTd>
+                                        <MudTd DataLabel="Comanda">
+                                            @if (!string.IsNullOrEmpty(context.Comanda))
                                             {
-                                                <MudTooltip Text="@string.Join(", ", context.Detalles.Select(d => $"{d.Units:0.##}x {d.ProductName}"))">
-                                                    <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Info">
-                                                        @context.Detalles.Count art.
-                                                    </MudChip>
-                                                </MudTooltip>
+                                                <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Secondary">
+                                                    @context.Comanda
+                                                </MudChip>
                                             }
                                             else
                                             {
                                                 <text>-</text>
                                             }
                                         </MudTd>
-                                        <MudTd DataLabel="Neto" Style="text-align: right;">@context.Neto.ToString("C2", _culture)</MudTd>
-                                        <MudTd DataLabel="Impuesto" Style="text-align: right;">@context.Impuesto.ToString("C2", _culture)</MudTd>
-                                        <MudTd DataLabel="Total" Style="text-align: right; font-weight:bold; color: #d32f2f;">@context.Total.ToString("C2", _culture)</MudTd>
+                                        <MudTd DataLabel="Ruta">
+                                            @if (!string.IsNullOrEmpty(context.Ruta))
+                                            {
+                                                <MudChip T="string" Size="Size.Small" Variant="Variant.Filled" Color="Color.Info">
+                                                    @context.Ruta
+                                                </MudChip>
+                                            }
+                                            else
+                                            {
+                                                <text>-</text>
+                                            }
+                                        </MudTd>
+                                        <MudTd DataLabel="Cliente">@context.Cliente</MudTd>
+                                        <MudTd DataLabel="Antigüedad" Style="text-align: center;">
+                                            <MudChip T="string" Size="Size.Small" Variant="Variant.Filled" Color="@GetAntiguedadColor(context.DiasAbierto)">
+                                                @context.DiasAbierto d
+                                            </MudChip>
+                                        </MudTd>
+                                        <MudTd DataLabel="Partidas" Style="text-align: center;">
+                                            <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Default">
+                                                @context.PartidasCount art.
+                                            </MudChip>
+                                        </MudTd>
+                                        <MudTd DataLabel="Total" Style="text-align: right; font-weight:bold; color: #2e7d32;">@context.Total.ToString("C2", _culture)</MudTd>
+                                        <MudTd DataLabel="Acciones" Style="text-align: center;">
+                                            <MudIconButton Icon="@Icons.Material.Filled.Visibility"
+                                                           Color="Color.Primary"
+                                                           Size="Size.Small"
+                                                           OnClick="@(() => VerDetallePedido(context))" />
+                                        </MudTd>
                                     </RowTemplate>
                                     <FooterContent>
-                                        <MudTh Style="font-weight: bold; text-align: right;" colspan="6">TOTALES:</MudTh>
-                                        <MudTh Style="font-weight: bold; text-align: right;">@datosReporte.Sum(x => x.Neto).ToString("C2", _culture)</MudTh>
-                                        <MudTh Style="font-weight: bold; text-align: right;">@datosReporte.Sum(x => x.Impuesto).ToString("C2", _culture)</MudTh>
-                                        <MudTh Style="font-weight: bold; text-align: right; color: #d32f2f;">@TotalDevuelto.ToString("C2", _culture)</MudTh>
+                                        <MudTh Style="font-weight: bold; text-align: right;" colspan="8">TOTAL PENDIENTE:</MudTh>
+                                        <MudTh Style="font-weight: bold; text-align: right; color: #2e7d32;">@TotalPendiente.ToString("C2", _culture)</MudTh>
+                                        <MudTh></MudTh>
                                     </FooterContent>
                                 </MudTable>
                             }
                             else
                             {
-                                <MudAlert Severity="Severity.Info" Class="mt-2">No se encontraron devoluciones para los filtros seleccionados.</MudAlert>
+                                <MudAlert Severity="Severity.Info" Class="mt-2">No se encontraron pedidos abiertos para los filtros seleccionados.</MudAlert>
                             }
                         </MudCardContent>
                     </MudCard>
@@ -249,29 +273,25 @@
 @code {
     private BranchDto? sucursalSeleccionada;
     private IEnumerable<BranchDto> sucursales = new List<BranchDto>();
-    private DateTime? _fechaInicio = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
-    private DateTime? _fechaFin = DateTime.Today;
-    private string _tipoSeleccionado = "Todas";
+    private DateTime? _fechaInicio;
+    private DateTime? _fechaFin;
+    private string? _comanda;
+    private string? _ruta;
     private bool generando = false;
     private bool reporteGenerado = false;
-    private List<ReturnReportItemDto>? datosReporte;
+    private List<OpenPedidoReportItemDto>? datosReporte;
     private System.Globalization.CultureInfo _culture = System.Globalization.CultureInfo.GetCultureInfo("es-MX");
 
-    private decimal TotalDevuelto => datosReporte?.Sum(x => x.Total) ?? 0;
-    private int CountCompletas => datosReporte?.Count(x => x.Tipo == "Completa") ?? 0;
-    private decimal TotalCompletas => datosReporte?.Where(x => x.Tipo == "Completa").Sum(x => x.Total) ?? 0;
-    private int CountParciales => datosReporte?.Count(x => x.Tipo == "Parcial") ?? 0;
-    private decimal TotalParciales => datosReporte?.Where(x => x.Tipo == "Parcial").Sum(x => x.Total) ?? 0;
+    private decimal TotalPendiente => datosReporte?.Sum(x => x.Total) ?? 0;
+    private double PromedioDias => datosReporte != null && datosReporte.Any() ? datosReporte.Average(x => x.DiasAbierto) : 0;
+    private int CountCriticos => datosReporte?.Count(x => x.DiasAbierto > 7) ?? 0;
+    private decimal TotalCriticos => datosReporte?.Where(x => x.DiasAbierto > 7).Sum(x => x.Total) ?? 0;
 
     protected override async Task OnInitializedAsync()
     {
         try
         {
             sucursales = await BranchService.GetAllAsync();
-            if (sucursales.Any())
-            {
-                sucursalSeleccionada = sucursales.First();
-            }
         }
         catch (Exception ex)
         {
@@ -280,22 +300,35 @@
         }
     }
 
+    private Color GetAntiguedadColor(int dias)
+    {
+        if (dias <= 1) return Color.Success;
+        if (dias <= 7) return Color.Warning;
+        return Color.Error;
+    }
+
     private async Task GenerarReporte()
     {
-        if (sucursalSeleccionada == null || _fechaInicio == null || _fechaFin == null)
-            return;
-
         generando = true;
         reporteGenerado = false;
         datosReporte = null;
 
         try
         {
-            var query = new GetReturnReportQuery(
-                StartDate: _fechaInicio.Value,
-                EndDate: _fechaFin.Value,
-                Serie: sucursalSeleccionada.SeriesDevolucion,
-                Tipo: _tipoSeleccionado
+            List<string>? series = null;
+            if (sucursalSeleccionada != null)
+            {
+                var combinedSeries = $"{sucursalSeleccionada.SeriesCliente},{sucursalSeleccionada.SeriesGlobal}".Trim();
+                series = combinedSeries.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(s => s.Trim()).ToList();
+            }
+
+            var query = new GetOpenPedidosReportQuery(
+                StartDate: _fechaInicio,
+                EndDate: _fechaFin,
+                Series: series,
+                Comanda: _comanda,
+                Ruta: _ruta,
+                SucursalNombre: sucursalSeleccionada?.Name
             );
             
             var result = await Mediator.Send(query);
@@ -303,19 +336,43 @@
             reporteGenerado = true;
             
             if (datosReporte.Any())
-                Snackbar.Add($"Se encontraron {datosReporte.Count} devoluciones", Severity.Success);
+                Snackbar.Add($"Se encontraron {datosReporte.Count} pedidos abiertos", Severity.Success);
             else
-                Snackbar.Add("No se encontraron registros para los filtros seleccionados", Severity.Info);
+                Snackbar.Add("No se encontraron pedidos abiertos", Severity.Info);
         }
         catch (Exception ex)
         {
             Snackbar.Add($"Error al consultar: {ex.Message}", Severity.Error);
-            Logger.LogError(ex, "Error al generar reporte de devoluciones");
+            Logger.LogError(ex, "Error al generar reporte de pedidos abiertos");
         }
         finally
         {
             generando = false;
         }
+    }
+
+    private async Task VerDetallePedido(OpenPedidoReportItemDto pedido)
+    {
+        var parameters = new DialogParameters<Dialogs.DialogoDetallePedido>
+        {
+            { x => x.Pedido, new PedidoDto 
+                { 
+                    IdDocumento = pedido.IdDocumento,
+                    Folio = pedido.Folio,
+                    Fecha = pedido.Fecha,
+                    Comanda = pedido.Comanda,
+                    Ruta = pedido.Ruta,
+                    BranchName = pedido.Sucursal,
+                    Total = pedido.Total,
+                    NetAmount = pedido.Neto,
+                    TaxAmount = pedido.Impuesto,
+                    Status = "Abierto"
+                } 
+            }
+        };
+
+        var options = new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true, CloseButton = true };
+        await DialogService.ShowAsync<Dialogs.DialogoDetallePedido>("Detalle de Pedido", parameters, options);
     }
 
     private async Task ExportarExcel()
@@ -324,8 +381,8 @@
 
         try
         {
-            var contenido = await ExportService.ExportToExcelAsync(datosReporte, "Devoluciones");
-            var nombreArchivo = $"Devoluciones_{sucursalSeleccionada?.Name}_{_fechaInicio:yyyyMMdd}_{_fechaFin:yyyyMMdd}.xlsx";
+            var contenido = await ExportService.ExportToExcelAsync(datosReporte, "PedidosAbiertos");
+            var nombreArchivo = $"PedidosAbiertos_{sucursalSeleccionada?.Name ?? "General"}_{DateTime.Today:yyyyMMdd}.xlsx";
             await DescargarArchivo(contenido, nombreArchivo, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
             Snackbar.Add("Reporte exportado exitosamente a Excel", Severity.Success);
         }
@@ -341,8 +398,8 @@
 
         try
         {
-            var contenido = await ExportService.ExportToPdfAsync(datosReporte, $"Reporte de Devoluciones POS - {sucursalSeleccionada?.Name}");
-            var nombreArchivo = $"Devoluciones_{sucursalSeleccionada?.Name}_{_fechaInicio:yyyyMMdd}_{_fechaFin:yyyyMMdd}.pdf";
+            var contenido = await ExportService.ExportToPdfAsync(datosReporte, $"Reporte de Pedidos Abiertos - {sucursalSeleccionada?.Name ?? "General"}");
+            var nombreArchivo = $"PedidosAbiertos_{sucursalSeleccionada?.Name ?? "General"}_{DateTime.Today:yyyyMMdd}.pdf";
             await DescargarArchivo(contenido, nombreArchivo, "application/pdf");
             Snackbar.Add("Reporte exportado exitosamente a PDF", Severity.Success);
         }

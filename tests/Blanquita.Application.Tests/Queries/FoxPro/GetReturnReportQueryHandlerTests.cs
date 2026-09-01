@@ -54,7 +54,7 @@ public class GetReturnReportQueryHandlerTests
         };
 
         _mockRepository
-            .Setup(r => r.GetReturnsReportAsync(year, month, serie, It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetReturnsReportAsync(year, month, serie, It.IsAny<DateTime?>(), It.IsAny<DateTime?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(expectedItems);
 
         var query = new GetReturnReportQuery(year, month, serie);
@@ -73,7 +73,7 @@ public class GetReturnReportQueryHandlerTests
 
         Assert.Equal("DEV-503", resultList[1].Referencia);
 
-        _mockRepository.Verify(r => r.GetReturnsReportAsync(year, month, serie, It.IsAny<CancellationToken>()), Times.Once);
+        _mockRepository.Verify(r => r.GetReturnsReportAsync(year, month, serie, It.IsAny<DateTime?>(), It.IsAny<DateTime?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
@@ -85,7 +85,7 @@ public class GetReturnReportQueryHandlerTests
         var serie = "DFCH";
 
         _mockRepository
-            .Setup(r => r.GetReturnsReportAsync(year, month, serie, It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetReturnsReportAsync(year, month, serie, It.IsAny<DateTime?>(), It.IsAny<DateTime?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<ReturnReportItemDto>());
 
         var query = new GetReturnReportQuery(year, month, serie);
@@ -97,6 +97,6 @@ public class GetReturnReportQueryHandlerTests
         Assert.NotNull(result);
         Assert.Empty(result);
 
-        _mockRepository.Verify(r => r.GetReturnsReportAsync(year, month, serie, It.IsAny<CancellationToken>()), Times.Once);
+        _mockRepository.Verify(r => r.GetReturnsReportAsync(year, month, serie, It.IsAny<DateTime?>(), It.IsAny<DateTime?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 }

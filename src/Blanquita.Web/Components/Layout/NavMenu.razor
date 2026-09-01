@@ -71,7 +71,7 @@
                     </MudNavLink>
                 </MudNavGroup>
             </AuthorizeView>
-            <AuthorizeView Roles="Admin,Security" Context="devolucionesContext">
+            <AuthorizeView Roles="Admin,Security,Supervisor" Context="devolucionesContext">
                 <MudNavGroup Title="Devoluciones" Expanded="false" Icon="@Icons.Material.Filled.AssignmentReturn" Class="nav-group-pill">
                     <MudNavLink Href="/reportes/devoluciones" Icon="@Icons.Material.Filled.AssignmentReturn" Class="nav-item-pill sub-item">
                         Reporte de Devoluciones
@@ -83,7 +83,7 @@
                     </MudNavLink>
                 </MudNavGroup>
             </AuthorizeView>
-            <AuthorizeView Roles="Admin" Context="pedidosContext">
+            <AuthorizeView Roles="Admin,Security,Supervisor" Context="pedidosContext">
                 <MudNavGroup Title="Pedidos" Expanded="false" Icon="@Icons.Material.Filled.List" Class="nav-group-pill">
                     <MudNavLink Href="/reportes/PedidosAbiertos" Icon="@Icons.Material.Filled.List" Class="nav-item-pill sub-item">
                         Reporte de Pedidos Abiertos
