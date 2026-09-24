@@ -1,75 +1,147 @@
-# Blanquita
+# 🥩 Blanquita - Sistema de Gestión y Punto de Venta
 
-Sistema de gestión para la carnicería Blanquita, desarrollado con **.NET 8** y **Blazor Server**, siguiendo principios de **Clean Architecture** y **Domain-Driven Design (DDD)**.
+Sistema integral para la administración operativa, control de efectivo, integración con sistemas legacy FoxPro, facturación y notificaciones vía WhatsApp para la carnicería **Blanquita**.
+
+Desarrollado con **.NET 8** y **Blazor Server** bajo los patrones de **Clean Architecture** y **Domain-Driven Design (DDD)**.
+
+---
 
 ## 📋 Tabla de Contenidos
-- [Requisitos Previos](#requisitos-previos)
-- [Arquitectura](#arquitectura)
-- [Configuración y Ejecución Local](#configuración-y-ejecución-local)
-- [Despliegue](#despliegue)
-- [Documentación Adicional](#documentación-adicional)
+- [Características Principales](#-características-principales)
+- [Tecnologías Utilizadas](#-tecnologías-utilizadas)
+- [Estructura del Proyecto](#-estructura-del-proyecto)
+- [Requisitos Previos](#-requisitos-previos)
+- [Configuración y Ejecución Local](#-configuración-y-ejecución-local)
+- [Microservicio de WhatsApp](#-microservicio-de-whatsapp)
+- [Publicación y Despliegue](#-publicación-y-despliegue)
+- [📚 Documentación Oficial](#-documentación-oficial)
 
-## 🛠 Requisitos Previos
+---
 
-- **.NET 8.0 SDK** o superior.
-- **SQL Server** (LocalDB, Express o Enterprise).
-- **Visual Studio 2022** (versión 17.8 o superior recomendada) o **VS Code**.
+## ✨ Características Principales
 
-## 🏗 Arquitectura
+- **Control de Efectivo y Cajas**: Registro de recolecciones de valores por denominación, cálculo de cortes de caja por turno y conciliación automática de diferencias.
+- **Integración FoxPro DBF de Alto Rendimiento**: Lectura optimizada con streaming asíncrono (`IAsyncEnumerable`), cancelación en vivo y control de memoria para archivos DBF de gran tamaño.
+- **Facturación y Despacho WhatsApp**: Búsqueda de documentos comerciales y envío automatizado de tickets y facturas PDF a clientes por WhatsApp.
+- **Impresión Térmica en Red**: Emisión de comprobantes y tickets directamente a impresoras térmicas ESC/POS mediante sockets TCP/IP.
+- **Diseño de Etiquetas**: Editor e impresión de etiquetas con código de barras para productos pesables y empaquetados.
+- **Tareas Programadas (Hangfire)**: Procesamiento en segundo plano de sincronización de datos y mantenimiento periódico con panel web en `/hangfire`.
+- **Auditoría y Logging Estructurado**: Registro detallado de eventos y errores con Serilog (consola y archivos rotativos diarios).
 
-La solución sigue una estructura de Arquitectura Limpia dividida en las siguientes capas:
+---
 
-- **src/Blanquita.Domain**: Núcleo del negocio. Contiene Entidades, Value Objects, Interfaces de Repositorio y Eventos de Dominio. No tiene dependencias externas.
-- **src/Blanquita.Application**: Lógica de aplicación, casos de uso, DTOs, validaciones e interfaces de servicios.
-- **src/Blanquita.Infrastructure**: Implementación de repositorios, acceso a datos (EF Core), servicios externos (impresión, archivos DBF) y configuraciones concretas.
-- **src/Blanquita.Web**: Capa de presentación (UI) construida con Blazor Server. Contiene Componentes, Páginas y Controladores.
+## 🛠 Tecnologías Utilizadas
+
+- **Backend / Web**: .NET 8, C#, Blazor Server (Interactive Server Components), MudBlazor, MediatR, FluentValidation.
+- **Base de Datos**: PostgreSQL 14+ con Entity Framework Core 8 (`Npgsql.EntityFrameworkCore.PostgreSQL`).
+- **Background Jobs**: Hangfire con almacenamiento en PostgreSQL (`Hangfire.PostgreSql`).
+- **Logging**: Serilog (Console, File sinks con enriquecimiento de contexto).
+- **Microservicio WhatsApp**: Node.js, TypeScript, Express, `@whiskeysockets/baileys`.
+- **Integración Legacy**: NDbfReader / DbfDataReader con streaming personalizado.
+
+---
+
+## 🏗 Estructura del Proyecto
+
+```
+Blanquita/
+├── src/
+│   ├── Blanquita.Domain/            # Entidades, Value Objects, Interfaces de Repositorio y Eventos
+│   ├── Blanquita.Application/       # Casos de uso (Commands/Queries), DTOs, Validadores y Servicios
+│   ├── Blanquita.Infrastructure/    # EF Core, PostgreSQL, Repositorios, Servicios DBF, Hangfire e Impresión
+│   ├── Blanquita.Web/               # UI Blazor Server, Componentes MudBlazor, Controladores y Middleware
+│   └── Blanquita.WhatsAppService/   # Microservicio Node.js/TypeScript para envío por WhatsApp (Baileys)
+├── tests/                           # Pruebas unitarias y de integración
+├── Docs/                            # Documentación técnica, operativa y de despliegue
+├── publish-production.ps1           # Script automatizado de publicación para producción
+└── README.md
+```
+
+---
+
+## 💻 Requisitos Previos
+
+1. **.NET 8.0 SDK** (v8.0.x o superior).
+2. **PostgreSQL 14.x o superior**.
+3. **Node.js LTS (v18 o v20)** y **npm** (para el microservicio de WhatsApp).
+4. **Visual Studio 2022** (v17.8+), **VS Code** o **Rider**.
+
+---
 
 ## 🚀 Configuración y Ejecución Local
 
-1. **Clonar el repositorio**
-   ```bash
-   git clone <https://github.com/Aletsis/Blanquita.git>
-   cd Blanquita
-   ```
+### 1. Clonar el repositorio
+```bash
+git clone https://github.com/Aletsis/Blanquita.git
+cd Blanquita
+```
 
-2. **Configurar Base de Datos**
-   Actualice la cadena de conexión en `src/Blanquita.Web/appsettings.json` o utilice **User Secrets** (recomendado para desarrollo).
+### 2. Configurar la Base de Datos y Rutas
+Edite `src/Blanquita.Web/appsettings.json` o configure variables de entorno (`.env`):
 
-   ```json
-   "ConnectionStrings": {
-     "DefaultConnection": "Server=localhost;Database=BlanquitaDB;User Id=sa;Password=tu_password;TrustServerCertificate=True;"
-   }
-   ```
+```json
+{
+  "ConnectionStrings": {
+    "DefaultConnection": "Host=localhost;Database=BlanquitaDB;Username=postgres;Password=tu_password"
+  },
+  "FoxPro": {
+    "Pos10041Path": "C:\\datos\\pos10041.dbf",
+    "Pos10042Path": "C:\\datos\\pos10042.dbf",
+    "Mgw10008Path": "C:\\datos\\mgw10008.dbf",
+    "Mgw10005Path": "C:\\datos\\mgw10005.dbf"
+  }
+}
+```
 
-3. **Restaurar Dependencias**
-   ```bash
-   dotnet restore
-   ```
+> **Nota:** La base de datos y sus tablas/índices se inicializan y migran **automáticamente** al arrancar la aplicación gracias al servicio `DatabaseMigrationService`.
 
-4. **Ejecutar Migraciones (EF Core)**
-   Si utiliza Entity Framework Core Code-First:
-   ```bash
-   cd src/Blanquita.Web
-   dotnet ef database update
-   ```
+### 3. Restaurar y Ejecutar la Aplicación Web
+```bash
+dotnet restore
+dotnet run --project src/Blanquita.Web
+```
 
-5. **Iniciar la Aplicación**
-   ```bash
-   dotnet run --project src/Blanquita.Web
-   ```
-   La aplicación estará disponible típicamente en `https://localhost:7001` o `http://localhost:5001`.
+La aplicación estará disponible por defecto en:
+- `https://localhost:7001` o `http://localhost:5000`
+- Dashboard de Hangfire: `https://localhost:7001/hangfire` (Requiere rol `Admin`)
 
-## 🌐 Despliegue
+---
 
-Para instrucciones detalladas sobre cómo desplegar esta aplicación en un servidor de producción con **IIS (Internet Information Services)**, consulte la guía dedicada:
+## 📱 Microservicio de WhatsApp
 
-👉 **[Guía de Despliegue en IIS](Docs/DEPLOY_IIS.md)**
+Para habilitar el envío de facturas y notificaciones por WhatsApp:
 
-## 📚 Documentación Adicional
+```bash
+cd src/Blanquita.WhatsAppService
+npm install
+npm run dev
+```
 
-En la carpeta `Docs/` encontrará documentación técnica detallada sobre cambios recientes y refactorizaciones:
+El servicio se iniciará en `http://localhost:3001`. En la interfaz web (`Configuraciones -> WhatsApp`) podrá escanear el código QR para vincular la sesión.
 
-- **[Cambios en Logging](Docs/CAMBIOS_LOGGING.md)**: Configuración de Serilog y sinks.
-- **[Migración de Servicios Externos](Docs/EXTERNAL_SERVICES_MIGRATION.md)**: Refactorización de servicios de infraestructura.
-- **[Refactorización de Configuración](Docs/REFACTORIZACION_CONFIGURACION.md)**: Cambios en el manejo de configuraciones globales.
-- **[Guía Rápida DBF](Docs/GUIA_RAPIDA_DBF.md)**: Integración con sistemas legacy vía archivos DBF.
+---
+
+## 🌐 Publicación y Despliegue
+
+Para desplegar en servidores de producción (IIS / Windows Server):
+
+```powershell
+# Ejecutar script automatizado con backup
+.\publish-production.ps1 -OutputPath "C:\inetpub\wwwroot\Blanquita" -Configuration Release -CreateBackup
+```
+
+Consulte la [Guía de Despliegue](Docs/GUIA_DESPLIEGUE.md) para conocer los detalles de configuración en IIS (Application Pool "Sin código administrado", WebSockets y permisos).
+
+---
+
+## 📚 Documentación Oficial
+
+Toda la documentación técnica y operativa se encuentra organizada en la carpeta `Docs/`:
+
+| Manual / Guía | Enlace |
+| :--- | :--- |
+| **Manual Técnico** | [Docs/MANUAL_TECNICO.md](Docs/MANUAL_TECNICO.md) |
+| **Manual de Operaciones** | [Docs/MANUAL_OPERACIONES.md](Docs/MANUAL_OPERACIONES.md) |
+| **Guía de Despliegue en Producción** | [Docs/GUIA_DESPLIEGUE.md](Docs/GUIA_DESPLIEGUE.md) |
+| **Guía de Soporte y Troubleshooting** | [Docs/GUIA_SOPORTE_TROUBLESHOOTING.md](Docs/GUIA_SOPORTE_TROUBLESHOOTING.md) |
+| **Índice General de Documentación** | [Docs/README.md](Docs/README.md) |
