@@ -29,7 +29,7 @@ public class PrintingService : IPrintingService
             _logger.LogInformation(
                 "Printing cash cut for register {CashRegister}, Total: {Total} to {Ip}:{Port}",
                 cashCut.CashRegisterName,
-                cashCut.GrandTotal,
+                cashCut.CollectionsTotal,
                 printerIp,
                 printerPort);
 
