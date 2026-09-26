@@ -6,8 +6,8 @@ namespace Blanquita.Domain.Entities;
 /// </summary>
 public class DetalleReporte : BaseEntity
 {
-    public string Fecha { get; private set; }
-    public string Caja { get; private set; }
+    public string Fecha { get; private set; } = string.Empty;
+    public string Caja { get; private set; } = string.Empty;
     public decimal Facturado { get; private set; }
     public decimal Devolucion { get; private set; }
     public decimal VentaGlobal { get; private set; }

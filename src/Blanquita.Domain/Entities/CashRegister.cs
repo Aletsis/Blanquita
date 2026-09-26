@@ -8,11 +8,11 @@ namespace Blanquita.Domain.Entities;
 /// </summary>
 public class CashRegister : BaseEntity
 {
-    public string Name { get; private set; }
-    public string Serie { get; private set; }
+    public string Name { get; private set; } = string.Empty;
+    public string Serie { get; private set; } = string.Empty;
     public int IdContpaqi { get; private set; }
-    public PrinterConfiguration PrinterConfig { get; private set; }
-    public BranchId BranchId { get; private set; }
+    public PrinterConfiguration PrinterConfig { get; private set; } = null!;
+    public BranchId BranchId { get; private set; } = null!;
     public TipoTerminal Tipo { get; private set; }
     public bool IsLastRegister { get; private set; }
 

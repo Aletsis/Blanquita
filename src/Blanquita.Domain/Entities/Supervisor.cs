@@ -8,8 +8,8 @@ namespace Blanquita.Domain.Entities;
 public class Supervisor : BaseEntity
 {
     public int EmployeeNumber { get; private set; }
-    public string Name { get; private set; }
-    public BranchId BranchId { get; private set; }
+    public string Name { get; private set; } = string.Empty;
+    public BranchId BranchId { get; private set; } = null!;
     public bool IsActive { get; private set; }
     public string? PhoneNumber { get; private set; }
 

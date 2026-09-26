@@ -4,11 +4,11 @@ namespace Blanquita.Domain.Entities;
 
 public class Branch : BaseEntity
 {
-    public string Name { get; private set; }
-    public string Code { get; private set; }
-    public string SeriesCliente { get; private set; }
-    public string SeriesGlobal { get; private set; }
-    public string SeriesDevolucion { get; private set; }
+    public string Name { get; private set; } = string.Empty;
+    public string Code { get; private set; } = string.Empty;
+    public string SeriesCliente { get; private set; } = string.Empty;
+    public string SeriesGlobal { get; private set; } = string.Empty;
+    public string SeriesDevolucion { get; private set; } = string.Empty;
     public string Direccion { get; private set; } = string.Empty;
     public string? ConceptosSalida { get; private set; }
 

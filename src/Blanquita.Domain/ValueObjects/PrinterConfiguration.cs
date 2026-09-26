@@ -4,7 +4,7 @@ namespace Blanquita.Domain.ValueObjects;
 
 public record PrinterConfiguration
 {
-    public string IpAddress { get; }
+    public string IpAddress { get; } = string.Empty;
     public int Port { get; }
 
     // Constructor requerido por EF Core

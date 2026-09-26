@@ -7,11 +7,11 @@ namespace Blanquita.Domain.Entities;
 /// </summary>
 public class CashCut : BaseEntity
 {
-    public CashCutTotals Totals { get; private set; }
-    public string CashRegisterName { get; private set; }
-    public string SupervisorName { get; private set; }
-    public string CashierName { get; private set; }
-    public string BranchName { get; private set; }
+    public CashCutTotals Totals { get; private set; } = null!;
+    public string CashRegisterName { get; private set; } = string.Empty;
+    public string SupervisorName { get; private set; } = string.Empty;
+    public string CashierName { get; private set; } = string.Empty;
+    public string BranchName { get; private set; } = string.Empty;
     public DateTime CutDateTime { get; private set; }
 
     // EF Core constructor

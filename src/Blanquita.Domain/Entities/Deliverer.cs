@@ -8,8 +8,8 @@ namespace Blanquita.Domain.Entities;
 public class Deliverer : BaseEntity
 {
     public int EmployeeNumber { get; private set; }
-    public string Name { get; private set; }
-    public BranchId BranchId { get; private set; }
+    public string Name { get; private set; } = string.Empty;
+    public BranchId BranchId { get; private set; } = null!;
     public bool IsActive { get; private set; }
 
     // EF Core constructor

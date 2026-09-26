@@ -8,12 +8,12 @@ namespace Blanquita.Domain.Entities;
 /// </summary>
 public class ReporteHistorico : BaseEntity
 {
-    public Sucursal Sucursal { get; private set; }
+    public Sucursal Sucursal { get; private set; } = null!;
     public DateTime Fecha { get; private set; }
     public decimal TotalSistema { get; private set; }
     public decimal TotalCorteManual { get; private set; }
-    public string Notas { get; private set; }
-    public string Usuario { get; private set; }
+    public string Notas { get; private set; } = string.Empty;
+    public string Usuario { get; private set; } = string.Empty;
     public DateTime FechaGeneracion { get; private set; }
 
     private readonly List<DetalleReporte> _detalles = new();

@@ -7,10 +7,10 @@ namespace Blanquita.Domain.Entities;
 /// </summary>
 public class CashCollection : BaseEntity
 {
-    public CashDenominations Denominations { get; private set; }
-    public string CashRegisterName { get; private set; }
-    public string CashierName { get; private set; }
-    public string SupervisorName { get; private set; }
+    public CashDenominations Denominations { get; private set; } = null!;
+    public string CashRegisterName { get; private set; } = string.Empty;
+    public string CashierName { get; private set; } = string.Empty;
+    public string SupervisorName { get; private set; } = string.Empty;
     public DateTime CollectionDateTime { get; private set; }
     public int Folio { get; private set; }
     public bool IsForCashCut { get; private set; }

@@ -8,9 +8,9 @@ public record CashCutTotals
     public int TotalHundreds { get; }
     public int TotalFifties { get; }
     public int TotalTwenties { get; }
-    public Money TotalSlips { get; }
-    public Money TotalBanbajio { get; }
-    public Money TotalBanregio { get; }
+    public Money TotalSlips { get; } = null!;
+    public Money TotalBanbajio { get; } = null!;
+    public Money TotalBanregio { get; } = null!;
 
     // Constructor requerido por EF Core
     private CashCutTotals() { }
