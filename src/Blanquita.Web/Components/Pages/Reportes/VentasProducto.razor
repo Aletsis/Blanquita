@@ -423,7 +423,7 @@
                 sucursalSeleccionada = sucursales.FirstOrDefault(s => s.Name == "Himno") ?? sucursales.First();
             }
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             Snackbar.Add("Error al cargar sucursales", Severity.Error);
         }

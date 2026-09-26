@@ -8,7 +8,7 @@
 @inject ISnackbar Snackbar
 @inject ILogger<DialogoEditarConciliacion> Logger
 
-<MudDialog MaxWidth="MaxWidth.Medium" FullWidth="true">
+<MudDialog>
     <TitleContent>
         <div class="d-flex align-center">
             <MudIcon Icon="@Icons.Material.Filled.EditCalendar" Color="Color.Primary" Class="mr-2" />
@@ -82,7 +82,7 @@
                             <MudIconButton Icon="@Icons.Material.Filled.ListAlt" 
                                           Color="Color.Primary" 
                                           Size="Size.Medium" 
-                                          Title="Desglosar terminales Banbajío" 
+                                          title="Desglosar terminales Banbajío" 
                                           OnClick="@(() => AbrirDesgloseTerminales("Banbajio"))" />
                         </div>
 
@@ -98,7 +98,7 @@
                             <MudIconButton Icon="@Icons.Material.Filled.ListAlt" 
                                           Color="Color.Primary" 
                                           Size="Size.Medium" 
-                                          Title="Desglosar terminales BanRegio" 
+                                          title="Desglosar terminales BanRegio" 
                                           OnClick="@(() => AbrirDesgloseTerminales("Banregio"))" />
                         </div>
 

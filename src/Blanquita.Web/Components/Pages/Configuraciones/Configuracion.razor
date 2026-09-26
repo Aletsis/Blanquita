@@ -53,7 +53,7 @@
         </MudStack>
     </MudStack>
 
-    <MudTabs Elevation="4" Rounded="true" ApplyEffectsToContainer="true" PanelClass="pa-6" Class="mt-6 rounded-lg animate-slide-up" Color="Color.Primary">
+    <MudTabs Elevation="4" Rounded="true" ApplyEffectsToContainer="true" Class="mt-6 rounded-lg animate-slide-up" Color="Color.Primary">
         
         @* PESTAÑA: BASE DE DATOS *@
         <MudTabPanel Text="Base de Datos" Icon="@Icons.Material.Filled.Storage">
@@ -173,7 +173,7 @@
         @* PESTAÑA: EQUIPOS *@
         <MudTabPanel Text="Equipos" Icon="@Icons.Material.Filled.Dns">
             <MudStack Spacing="6">
-                    <MudTable Items="@_printers" Hover="true" Dense="true" Elevation="0" Outlined="true">
+                    <MudTable Items="@_printers" Loading="@_loadingPrinters" Hover="true" Dense="true" Elevation="0" Outlined="true">
                         <ToolBarContent>
                             <MudText Typo="Typo.h6" Color="Color.Primary">Impresoras Zebra</MudText>
                             <MudSpacer />
@@ -582,7 +582,7 @@
             var dialog = await DialogService.ShowAsync<DialogoSeleccionArchivo>("Seleccionar Archivo", parameters, dialogOptions);
             var result = await dialog.Result;
 
-            if (!result.Canceled && result.Data is string rutaSeleccionada)
+            if (result != null && !result.Canceled && result.Data is string rutaSeleccionada)
             {
                 _configuracion.EstablecerRutaPorTipo(tipoArchivo, rutaSeleccionada);
                 Logger.LogInformation("Ruta actualizada para {TipoArchivo}: {Ruta}", tipoArchivo, rutaSeleccionada);
@@ -610,7 +610,7 @@
             var dialog = await DialogService.ShowAsync<DialogoSeleccionCarpeta>("Seleccionar Carpeta", parameters, dialogOptions);
             var result = await dialog.Result;
 
-            if (!result.Canceled && result.Data is string rutaSeleccionada)
+            if (result != null && !result.Canceled && result.Data is string rutaSeleccionada)
             {
                 _configuracion.FacturasPath = rutaSeleccionada;
                 Logger.LogInformation("Ruta de facturas actualizada: {Ruta}", rutaSeleccionada);
@@ -721,7 +721,7 @@
         var dialog = await DialogService.ShowAsync<DialogoImpresora>(title, parameters, options);
         var result = await dialog.Result;
 
-        if (!result.Canceled && result.Data is PrinterDto printerResult)
+        if (result != null && !result.Canceled && result.Data is PrinterDto printerResult)
         {
             try
             {
@@ -828,7 +828,7 @@
         var dialog = await DialogService.ShowAsync<DialogoSucursal>(title, parameters, options);
         var result = await dialog.Result;
 
-        if (!result.Canceled && result.Data is BranchDto branchResult)
+        if (result != null && !result.Canceled && result.Data is BranchDto branchResult)
         {
             try
             {
@@ -883,7 +883,7 @@
         var dialog = await DialogService.ShowAsync<DialogoCaja>(title, parameters, options);
         var result = await dialog.Result;
 
-        if (!result.Canceled && result.Data is DialogoCaja.CashRegisterDialogModel cajaResult)
+        if (result != null && !result.Canceled && result.Data is DialogoCaja.CashRegisterDialogModel cajaResult)
         {
             try
             {

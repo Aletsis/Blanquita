@@ -302,7 +302,7 @@
 
     private async Task Guardar()
     {
-        await _form.Validate();
+        await _form.ValidateAsync();
         if (!_isValid) return;
 
         if (string.IsNullOrEmpty(_selectedConceptoCodigo))

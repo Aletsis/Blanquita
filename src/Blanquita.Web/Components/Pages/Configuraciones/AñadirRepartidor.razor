@@ -288,7 +288,7 @@
                 Snackbar.Add("Repartidor registrado exitosamente", Severity.Success);
             }
 
-            await table.ReloadServerData();
+            if (table != null) await table.ReloadServerData();
             CancelEdit();
         }
         catch (Exception ex)

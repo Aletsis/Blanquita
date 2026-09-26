@@ -327,6 +327,8 @@
     private async Task RowClickEvent(TableRowClickEventArgs<CommercialSalidaDto> args)
     {
         var doc = args.Item;
+        if (doc == null) return;
+
         var now = DateTime.Now;
         if (doc.CIDDOCUMENTO == _lastClickedDocId && (now - _lastClickTime).TotalMilliseconds < 300)
         {
@@ -368,7 +370,7 @@
         var dialog = await DialogService.ShowAsync<DialogoNuevaSalida>("Nueva Salida de Almacén", parameters, options);
         var result = await dialog.Result;
 
-        if (!result.Canceled)
+        if (result != null && !result.Canceled)
         {
             await CargarSalidas();
         }

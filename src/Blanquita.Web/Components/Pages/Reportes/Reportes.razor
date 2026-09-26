@@ -317,7 +317,7 @@
                 sucursalSeleccionada = sucursales.FirstOrDefault(s => s.Name == "Himno") ?? sucursales.First();
             }
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             Snackbar.Add("Error al cargar sucursales", Severity.Error);
         }
@@ -427,7 +427,7 @@
         var dialog = await DialogService.ShowAsync<DialogoConfirmarGuardado>("Confirmar Guardado", parameters);
         var result = await dialog.Result;
 
-        if (result.Canceled)
+        if (result == null || result.Canceled)
             return;
 
         guardando = true;

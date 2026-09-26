@@ -18,7 +18,7 @@
 </MudDialog>
 
 @code {
-    [CascadingParameter] IMudDialogInstance MudDialog { get; set; }
+    [CascadingParameter] IMudDialogInstance MudDialog { get; set; } = null!;
 
     [Parameter] public PrinterDto Model { get; set; } = new();
 
@@ -27,14 +27,14 @@
         if (Model.Dpi == 0) Model.Dpi = 203;
     }
 
-    private MudForm form;
+    private MudForm form = null!;
     private bool success;
 
     private void Cancel() => MudDialog.Cancel();
 
     private async Task Submit()
     {
-        await form.Validate();
+        await form.ValidateAsync();
         if (form.IsValid)
         {
             MudDialog.Close(DialogResult.Ok(Model));

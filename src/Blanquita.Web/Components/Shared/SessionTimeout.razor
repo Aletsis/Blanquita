@@ -4,7 +4,7 @@
 @implements IAsyncDisposable
 
 @code {
-    private DotNetObjectReference<SessionTimeout> _objRef;
+    private DotNetObjectReference<SessionTimeout>? _objRef;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {

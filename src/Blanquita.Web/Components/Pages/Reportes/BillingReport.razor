@@ -210,7 +210,7 @@
         {
             sucursales = await BranchService.GetAllAsync();
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             Snackbar.Add("Error al cargar sucursales", Severity.Error);
         }

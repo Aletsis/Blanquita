@@ -1,4 +1,4 @@
-﻿@using Blanquita.Application.Interfaces
+@using Blanquita.Application.Interfaces
 @using Blanquita.Application.Interfaces.Repositories
 @using Blanquita.Application.DTOs
 @inject IFoxProDiagnosticService DiagnosticService
@@ -194,7 +194,7 @@
             <MudExpansionPanels>
                 <MudExpansionPanel Text="Registros de Muestra (5 primeros)" 
                                    Icon="@Icons.Material.Filled.Preview"
-                                   @bind-IsExpanded="@mostrarMuestra" ExpandedChanged="OnMuestraExpandChanged">
+                                   Expanded="@mostrarMuestra" ExpandedChanged="OnMuestraExpandChanged">
                     @if (mostrarMuestra && !cargandoMuestra)
                     {
                         @if (registrosMuestra != null && registrosMuestra.Any())

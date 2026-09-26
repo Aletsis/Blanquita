@@ -5,7 +5,7 @@
 
 <MudDialog>
     <DialogContent>
-        <MudTabs Elevation="2" Rounded="true" ApplyEffectsToContainer="true" PanelClass="pa-3">
+        <MudTabs Elevation="2" Rounded="true" ApplyEffectsToContainer="true">
             <MudTabPanel Text="Configuración General">
                 <MudGrid>
                     <MudItem xs="12">
@@ -208,21 +208,21 @@
                     </MudText>
                     <MudGrid>
                         <MudItem xs="4">
-                            <MudSelect T="string" @bind-Value="_newElement.ElementType" Label="Tipo" Variant="Variant.Outlined" Dense="true">
+                            <MudSelect T="string" @bind-Value="_newElement.ElementType" Label="Tipo" Variant="Variant.Outlined" Margin="Margin.Dense">
                                 <MudSelectItem Value="@("Text")">Texto</MudSelectItem>
                                 <MudSelectItem Value="@("Barcode")">Código de Barras</MudSelectItem>
                             </MudSelect>
                         </MudItem>
                         <MudItem xs="4">
-                            <MudNumericField @bind-Value="_newElement.XMm" Label="X (mm)" Variant="Variant.Outlined" Step="0.1M" Min="0" Dense="true" />
+                            <MudNumericField @bind-Value="_newElement.XMm" Label="X (mm)" Variant="Variant.Outlined" Step="0.1M" Min="0" Margin="Margin.Dense" />
                         </MudItem>
                         <MudItem xs="4">
-                            <MudNumericField @bind-Value="_newElement.YMm" Label="Y (mm)" Variant="Variant.Outlined" Step="0.1M" Min="0" Dense="true" />
+                            <MudNumericField @bind-Value="_newElement.YMm" Label="Y (mm)" Variant="Variant.Outlined" Step="0.1M" Min="0" Margin="Margin.Dense" />
                         </MudItem>
                         <MudItem xs="8">
                             <MudGrid Class="pa-0">
                                 <MudItem xs="6">
-                                    <MudSelect T="string" @bind-Value="_selectedVariableVariable" Label="Contenido / Variable" Variant="Variant.Outlined" Dense="true" SelectedValuesChanged="OnVariableChanged">
+                                    <MudSelect T="string" @bind-Value="_selectedVariableVariable" Label="Contenido / Variable" Variant="Variant.Outlined" Margin="Margin.Dense" SelectedValuesChanged="OnVariableChanged">
                                         @foreach (var variable in LabelVariables.Descriptions)
                                         {
                                             <MudSelectItem Value="@variable.Key">@variable.Value</MudSelectItem>
@@ -233,17 +233,17 @@
                                 <MudItem xs="6">
                                     @if (_selectedVariableVariable == "Custom")
                                     {
-                                        <MudTextField @bind-Value="_newElement.Content" Label="Texto Personalizado" Variant="Variant.Outlined" Dense="true" />
+                                        <MudTextField @bind-Value="_newElement.Content" Label="Texto Personalizado" Variant="Variant.Outlined" Margin="Margin.Dense" />
                                     }
                                     else
                                     {
-                                        <MudTextField Value="@_newElement.Content" Label="Valor Seleccionado" Variant="Variant.Filled" ReadOnly="true" Dense="true" />
+                                        <MudTextField Value="@_newElement.Content" Label="Valor Seleccionado" Variant="Variant.Filled" ReadOnly="true" Margin="Margin.Dense" />
                                     }
                                 </MudItem>
                             </MudGrid>
                         </MudItem>
                         <MudItem xs="4">
-                            <MudNumericField @bind-Value="_newElement.FontSize" Label="Tamaño Fuente" Variant="Variant.Outlined" Min="10" Dense="true" />
+                            <MudNumericField @bind-Value="_newElement.FontSize" Label="Tamaño Fuente" Variant="Variant.Outlined" Min="10" Margin="Margin.Dense" />
                         </MudItem>
                         <MudItem xs="12" Class="d-flex justify-end gap-2">
                             @if (_editingElement != null)
@@ -272,7 +272,22 @@
     private IMudDialogInstance MudDialog { get; set; } = null!;
 
     [Parameter]
-    public LabelDesignDto? Model { get; set; }
+    public LabelDesignDto Model { get; set; } = new()
+    {
+        Name = "",
+        WidthInMm = 51.6m,
+        HeightInMm = 16.9m,
+        MarginTopInMm = 1.7m,
+        MarginLeftInMm = 1.7m,
+        Orientation = "N",
+        ProductNameFontSize = 50,
+        ProductCodeFontSize = 40,
+        PriceFontSize = 60,
+        BarcodeHeightInMm = 8.5m,
+        BarcodeWidth = 3,
+        IsDefault = false,
+        IsActive = true
+    };
     
     // Temp storage for new element form
     private LabelElementDto _newElement = new() { ElementType = "Text", FontSize = 30 };
@@ -281,26 +296,22 @@
 
     protected override void OnInitialized()
     {
-        // Si no se proporciona un modelo, crear uno nuevo con valores predeterminados
-        if (Model == null)
+        Model ??= new LabelDesignDto
         {
-            Model = new LabelDesignDto
-            {
-                Name = "",
-                WidthInMm = 51.6m,
-                HeightInMm = 16.9m,
-                MarginTopInMm = 1.7m,
-                MarginLeftInMm = 1.7m,
-                Orientation = "N",
-                ProductNameFontSize = 50,
-                ProductCodeFontSize = 40,
-                PriceFontSize = 60,
-                BarcodeHeightInMm = 8.5m,
-                BarcodeWidth = 3,
-                IsDefault = false,
-                IsActive = true
-            };
-        }
+            Name = "",
+            WidthInMm = 51.6m,
+            HeightInMm = 16.9m,
+            MarginTopInMm = 1.7m,
+            MarginLeftInMm = 1.7m,
+            Orientation = "N",
+            ProductNameFontSize = 50,
+            ProductCodeFontSize = 40,
+            PriceFontSize = 60,
+            BarcodeHeightInMm = 8.5m,
+            BarcodeWidth = 3,
+            IsDefault = false,
+            IsActive = true
+        };
         
         if (Model.Elements == null)
         {

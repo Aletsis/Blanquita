@@ -81,7 +81,7 @@
                                    Margin="Margin.Dense"
                                    MaxDate="DateTime.Today"
                                    Class="mb-4" />
-                    <MudList T="int" Clickable="true" Color="Color.Primary">
+                    <MudList T="int" Color="Color.Primary">
                         @if (!_boxes.Any())
                         {
                             <div class="pa-4 text-center">
@@ -213,7 +213,7 @@
                                                 <MudIconButton Icon="@Icons.Material.Filled.ListAlt" 
                                                               Color="Color.Primary" 
                                                               Size="Size.Medium" 
-                                                              Title="Desglosar múltiples terminales Banbajío" 
+                                                              title="Desglosar múltiples terminales Banbajío" 
                                                               OnClick="@(() => AbrirDesgloseTerminales("Banbajio"))" />
                                             </div>
 
@@ -231,7 +231,7 @@
                                                 <MudIconButton Icon="@Icons.Material.Filled.ListAlt" 
                                                               Color="Color.Primary" 
                                                               Size="Size.Medium" 
-                                                              Title="Desglosar múltiples terminales BanRegio" 
+                                                              title="Desglosar múltiples terminales BanRegio" 
                                                               OnClick="@(() => AbrirDesgloseTerminales("Banregio"))" />
                                             </div>
 

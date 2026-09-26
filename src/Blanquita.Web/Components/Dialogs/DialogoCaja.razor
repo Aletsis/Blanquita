@@ -86,10 +86,10 @@
 </MudDialog>
 
 @code {
-    [CascadingParameter] IMudDialogInstance MudDialog { get; set; }
+    [CascadingParameter] IMudDialogInstance MudDialog { get; set; } = null!;
     [Parameter] public CashRegisterDialogModel Model { get; set; } = new();
 
-    private MudForm form;
+    private MudForm form = null!;
     private bool success;
     private List<BranchDto> _sucursales = new();
 
@@ -110,7 +110,7 @@
 
     private async Task Submit()
     {
-        await form.Validate();
+        await form.ValidateAsync();
         if (form.IsValid)
         {
             MudDialog.Close(DialogResult.Ok(Model));

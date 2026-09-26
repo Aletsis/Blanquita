@@ -138,7 +138,7 @@
 </script>
 
 @code {
-    [CascadingParameter] IMudDialogInstance MudDialog { get; set; }
+    [CascadingParameter] IMudDialogInstance MudDialog { get; set; } = null!;
 
     [Parameter] public int ClientId { get; set; }
     [Parameter] public string ClientName { get; set; } = string.Empty;

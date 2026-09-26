@@ -422,7 +422,7 @@
                     Username = model.Username,
                     FullName = model.FullName,
                     Email = model.Email,
-                    PhoneNumber = model.PhoneNumber,
+                    PhoneNumber = model.PhoneNumber ?? string.Empty,
                     Password = model.Password,
                     Role = model.Role,
                     BranchId = finalBranchId,

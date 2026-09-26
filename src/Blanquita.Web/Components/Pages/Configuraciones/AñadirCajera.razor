@@ -314,7 +314,7 @@
                 Snackbar.Add("Cajera registrada exitosamente", Severity.Success);
             }
 
-            await table.ReloadServerData();
+            if (table != null) await table.ReloadServerData();
             CancelEdit();
         }
         catch (Exception ex)
