@@ -27,23 +27,97 @@ public class DatabaseBackupServiceTests
     [Fact]
     public void FindPgToolPath_ShouldNotAppendExe_OnLinux()
     {
-        // This test assumes running on Linux environment.
-        // If the platform is not Windows, FindPgToolPath("pg_dump") should search for "pg_dump".
-        
-        // Arrange
-        // We know /usr/bin/pg_dump exists on this environment.
-        
-        // Act
-        // This is a private method, but we can't test private methods directly easily.
-        // We can test by calling a public method that uses it, but it might throw if tools are missing or DB connection fails.
-        // Actually, we can use reflection to test the private method.
-        
-        var methodInfo = typeof(DatabaseBackupService).GetMethod("FindPgToolPath", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-        
-        var result = (string)methodInfo.Invoke(_service, new object[] { "pg_dump" });
-        
-        // Assert
-        Assert.False(result.EndsWith(".exe"), "On Linux, the tool path should not end with .exe");
-        Assert.Equal("/usr/bin/pg_dump", result);
+        if (OperatingSystem.IsWindows())
+        {
+            // Skip assertion on Windows
+            return;
+        }
+
+        var tempDir = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
+        Directory.CreateDirectory(tempDir);
+        try
+        {
+            var expectedFilePath = Path.Combine(tempDir, "pg_dump");
+            File.WriteAllText(expectedFilePath, string.Empty);
+
+            _configMock.Setup(c => c["DatabaseBackup:PostgresBinPath"]).Returns(tempDir);
+
+            var methodInfo = typeof(DatabaseBackupService).GetMethod("FindPgToolPath", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            Assert.NotNull(methodInfo);
+
+            var result = (string)methodInfo.Invoke(_service, new object[] { "pg_dump" })!;
+
+            Assert.False(result.EndsWith(".exe"), "On Linux, the tool path should not end with .exe");
+            Assert.Equal(expectedFilePath, result);
+        }
+        finally
+        {
+            if (Directory.Exists(tempDir))
+            {
+                Directory.Delete(tempDir, true);
+            }
+        }
+    }
+
+    [Fact]
+    public void FindPgToolPath_ShouldAppendExe_OnWindows()
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            // Skip on non-Windows
+            return;
+        }
+
+        var tempDir = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
+        Directory.CreateDirectory(tempDir);
+        try
+        {
+            var expectedFilePath = Path.Combine(tempDir, "pg_dump.exe");
+            File.WriteAllText(expectedFilePath, string.Empty);
+
+            _configMock.Setup(c => c["DatabaseBackup:PostgresBinPath"]).Returns(tempDir);
+
+            var methodInfo = typeof(DatabaseBackupService).GetMethod("FindPgToolPath", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            Assert.NotNull(methodInfo);
+
+            var result = (string)methodInfo.Invoke(_service, new object[] { "pg_dump" })!;
+
+            Assert.True(result.EndsWith(".exe", StringComparison.OrdinalIgnoreCase), "On Windows, the tool path should end with .exe");
+            Assert.Equal(expectedFilePath, result);
+        }
+        finally
+        {
+            if (Directory.Exists(tempDir))
+            {
+                Directory.Delete(tempDir, true);
+            }
+        }
+    }
+
+    [Fact]
+    public void FindPgToolPath_WhenToolNotFound_ShouldThrowFileNotFoundException()
+    {
+        var tempDir = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
+        Directory.CreateDirectory(tempDir);
+        try
+        {
+            _configMock.Setup(c => c["DatabaseBackup:PostgresBinPath"]).Returns(tempDir);
+
+            var methodInfo = typeof(DatabaseBackupService).GetMethod("FindPgToolPath", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            Assert.NotNull(methodInfo);
+
+            var ex = Assert.Throws<System.Reflection.TargetInvocationException>(() =>
+                methodInfo.Invoke(_service, new object[] { "non_existent_pg_tool_xyz_123" })
+            );
+
+            Assert.IsType<FileNotFoundException>(ex.InnerException);
+        }
+        finally
+        {
+            if (Directory.Exists(tempDir))
+            {
+                Directory.Delete(tempDir, true);
+            }
+        }
     }
 }
