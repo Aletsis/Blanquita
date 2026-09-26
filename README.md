@@ -121,16 +121,20 @@ El servicio se iniciará en `http://localhost:3001`. En la interfaz web (`Config
 
 ---
 
-## 🌐 Publicación y Despliegue
+## 🌐 CI/CD y Despliegue
 
-Para desplegar en servidores de producción (IIS / Windows Server):
+La solución cuenta con canalizaciones automatizadas de **Integración Continua (CI)** y **Entrega Continua (CD)** mediante GitHub Actions, así como guías y scripts de despliegue para servidores Windows con **IIS**:
+
+- 👉 **[Guía de CI/CD con GitHub Actions](Docs/CI_CD_GUIDE.md)**: Flujos de compilación, ejecución de tests y empaquetado automático de releases (.zip).
+- 👉 **[Script de Despliegue Automático](deploy-release.ps1)**: Utilidad de PowerShell para desplegar el paquete descargado en IIS con backup automático y reinicio de AppPool.
+- 👉 **[Guía de Despliegue en IIS](Docs/GUIA_DESPLIEGUE.md)**: Configuración del servidor IIS, Application Pool "Sin código administrado", WebSockets y permisos.
+
+Para publicar manualmente desde PowerShell:
 
 ```powershell
 # Ejecutar script automatizado con backup
 .\publish-production.ps1 -OutputPath "C:\inetpub\wwwroot\Blanquita" -Configuration Release -CreateBackup
 ```
-
-Consulte la [Guía de Despliegue](Docs/GUIA_DESPLIEGUE.md) para conocer los detalles de configuración en IIS (Application Pool "Sin código administrado", WebSockets y permisos).
 
 ---
 
@@ -140,6 +144,7 @@ Toda la documentación técnica y operativa se encuentra organizada en la carpet
 
 | Manual / Guía | Enlace |
 | :--- | :--- |
+| **Guía de CI/CD (GitHub Actions)** | [Docs/CI_CD_GUIDE.md](Docs/CI_CD_GUIDE.md) |
 | **Manual Técnico** | [Docs/MANUAL_TECNICO.md](Docs/MANUAL_TECNICO.md) |
 | **Manual de Operaciones** | [Docs/MANUAL_OPERACIONES.md](Docs/MANUAL_OPERACIONES.md) |
 | **Guía de Despliegue en Producción** | [Docs/GUIA_DESPLIEGUE.md](Docs/GUIA_DESPLIEGUE.md) |

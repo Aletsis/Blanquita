@@ -1,0 +1,60 @@
+name: CI - Integración Continua
+
+on:
+  push:
+    branches:
+      - master
+      - main
+      - 'feature/**'
+      - 'fix/**'
+      - 'refactor/**'
+  pull_request:
+    branches:
+      - master
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    name: Compilar y Ejecutar Pruebas
+    runs-on: windows-latest
+
+    steps:
+      - name: Descargar repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar SDK de .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+          include-prerelease: true
+
+      - name: Verificar versión de .NET
+        run: dotnet --info
+
+      - name: Restaurar dependencias
+        run: dotnet restore Blanquita.sln
+
+      - name: Compilar solución (Release)
+        run: dotnet build Blanquita.sln --configuration Release --no-restore
+
+      - name: Ejecutar pruebas unitarias e integración
+        run: >-
+          dotnet test Blanquita.sln
+          --configuration Release
+          --no-build
+          --verbosity normal
+          --collect:"XPlat Code Coverage"
+          --logger "trx;LogFileName=test-results.trx"
+
+      - name: Publicar resultados de pruebas como artefacto
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: '**/TestResults/*.trx'
+          retention-days: 14

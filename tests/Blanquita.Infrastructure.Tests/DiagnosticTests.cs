@@ -28,7 +28,7 @@ namespace Blanquita.Infrastructure.Tests
             _output = output;
         }
 
-        [Fact]
+        [Fact(Skip = "Prueba de diagnóstico local - requiere archivo DBF específico en disco C:")]
         public void TestPOS10008FullScan()
         {
             Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);

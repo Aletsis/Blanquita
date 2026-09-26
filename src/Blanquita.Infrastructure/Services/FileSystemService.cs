@@ -141,7 +141,8 @@ public class FileSystemService : IFileSystemService
                 return false;
             }
 
-            var actualFileName = Path.GetFileName(filePath);
+            var normalizedPath = filePath.Replace('\\', '/');
+            var actualFileName = Path.GetFileName(normalizedPath);
             var isValid = actualFileName.Equals(expectedFileName, StringComparison.OrdinalIgnoreCase);
             
             _logger.LogDebug(
@@ -166,7 +167,8 @@ public class FileSystemService : IFileSystemService
                 return null;
             }
 
-            var parent = Directory.GetParent(path);
+            var normalizedPath = path.Replace('\\', Path.DirectorySeparatorChar);
+            var parent = Directory.GetParent(normalizedPath);
             var parentPath = parent?.FullName;
             
             _logger.LogDebug("Parent directory of {Path}: {Parent}", path, parentPath ?? "null");
@@ -188,7 +190,8 @@ public class FileSystemService : IFileSystemService
                 return string.Empty;
             }
 
-            var fileName = Path.GetFileName(filePath);
+            var normalizedPath = filePath.Replace('\\', '/');
+            var fileName = Path.GetFileName(normalizedPath);
             return fileName;
         }
         catch (Exception ex)
