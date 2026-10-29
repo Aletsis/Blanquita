@@ -134,9 +134,9 @@ public class SaveConciliacionCorteCommandHandler : IRequestHandler<SaveConciliac
 <h3>Alerta de Descuadre Financiero Detectado</h3>
 <p>Se ha registrado un descuadre en el corte del turno <strong>{request.ShiftId}</strong> que supera el límite de $50.00 MXN.</p>
 <table>
-    <tr><td><strong>Sucursal:</strong></td><td>{request.BranchName}</td></tr>
-    <tr><td><strong>Caja:</strong></td><td>{request.CashRegisterName}</td></tr>
-    <tr><td><strong>Cajero:</strong></td><td>{request.CashierName}</td></tr>
+    <tr><td><strong>Sucursal:</strong></td><td>{System.Net.WebUtility.HtmlEncode(request.BranchName)}</td></tr>
+    <tr><td><strong>Caja:</strong></td><td>{System.Net.WebUtility.HtmlEncode(request.CashRegisterName)}</td></tr>
+    <tr><td><strong>Cajero:</strong></td><td>{System.Net.WebUtility.HtmlEncode(request.CashierName)}</td></tr>
     <tr><td><strong>Total Entregado:</strong></td><td>{totalEntregado:C}</td></tr>
     <tr><td><strong>Total Esperado:</strong></td><td>{totalEsperado:C}</td></tr>
     <tr><td><strong>Diferencia:</strong></td><td><strong style='color:red;'>{diferencia:C}</strong></td></tr>
