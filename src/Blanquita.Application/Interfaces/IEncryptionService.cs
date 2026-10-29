@@ -14,4 +14,10 @@ public interface IEncryptionService
     /// Desencripta un texto cifrado en Base64 a su valor original en plano.
     /// </summary>
     string Decrypt(string cipherText);
+
+    /// <summary>
+    /// Indica si el valor fue cifrado con el formato actual (con prefijo de versión).
+    /// Los valores sin prefijo son texto plano o del formato anterior.
+    /// </summary>
+    bool IsEncrypted(string? value);
 }

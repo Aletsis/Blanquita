@@ -292,4 +292,79 @@ public class ConfiguracionServiceTests
         Assert.Equal("[REDACTED]", passLog.NewValue);
         Assert.Equal("AdminUser", passLog.ChangedBy);
     }
+
+    private void SetupPrefixedEncryption()
+    {
+        // Simula el formato real: los valores cifrados llevan el prefijo "enc:v1:"
+        _encryptionServiceMock.Setup(x => x.Encrypt(It.IsAny<string>()))
+            .Returns<string>(s => string.IsNullOrEmpty(s) ? string.Empty : "enc:v1:" + s);
+        _encryptionServiceMock.Setup(x => x.IsEncrypted(It.IsAny<string?>()))
+            .Returns<string?>(s => s != null && s.StartsWith("enc:v1:"));
+        _encryptionServiceMock.Setup(x => x.Decrypt(It.IsAny<string>()))
+            .Returns<string>(s => s.StartsWith("enc:v1:") ? s.Substring(7) : s);
+    }
+
+    [Fact]
+    public async Task ObtenerConfiguracionAsync_ShouldEncryptPlainTextApiKeys_AndReturnThemDecrypted()
+    {
+        SetupPrefixedEncryption();
+        var entity = new SystemConfiguration { CommercialApiKey = "plain-commercial", WhatsAppApiKey = "plain-whatsapp" };
+        _repositoryMock.Setup(x => x.GetAsync(It.IsAny<CancellationToken>())).ReturnsAsync(entity);
+
+        var result = await _service.ObtenerConfiguracionAsync();
+
+        // Se guardan cifradas en la BD...
+        Assert.Equal("enc:v1:plain-commercial", entity.CommercialApiKey);
+        Assert.Equal("enc:v1:plain-whatsapp", entity.WhatsAppApiKey);
+        _repositoryMock.Verify(x => x.UpdateAsync(entity, It.IsAny<CancellationToken>()), Times.Once);
+
+        // ...y la aplicación las recibe en claro
+        Assert.Equal("plain-commercial", result.CommercialApiKey);
+        Assert.Equal("plain-whatsapp", result.WhatsAppApiKey);
+    }
+
+    [Fact]
+    public async Task ObtenerConfiguracionAsync_ShouldNotRewrite_WhenApiKeysAlreadyEncrypted()
+    {
+        SetupPrefixedEncryption();
+        var entity = new SystemConfiguration { CommercialApiKey = "enc:v1:abc", WhatsAppApiKey = "enc:v1:xyz" };
+        _repositoryMock.Setup(x => x.GetAsync(It.IsAny<CancellationToken>())).ReturnsAsync(entity);
+
+        var result = await _service.ObtenerConfiguracionAsync();
+
+        _repositoryMock.Verify(x => x.UpdateAsync(It.IsAny<SystemConfiguration>(), It.IsAny<CancellationToken>()), Times.Never);
+        Assert.Equal("abc", result.CommercialApiKey);
+        Assert.Equal("xyz", result.WhatsAppApiKey);
+    }
+
+    [Fact]
+    public async Task GuardarConfiguracionAsync_ShouldStoreApiKeysEncrypted()
+    {
+        SetupPrefixedEncryption();
+        var entity = new SystemConfiguration();
+        _fileSystemServiceMock.Setup(x => x.FileExists(It.IsAny<string>())).Returns(true);
+        _repositoryMock.Setup(x => x.GetAsync(It.IsAny<CancellationToken>())).ReturnsAsync(entity);
+
+        var dto = CreateValidDto();
+        dto.CommercialApiKey = "nueva-commercial";
+        dto.WhatsAppApiKey = "nueva-whatsapp";
+
+        await _service.GuardarConfiguracionAsync(dto);
+
+        Assert.Equal("enc:v1:nueva-commercial", entity.CommercialApiKey);
+        Assert.Equal("enc:v1:nueva-whatsapp", entity.WhatsAppApiKey);
+    }
+
+    [Fact]
+    public async Task ValidarConfiguracionAsync_ShouldReject_ApiKeysThatWouldNotFitEncrypted()
+    {
+        var dto = CreateValidDto();
+        dto.WhatsAppApiKey = new string('x', 301);
+        _fileSystemServiceMock.Setup(x => x.FileExists(It.IsAny<string>())).Returns(true);
+
+        var result = await _service.ValidarConfiguracionAsync(dto);
+
+        Assert.False(result.EsValido);
+        Assert.Contains(result.Errores, e => e.Contains("WhatsApp"));
+    }
 }
