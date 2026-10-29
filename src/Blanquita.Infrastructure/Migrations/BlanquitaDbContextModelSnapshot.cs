@@ -744,6 +744,9 @@ namespace Blanquita.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("ClientCode", "FileName")
+                        .IsUnique();
+
                     b.ToTable("SentInvoiceLogs");
                 });
 

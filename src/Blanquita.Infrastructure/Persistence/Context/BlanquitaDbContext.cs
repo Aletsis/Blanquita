@@ -443,5 +443,11 @@ public class BlanquitaDbContext : IdentityDbContext<ApplicationUser>
             entity.Property(e => e.NewValue).HasColumnName("ValorNuevo").HasColumnType("text");
             entity.HasIndex(e => e.ChangedAt);
         });
+
+        modelBuilder.Entity<SentInvoiceLog>(entity =>
+        {
+            // Una factura solo puede registrarse como enviada una vez por cliente
+            entity.HasIndex(e => new { e.ClientCode, e.FileName }).IsUnique();
+        });
     }
 }

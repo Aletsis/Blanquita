@@ -141,7 +141,10 @@ public static class DependencyInjection
             .UseSimpleAssemblyNameTypeSerializer()
             .UseRecommendedSerializerSettings()
             .UsePostgreSqlStorage(options => 
-                options.UseNpgsqlConnection(configuration.GetConnectionString("DefaultConnection"))));
+                options.UseNpgsqlConnection(configuration.GetConnectionString("DefaultConnection")))
+            // Impide que un mismo trabajo se ejecute dos veces en paralelo (p. ej. ejecución manual
+            // desde el panel mientras corre la programada); la segunda espera hasta 10 minutos el bloqueo.
+            .UseFilter(new DisableConcurrentExecutionAttribute(timeoutInSeconds: 10 * 60)));
 
         services.AddHangfireServer();
 
