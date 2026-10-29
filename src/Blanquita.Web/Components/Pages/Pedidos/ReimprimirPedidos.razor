@@ -1,4 +1,5 @@
 @page "/reimprimir-pedidos"
+@attribute [Authorize(Roles = "Admin,Security")]
 @using Blanquita.Application.DTOs
 @using Blanquita.Application.Queries.FoxPro.GetPedidoBySeriesAndFolio
 @using Blanquita.Application.Commands.Printing

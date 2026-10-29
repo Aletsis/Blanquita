@@ -38,7 +38,7 @@ public class AuthenticationService : IAuthenticationService
 
             if (user != null)
             {
-                var result = await _signInManager.PasswordSignInAsync(user, password, isPersistent: true, lockoutOnFailure: false);
+                var result = await _signInManager.PasswordSignInAsync(user, password, isPersistent: true, lockoutOnFailure: true);
                 
                 if (result.Succeeded)
                 {

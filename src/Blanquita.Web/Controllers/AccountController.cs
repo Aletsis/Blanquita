@@ -40,7 +40,17 @@ public class AccountController : Controller
 
         if (user != null)
         {
-            var result = await _signInManager.PasswordSignInAsync(user, password, isPersistent: true, lockoutOnFailure: false);
+            var result = await _signInManager.PasswordSignInAsync(user, password, isPersistent: true, lockoutOnFailure: true);
+
+            if (result.IsLockedOut)
+            {
+                var lockedUrl = "/login?error=CuentaBloqueada";
+                if (!string.IsNullOrWhiteSpace(returnUrl))
+                {
+                    lockedUrl += $"&returnUrl={Uri.EscapeDataString(returnUrl)}";
+                }
+                return Redirect(lockedUrl);
+            }
 
             if (result.Succeeded)
             {

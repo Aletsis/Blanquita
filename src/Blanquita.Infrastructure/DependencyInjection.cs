@@ -46,6 +46,11 @@ public static class DependencyInjection
             options.Password.RequireUppercase = false;
             options.Password.RequireNonAlphanumeric = false;
             options.Password.RequiredLength = 4;
+
+            // Bloqueo temporal tras intentos fallidos para mitigar fuerza bruta
+            options.Lockout.AllowedForNewUsers = true;
+            options.Lockout.MaxFailedAccessAttempts = 5;
+            options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(5);
         })
         .AddRoles<IdentityRole>()
         .AddEntityFrameworkStores<BlanquitaDbContext>()

@@ -42,7 +42,7 @@ public class AuthenticationServiceTests
         _userManagerMock.Setup(x => x.FindByNameAsync("admin"))
             .ReturnsAsync(user);
 
-        _signInManagerMock.Setup(x => x.PasswordSignInAsync(user, "password", true, false))
+        _signInManagerMock.Setup(x => x.PasswordSignInAsync(user, "password", true, true))
             .ReturnsAsync(Microsoft.AspNetCore.Identity.SignInResult.Success);
 
         var result = await _service.AuthenticateAsync("admin", "password");
@@ -57,7 +57,7 @@ public class AuthenticationServiceTests
         _userManagerMock.Setup(x => x.FindByNameAsync("admin"))
             .ReturnsAsync(user);
 
-        _signInManagerMock.Setup(x => x.PasswordSignInAsync(user, "wrong", true, false))
+        _signInManagerMock.Setup(x => x.PasswordSignInAsync(user, "wrong", true, true))
             .ReturnsAsync(Microsoft.AspNetCore.Identity.SignInResult.Failed);
 
         var result = await _service.AuthenticateAsync("admin", "wrong");
@@ -75,7 +75,7 @@ public class AuthenticationServiceTests
         var users = new List<ApplicationUser> { user }.AsAsyncQueryable();
         _userManagerMock.Setup(x => x.Users).Returns(users);
 
-        _signInManagerMock.Setup(x => x.PasswordSignInAsync(user, "password", true, false))
+        _signInManagerMock.Setup(x => x.PasswordSignInAsync(user, "password", true, true))
             .ReturnsAsync(Microsoft.AspNetCore.Identity.SignInResult.Success);
 
         var result = await _service.AuthenticateAsync("12345", "password");
