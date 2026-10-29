@@ -2,6 +2,7 @@ using Blanquita.Application.DTOs;
 using Blanquita.Domain.Entities;
 using Blanquita.Domain.Repositories;
 using Blanquita.Application.Services;
+using Blanquita.Application.Tests.Helpers;
 using Microsoft.Extensions.Logging;
 using Moq;
 using Xunit;
@@ -12,13 +13,15 @@ public class CashCollectionServiceTests
 {
     private readonly Mock<ICashCollectionRepository> _repositoryMock;
     private readonly Mock<ILogger<CashCollectionService>> _loggerMock;
+    private readonly PassThroughUnitOfWork _unitOfWork;
     private readonly CashCollectionService _service;
 
     public CashCollectionServiceTests()
     {
         _repositoryMock = new Mock<ICashCollectionRepository>();
         _loggerMock = new Mock<ILogger<CashCollectionService>>();
-        _service = new CashCollectionService(_repositoryMock.Object, _loggerMock.Object);
+        _unitOfWork = new PassThroughUnitOfWork();
+        _service = new CashCollectionService(_repositoryMock.Object, _loggerMock.Object, _unitOfWork);
     }
 
     [Fact]
@@ -103,5 +106,35 @@ public class CashCollectionServiceTests
         Assert.Single(results);
         Assert.Equal("Reg1", results.First().CashRegisterName);
     }
-}
 
+    [Fact]
+    public async Task SearchAsync_ShouldIncludeEveningCollections_WhenFilteringByLocalDay()
+    {
+        // Recolección hecha hoy a las 20:00 hora local, almacenada en UTC (como la devuelve Npgsql).
+        // En zonas con offset negativo (México) cae en el día UTC siguiente.
+        var eveningLocal = DateTime.SpecifyKind(DateTime.Today.AddHours(20), DateTimeKind.Local);
+        var collection = CashCollection.Create(1, 0, 0, 0, 0, 0, "Reg1", "C", "S", 1);
+        typeof(CashCollection).GetProperty(nameof(CashCollection.CollectionDateTime))!
+            .SetValue(collection, eveningLocal.ToUniversalTime());
+
+        _repositoryMock.Setup(x => x.GetAllAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<CashCollection> { collection });
+
+        var request = new SearchCashCollectionRequest { FechaInicio = DateTime.Today, FechaFin = DateTime.Today };
+        var results = await _service.SearchAsync(request);
+
+        Assert.Single(results);
+    }
+
+    [Fact]
+    public async Task CreateAsync_ShouldAssignFolioUnderRegisterLock()
+    {
+        _repositoryMock.Setup(x => x.GetNextFolioAsync("Reg1", It.IsAny<CancellationToken>())).ReturnsAsync(7);
+
+        var dto = new CreateCashCollectionDto { Thousands = 1, CashRegisterName = "Reg1", CashierName = "C", SupervisorName = "S" };
+        var result = await _service.CreateAsync(dto);
+
+        Assert.Equal(7, result.Folio);
+        Assert.Equal(new[] { CashCollectionService.GetRegisterLockKey("Reg1") }, _unitOfWork.LockKeys);
+    }
+}

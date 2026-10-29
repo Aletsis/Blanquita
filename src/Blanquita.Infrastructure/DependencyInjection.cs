@@ -88,6 +88,7 @@ public static class DependencyInjection
         services.AddScoped<ISentInvoiceLogRepository, SentInvoiceLogRepository>();
         services.AddScoped<IReporteHistoricoRepository, EfReporteHistoricoRepository>();
         services.AddScoped<IConciliacionCorteRepository, ConciliacionCorteRepository>();
+        services.AddScoped<IUnitOfWork, Persistence.UnitOfWork>();
 
         // Technical Services (Stay in Infrastructure)
         services.AddHttpClient();

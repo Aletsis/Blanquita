@@ -37,6 +37,26 @@ public class DateRangeSearchRequest
     }
 
     /// <summary>
+    /// Igual que <see cref="GetNormalizedDateRange"/>, pero convierte el rango (capturado en hora local)
+    /// a UTC para compararlo contra columnas almacenadas como timestamp with time zone.
+    /// </summary>
+    public (DateTime Inicio, DateTime Fin) GetNormalizedUtcRange()
+    {
+        var (inicio, fin) = GetNormalizedDateRange();
+        return (ToUtc(inicio), ToUtc(fin));
+    }
+
+    private static DateTime ToUtc(DateTime value)
+    {
+        if (value == DateTime.MinValue || value == DateTime.MaxValue)
+            return DateTime.SpecifyKind(value, DateTimeKind.Utc);
+
+        return value.Kind == DateTimeKind.Utc
+            ? value
+            : DateTime.SpecifyKind(value, DateTimeKind.Local).ToUniversalTime();
+    }
+
+    /// <summary>
     /// Verifica si se especificó fecha de inicio
     /// </summary>
     public bool HasFechaInicio() => FechaInicio.HasValue;

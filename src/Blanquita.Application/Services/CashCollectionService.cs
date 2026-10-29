@@ -12,12 +12,19 @@ public class CashCollectionService : ICashCollectionService
 {
     private readonly ICashCollectionRepository _repository;
     private readonly ILogger<CashCollectionService> _logger;
+    private readonly IUnitOfWork _unitOfWork;
 
-    public CashCollectionService(ICashCollectionRepository repository, ILogger<CashCollectionService> logger)
+    public CashCollectionService(ICashCollectionRepository repository, ILogger<CashCollectionService> logger, IUnitOfWork unitOfWork)
     {
         _repository = repository;
         _logger = logger;
+        _unitOfWork = unitOfWork;
     }
+
+    /// <summary>
+    /// Llave de bloqueo compartida por las operaciones que asignan folios o cortan una caja.
+    /// </summary>
+    public static string GetRegisterLockKey(string cashRegisterName) => $"caja:{cashRegisterName.Trim().ToUpperInvariant()}";
 
     public async Task<CashCollectionDto?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
     {
@@ -49,7 +56,7 @@ public class CashCollectionService : ICashCollectionService
         // Aplicar filtro de fecha
         if (request.HasDateFilter())
         {
-            var (inicio, fin) = request.GetNormalizedDateRange();
+            var (inicio, fin) = request.GetNormalizedUtcRange();
             allCollections = allCollections.Where(c =>
                 c.CollectionDateTime >= inicio && c.CollectionDateTime <= fin);
         }
@@ -96,39 +103,49 @@ public class CashCollectionService : ICashCollectionService
     {
         try
         {
-            // Get the next folio number
-            var nextFolio = await _repository.GetNextFolioAsync(dto.CashRegisterName, cancellationToken);
+            // El folio se calcula y guarda bajo bloqueo para que dos recolecciones simultáneas no obtengan el mismo
+            return await _unitOfWork.ExecuteLockedAsync(GetRegisterLockKey(dto.CashRegisterName), async ct =>
+            {
+                // Get the next folio number
+                var nextFolio = await _repository.GetNextFolioAsync(dto.CashRegisterName, ct);
 
-            // Create the cash collection entity
-            var cashCollection = CashCollection.Create(
-                dto.Thousands,
-                dto.FiveHundreds,
-                dto.TwoHundreds,
-                dto.Hundreds,
-                dto.Fifties,
-                dto.Twenties,
-                dto.CashRegisterName,
-                dto.CashierName,
-                dto.SupervisorName,
-                nextFolio,
-                dto.IsForCashCut);
+                // Create the cash collection entity
+                var cashCollection = CashCollection.Create(
+                    dto.Thousands,
+                    dto.FiveHundreds,
+                    dto.TwoHundreds,
+                    dto.Hundreds,
+                    dto.Fifties,
+                    dto.Twenties,
+                    dto.CashRegisterName,
+                    dto.CashierName,
+                    dto.SupervisorName,
+                    nextFolio,
+                    dto.IsForCashCut);
 
-            await _repository.AddAsync(cashCollection, cancellationToken);
+                await _repository.AddAsync(cashCollection, ct);
 
-            _logger.LogInformation(
-                "Cash collection created. Folio: {Folio}, Register: {CashRegister}, Amount: {Amount}, IsForCashCut: {IsForCashCut}",
-                nextFolio,
-                dto.CashRegisterName,
-                cashCollection.GetTotalAmount(),
-                dto.IsForCashCut);
+                _logger.LogInformation(
+                    "Cash collection created. Folio: {Folio}, Register: {CashRegister}, Amount: {Amount}, IsForCashCut: {IsForCashCut}",
+                    nextFolio,
+                    dto.CashRegisterName,
+                    cashCollection.GetTotalAmount(),
+                    dto.IsForCashCut);
 
-            return cashCollection.ToDto();
+                return cashCollection.ToDto();
+            }, cancellationToken);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error creating cash collection for register {CashRegister}", dto.CashRegisterName);
             throw;
         }
+    }
+
+    public async Task<IEnumerable<CashCollectionDto>> GetPendingForCutAsync(string cashRegisterName, CancellationToken cancellationToken = default)
+    {
+        var pendingCollections = await _repository.GetPendingCollectionsByRegisterAsync(cashRegisterName, cancellationToken);
+        return pendingCollections.Select(c => c.ToDto()).ToList();
     }
 
     public async Task MarkAsCutAsync(string cashRegisterName, CancellationToken cancellationToken = default)

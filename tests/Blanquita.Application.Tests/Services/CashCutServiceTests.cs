@@ -3,6 +3,7 @@ using Blanquita.Application.Interfaces;
 using Blanquita.Domain.Entities;
 using Blanquita.Domain.Repositories;
 using Blanquita.Application.Services;
+using Blanquita.Application.Tests.Helpers;
 using Microsoft.Extensions.Logging;
 using Moq;
 using Xunit;
@@ -18,6 +19,7 @@ public class CashCutServiceTests
     private readonly Mock<ICashierService> _cashierServiceMock;
     private readonly Mock<ICashRegisterService> _registerServiceMock;
     private readonly Mock<IBranchService> _branchServiceMock;
+    private readonly PassThroughUnitOfWork _unitOfWork;
     private readonly CashCutService _service;
 
     public CashCutServiceTests()
@@ -29,6 +31,7 @@ public class CashCutServiceTests
         _cashierServiceMock = new Mock<ICashierService>();
         _registerServiceMock = new Mock<ICashRegisterService>();
         _branchServiceMock = new Mock<IBranchService>();
+        _unitOfWork = new PassThroughUnitOfWork();
 
         _service = new CashCutService(
             _repositoryMock.Object,
@@ -37,7 +40,8 @@ public class CashCutServiceTests
             _supervisorServiceMock.Object,
             _cashierServiceMock.Object,
             _registerServiceMock.Object,
-            _branchServiceMock.Object
+            _branchServiceMock.Object,
+            _unitOfWork
         );
     }
 
@@ -71,13 +75,16 @@ public class CashCutServiceTests
         var col2 = new CashCollectionDto { Thousands = 2, FiveHundreds = 0, TwoHundreds = 0, Hundreds = 0, Fifties = 0, Twenties = 0 };
         var collections = new List<CashCollectionDto> { col1, col2 };
 
-        _collectionServiceMock.Setup(x => x.SearchAsync(It.IsAny<SearchCashCollectionRequest>(), It.IsAny<CancellationToken>()))
+        _collectionServiceMock.Setup(x => x.GetPendingForCutAsync("Reg1", It.IsAny<CancellationToken>()))
             .ReturnsAsync(collections);
 
         // Act
         var result = await _service.ProcessCashCutAsync(request);
 
         // Assert
+        // El corte se ejecuta bajo el bloqueo de la caja
+        Assert.Equal(new[] { CashCollectionService.GetRegisterLockKey("Reg1") }, _unitOfWork.LockKeys);
+
         // Verify MarkAsCut was called
         _collectionServiceMock.Verify(x => x.MarkAsCutAsync("Reg1", It.IsAny<CancellationToken>()), Times.Once);
 
@@ -95,6 +102,29 @@ public class CashCutServiceTests
 
         Assert.NotNull(result);
         Assert.Equal(3, result.TotalThousands);
+    }
+
+    [Fact]
+    public async Task ProcessCashCutAsync_ShouldNotMarkCollections_WhenCutIsInvalid()
+    {
+        // Arrange: sin recolecciones ni vouchers, el corte tiene total cero y debe rechazarse
+        var request = new ProcessCashCutRequest { CashRegisterId = 1, SupervisorId = 10, CashierId = 20 };
+
+        _registerServiceMock.Setup(x => x.GetByIdAsync(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new CashRegisterDto { Id = 1, Name = "Reg1", BranchId = 99 });
+        _supervisorServiceMock.Setup(x => x.GetByIdAsync(10, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new SupervisorDto { Id = 10, Name = "Super1", BranchId = 99 });
+        _cashierServiceMock.Setup(x => x.GetByIdAsync(20, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new CashierDto { Id = 20, Name = "Cashier1" });
+        _collectionServiceMock.Setup(x => x.GetPendingForCutAsync("Reg1", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<CashCollectionDto>());
+
+        // Act
+        await Assert.ThrowsAsync<Blanquita.Domain.Exceptions.BusinessRuleViolationException>(() => _service.ProcessCashCutAsync(request));
+
+        // Assert
+        _collectionServiceMock.Verify(x => x.MarkAsCutAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+        _repositoryMock.Verify(x => x.AddAsync(It.IsAny<CashCut>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
