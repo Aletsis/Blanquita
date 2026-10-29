@@ -76,3 +76,8 @@ Blanquita/Config/appsettings.custom.json
 .env
 
 .fake
+
+# Sesión de WhatsApp (credenciales) y respaldos locales
+**/auth_info/
+**/backups/
+*.backup

@@ -10,8 +10,8 @@ using Serilog.Events;
 using CurrieTechnologies.Razor.SweetAlert2;
 using Hangfire;
 
-// Cargar variables de entorno desde .env
-Env.Load();
+// Busca .env en el directorio actual y sus padres (las variables ya definidas en el entorno tienen prioridad)
+Env.TraversePath().NoClobber().Load();
 
     // Configurar Serilog temprano en el proceso
     Log.Logger = new LoggerConfiguration()
@@ -48,6 +48,20 @@ Env.Load();
         Log.Information("Iniciando aplicación Blanquita con Clean Architecture");
 
         var builder = WebApplication.CreateBuilder(args);
+
+        // La cadena de conexión ya no se versiona: debe venir de .env o de variables de entorno
+        if (string.IsNullOrWhiteSpace(builder.Configuration.GetConnectionString("DefaultConnection")))
+        {
+            throw new InvalidOperationException(
+                "No se configuró la cadena de conexión. Defina ConnectionStrings__DefaultConnection en el archivo .env " +
+                "o como variable de entorno (ver .env.example).");
+        }
+
+        if (string.IsNullOrWhiteSpace(builder.Configuration["Encryption:Key"]))
+        {
+            Log.Warning("Encryption:Key no está configurada; se usa la llave por defecto incluida en el código. " +
+                "Defina Encryption__Key en .env para proteger las credenciales guardadas en la base de datos.");
+        }
 
         // Usar Serilog como el provider de logging
         builder.Host.UseSerilog();
