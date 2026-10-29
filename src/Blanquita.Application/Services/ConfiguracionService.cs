@@ -51,9 +51,12 @@ public class ConfiguracionService : IConfiguracionService
     /// <inheritdoc/>
     public async Task<ConfiguracionDto> ObtenerConfiguracionAsync()
     {
-        if (_staticCachedConfig != null)
+        // Se entrega siempre una copia: la instancia en caché es compartida por todos los usuarios y Hangfire,
+        // y las pantallas enlazan sus controles directamente al DTO devuelto.
+        var cached = _staticCachedConfig;
+        if (cached != null)
         {
-            return _staticCachedConfig;
+            return cached.Clone();
         }
 
         await _semaphore.WaitAsync();
@@ -61,7 +64,7 @@ public class ConfiguracionService : IConfiguracionService
         {
             if (_staticCachedConfig != null)
             {
-                return _staticCachedConfig;
+                return _staticCachedConfig.Clone();
             }
 
             _logger.LogInformation("Obteniendo configuración del sistema desde la base de datos");
@@ -104,7 +107,7 @@ public class ConfiguracionService : IConfiguracionService
             }
 
             _staticCachedConfig = MapearADto(configEntity);
-            return _staticCachedConfig;
+            return _staticCachedConfig.Clone();
         }
         catch (Exception ex)
         {

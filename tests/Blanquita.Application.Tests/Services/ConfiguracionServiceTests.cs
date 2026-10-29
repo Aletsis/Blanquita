@@ -72,6 +72,22 @@ public class ConfiguracionServiceTests
     }
 
     [Fact]
+    public async Task ObtenerConfiguracionAsync_ShouldReturnIndependentCopies()
+    {
+        var config = new SystemConfiguration { Pos10041Path = "test/path" };
+        _repositoryMock.Setup(x => x.GetAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(config);
+
+        var first = await _service.ObtenerConfiguracionAsync();
+        first.Pos10041Path = "editado/sin/guardar";
+
+        var second = await _service.ObtenerConfiguracionAsync();
+
+        Assert.NotSame(first, second);
+        Assert.Equal("test/path", second.Pos10041Path);
+    }
+
+    [Fact]
     public async Task GuardarConfiguracionAsync_ShouldThrow_WhenValidationFails()
     {
         var dto = new ConfiguracionDto { Pos10041Path = "invalid" };
