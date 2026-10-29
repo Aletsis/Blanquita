@@ -38,6 +38,12 @@ public class ConciliacionCorteRepository : IConciliacionCorteRepository
             .FirstOrDefaultAsync(c => c.Id == id, cancellationToken);
     }
 
+    public async Task<bool> ExistsForShiftAsync(int aperturaId, string sucursal, CancellationToken cancellationToken = default)
+    {
+        return await _context.ConciliacionCortes
+            .AnyAsync(c => c.AperturaId == aperturaId && c.Sucursal == sucursal, cancellationToken);
+    }
+
     public async Task<ConciliacionCorte?> GetByAperturaIdAsync(int aperturaId, CancellationToken cancellationToken = default)
     {
         return await _context.ConciliacionCortes
