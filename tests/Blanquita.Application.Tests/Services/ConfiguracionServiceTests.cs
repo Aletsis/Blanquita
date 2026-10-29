@@ -17,6 +17,7 @@ public class ConfiguracionServiceTests
     private readonly Mock<IAppConfigurationManager> _configManagerMock;
     private readonly Mock<IEncryptionService> _encryptionServiceMock;
     private readonly Mock<ILogger<ConfiguracionService>> _loggerMock;
+    private readonly Mock<IJobScheduler> _jobSchedulerMock;
     private readonly ConfiguracionService _service;
 
     public ConfiguracionServiceTests()
@@ -26,6 +27,7 @@ public class ConfiguracionServiceTests
         _configManagerMock = new Mock<IAppConfigurationManager>();
         _encryptionServiceMock = new Mock<IEncryptionService>();
         _loggerMock = new Mock<ILogger<ConfiguracionService>>();
+        _jobSchedulerMock = new Mock<IJobScheduler>();
         
         // Mock default behavior for encryption/decryption as pass-through
         _encryptionServiceMock.Setup(x => x.Encrypt(It.IsAny<string>())).Returns<string>(s => s);
@@ -38,7 +40,8 @@ public class ConfiguracionServiceTests
             _fileSystemServiceMock.Object,
             _configManagerMock.Object, 
             _encryptionServiceMock.Object,
-            _loggerMock.Object);
+            _loggerMock.Object,
+            _jobSchedulerMock.Object);
     }
 
     [Fact]
@@ -123,6 +126,51 @@ public class ConfiguracionServiceTests
 
         _repositoryMock.Verify(x => x.UpdateAsync(It.IsAny<SystemConfiguration>(), It.IsAny<CancellationToken>()), Times.Once);
     }
+
+    [Fact]
+    public async Task GuardarConfiguracionAsync_ShouldRescheduleInvoiceJob_WithNewTime()
+    {
+        var dto = CreateValidDto();
+        dto.InvoiceJobExecutionTime = new TimeSpan(20, 30, 0);
+
+        _fileSystemServiceMock.Setup(x => x.FileExists(It.IsAny<string>())).Returns(true);
+        _repositoryMock.Setup(x => x.GetAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new SystemConfiguration());
+
+        await _service.GuardarConfiguracionAsync(dto);
+
+        _jobSchedulerMock.Verify(x => x.ConfigureRecurringJobs(new TimeSpan(20, 30, 0)), Times.Once);
+    }
+
+    [Fact]
+    public async Task GuardarConfiguracionAsync_ShouldNotFail_WhenReschedulingFails()
+    {
+        var dto = CreateValidDto();
+
+        _fileSystemServiceMock.Setup(x => x.FileExists(It.IsAny<string>())).Returns(true);
+        _repositoryMock.Setup(x => x.GetAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new SystemConfiguration());
+        _jobSchedulerMock.Setup(x => x.ConfigureRecurringJobs(It.IsAny<TimeSpan?>()))
+            .Throws(new InvalidOperationException("Hangfire no disponible"));
+
+        await _service.GuardarConfiguracionAsync(dto);
+
+        _repositoryMock.Verify(x => x.UpdateAsync(It.IsAny<SystemConfiguration>(), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    private static ConfiguracionDto CreateValidDto() => new()
+    {
+        Pos10041Path = "valid/path1",
+        Pos10042Path = "valid/path2",
+        Mgw10008Path = "valid/path3",
+        Mgw10005Path = "valid/path4",
+        Mgw10045Path = "valid/path5",
+        Mgw10002Path = "valid/path6",
+        Mgw10011Path = "valid/path7",
+        Pos10008Path = "valid/path8",
+        Pos10010Path = "valid/path9",
+        PrinterName = "Printer1"
+    };
 
     [Fact]
     public async Task ValidarConfiguracionAsync_ShouldReturnErrors_WhenPathsEmpty()

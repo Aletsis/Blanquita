@@ -147,6 +147,7 @@ public static class DependencyInjection
             .UseFilter(new DisableConcurrentExecutionAttribute(timeoutInSeconds: 10 * 60)));
 
         services.AddHangfireServer();
+        services.AddScoped<IJobScheduler, HangfireJobScheduler>();
 
         return services;
     }

@@ -17,6 +17,7 @@ public class ConfiguracionService : IConfiguracionService
     private readonly IAppConfigurationManager _legacyConfigManager; // For migration
     private readonly IEncryptionService _encryptionService;
     private readonly ILogger<ConfiguracionService> _logger;
+    private readonly IJobScheduler _jobScheduler;
 
     private static DTOs.ConfiguracionDto? _staticCachedConfig;
     private static readonly System.Threading.SemaphoreSlim _semaphore = new System.Threading.SemaphoreSlim(1, 1);
@@ -39,13 +40,15 @@ public class ConfiguracionService : IConfiguracionService
         IFileSystemService fileSystemService,
         IAppConfigurationManager legacyConfigManager,
         IEncryptionService encryptionService,
-        ILogger<ConfiguracionService> logger)
+        ILogger<ConfiguracionService> logger,
+        IJobScheduler jobScheduler)
     {
         _repository = repository;
         _fileSystemService = fileSystemService;
         _legacyConfigManager = legacyConfigManager;
         _encryptionService = encryptionService;
         _logger = logger;
+        _jobScheduler = jobScheduler;
     }
 
     /// <inheritdoc/>
@@ -205,11 +208,27 @@ public class ConfiguracionService : IConfiguracionService
             }
 
             _logger.LogInformation("Configuración guardada exitosamente");
+
+            // Aplicar de inmediato la hora del envío automático de facturas (antes requería reiniciar)
+            ReprogramarTrabajos(configuracion.InvoiceJobExecutionTime);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error al guardar la configuración del sistema");
             throw;
+        }
+    }
+
+    private void ReprogramarTrabajos(TimeSpan? invoiceJobExecutionTime)
+    {
+        // La configuración ya quedó guardada; un fallo aquí no debe revertirla
+        try
+        {
+            _jobScheduler.ConfigureRecurringJobs(invoiceJobExecutionTime);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "La configuración se guardó, pero no se pudieron reprogramar los trabajos recurrentes");
         }
     }
 
@@ -329,6 +348,8 @@ public class ConfiguracionService : IConfiguracionService
             {
                 _semaphore.Release();
             }
+
+            ReprogramarTrabajos(new ConfiguracionDto().InvoiceJobExecutionTime);
         }
         catch (Exception ex)
         {
