@@ -1,10 +1,13 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Globalization;
+using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 using Blanquita.Application.DTOs;
 using Blanquita.Application.Interfaces;
@@ -18,8 +21,12 @@ public class CommercialApiService : ICommercialApiService
     private readonly IConfiguracionService _configuracionService;
     private readonly ILogger<CommercialApiService> _logger;
 
-    // Cache thread-safe para almacenar los tokens JWT de los usuarios y su fecha de expiración
+    // Cache thread-safe para almacenar los tokens JWT por API y usuario, con su fecha de expiración.
+    // La llave incluye la URL base para no reutilizar un token emitido por otro servidor si cambia la configuración.
     private static readonly ConcurrentDictionary<string, (string Token, DateTime Expires)> _tokenCache = new();
+
+    // Evita que varias peticiones simultáneas del mismo usuario inicien sesión al mismo tiempo
+    private static readonly ConcurrentDictionary<string, SemaphoreSlim> _tokenLocks = new();
 
     public CommercialApiService(
         IHttpClientFactory httpClientFactory,
@@ -59,49 +66,80 @@ public class CommercialApiService : ICommercialApiService
         return config.CommercialApiKey.Trim();
     }
 
-    private async Task<string> GetTokenAsync(string username)
+    private static string GetTokenCacheKey(string baseUrl, string username) =>
+        $"{baseUrl.ToLowerInvariant()}|{username}";
+
+    private async Task<string> GetTokenAsync(string baseUrl, string username)
     {
+        var cacheKey = GetTokenCacheKey(baseUrl, username);
+
         // 1. Verificar si tenemos un token válido en la caché
-        if (_tokenCache.TryGetValue(username, out var cached) && cached.Expires > DateTime.UtcNow.AddMinutes(5))
+        if (TryGetCachedToken(cacheKey, out var cachedToken))
         {
-            return cached.Token;
+            return cachedToken;
         }
 
-        // 2. Si no, realizar petición de login
-        var baseUrl = await GetBaseUrlAsync();
-        var client = _httpClientFactory.CreateClient();
-        client.BaseAddress = new Uri(baseUrl);
-
-        _logger.LogInformation("Autenticando usuario '{Username}' en la API Comercial ({BaseUrl})", username, baseUrl);
-
-        var loginPayload = new { username = username, password = "" };
-        var response = await client.PostAsJsonAsync("api/auth/login", loginPayload);
-
-        if (!response.IsSuccessStatusCode)
+        var tokenLock = _tokenLocks.GetOrAdd(cacheKey, _ => new SemaphoreSlim(1, 1));
+        await tokenLock.WaitAsync();
+        try
         {
-            var errorContent = await response.Content.ReadAsStringAsync();
-            _logger.LogError("Fallo al autenticar en la API Comercial para '{Username}': {Status} - {Error}", username, response.StatusCode, errorContent);
-            throw new InvalidOperationException($"Error al autenticar en la API Comercial: {response.ReasonPhrase}");
+            // Otra petición pudo haber obtenido el token mientras se esperaba el bloqueo
+            if (TryGetCachedToken(cacheKey, out cachedToken))
+            {
+                return cachedToken;
+            }
+
+            // 2. Si no, realizar petición de login
+            var client = _httpClientFactory.CreateClient();
+            client.BaseAddress = new Uri(baseUrl);
+
+            _logger.LogInformation("Autenticando usuario '{Username}' en la API Comercial ({BaseUrl})", username, baseUrl);
+
+            // La API Comercial autentica por usuario y API Key; no recibe contraseña
+            var loginPayload = new { username = username, password = "" };
+            var response = await client.PostAsJsonAsync("api/auth/login", loginPayload);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                var errorContent = await response.Content.ReadAsStringAsync();
+                _logger.LogError("Fallo al autenticar en la API Comercial para '{Username}': {Status} - {Error}", username, response.StatusCode, errorContent);
+                throw new InvalidOperationException($"Error al autenticar en la API Comercial: {response.ReasonPhrase}");
+            }
+
+            var result = await response.Content.ReadFromJsonAsync<JsonElement>();
+            var token = result.TryGetProperty("token", out var tokenProperty) ? tokenProperty.GetString() : null;
+
+            if (string.IsNullOrEmpty(token))
+            {
+                throw new InvalidOperationException("La respuesta de autenticación de la API Comercial no contiene un token válido.");
+            }
+
+            // Almacenar en caché (los tokens JWT de CONTPAQi duran típicamente 8 horas)
+            _tokenCache[cacheKey] = (token, DateTime.UtcNow.AddHours(7.5));
+
+            return token;
         }
-
-        var result = await response.Content.ReadFromJsonAsync<JsonElement>();
-        var token = result.GetProperty("token").GetString();
-
-        if (string.IsNullOrEmpty(token))
+        finally
         {
-            throw new InvalidOperationException("La respuesta de autenticación de la API Comercial no contiene un token válido.");
+            tokenLock.Release();
         }
-
-        // Almacenar en caché (los tokens JWT de CONTPAQi duran típicamente 8 horas)
-        _tokenCache[username] = (token, DateTime.UtcNow.AddHours(7.5));
-
-        return token;
     }
 
-    private async Task<HttpClient> CreateAuthenticatedClientAsync(string username)
+    private static bool TryGetCachedToken(string cacheKey, out string token)
     {
-        var baseUrl = await GetBaseUrlAsync();
-        var token = await GetTokenAsync(username);
+        if (_tokenCache.TryGetValue(cacheKey, out var cached) && cached.Expires > DateTime.UtcNow.AddMinutes(5))
+        {
+            token = cached.Token;
+            return true;
+        }
+
+        token = string.Empty;
+        return false;
+    }
+
+    private async Task<HttpClient> CreateAuthenticatedClientAsync(string baseUrl, string username)
+    {
+        var token = await GetTokenAsync(baseUrl, username);
         var apiKey = await GetApiKeyAsync();
 
         var client = _httpClientFactory.CreateClient();
@@ -109,6 +147,29 @@ public class CommercialApiService : ICommercialApiService
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
         client.DefaultRequestHeaders.Add("X-Api-Key", apiKey);
         return client;
+    }
+
+    /// <summary>
+    /// Envía una petición autenticada. Si la API responde 401 (token expirado o revocado antes de lo
+    /// esperado), descarta el token en caché, vuelve a autenticarse y reintenta una sola vez.
+    /// </summary>
+    private async Task<HttpResponseMessage> SendAsync(string username, Func<HttpClient, Task<HttpResponseMessage>> send)
+    {
+        var baseUrl = await GetBaseUrlAsync();
+        var client = await CreateAuthenticatedClientAsync(baseUrl, username);
+        var response = await send(client);
+
+        if (response.StatusCode != HttpStatusCode.Unauthorized)
+        {
+            return response;
+        }
+
+        _logger.LogWarning("La API Comercial rechazó el token de '{Username}' (401); se renovará la sesión y se reintentará", username);
+        response.Dispose();
+        _tokenCache.TryRemove(GetTokenCacheKey(baseUrl, username), out _);
+
+        client = await CreateAuthenticatedClientAsync(baseUrl, username);
+        return await send(client);
     }
 
     public async Task<IEnumerable<CommercialCompraDto>> GetComprasAsync(
@@ -121,12 +182,10 @@ public class CommercialApiService : ICommercialApiService
     {
         try
         {
-            var client = await CreateAuthenticatedClientAsync(username);
-            
             // Construir los parámetros query
             var queryParams = new List<string>();
             if (!string.IsNullOrWhiteSpace(serie)) queryParams.Add($"serie={Uri.EscapeDataString(serie)}");
-            if (folio.HasValue) queryParams.Add($"folio={folio.Value}");
+            if (folio.HasValue) queryParams.Add($"folio={folio.Value.ToString(CultureInfo.InvariantCulture)}");
             if (proveedorId.HasValue) queryParams.Add($"proveedorId={proveedorId.Value}");
             if (fechaDesde.HasValue) queryParams.Add($"fechaDesde={fechaDesde.Value:yyyy-MM-dd}");
             if (fechaHasta.HasValue) queryParams.Add($"fechaHasta={fechaHasta.Value:yyyy-MM-dd}");
@@ -138,7 +197,7 @@ public class CommercialApiService : ICommercialApiService
             }
 
             _logger.LogInformation("Consultando compras en API Comercial: {Url}", url);
-            var response = await client.GetAsync(url);
+            var response = await SendAsync(username, c => c.GetAsync(url));
 
             if (!response.IsSuccessStatusCode)
             {
@@ -160,11 +219,10 @@ public class CommercialApiService : ICommercialApiService
     {
         try
         {
-            var client = await CreateAuthenticatedClientAsync(username);
             var url = $"api/movimientos?documentoId={documentoId}";
 
             _logger.LogInformation("Consultando movimientos para Documento {DocumentoId}", documentoId);
-            var response = await client.GetAsync(url);
+            var response = await SendAsync(username, c => c.GetAsync(url));
 
             if (!response.IsSuccessStatusCode)
             {
@@ -186,7 +244,6 @@ public class CommercialApiService : ICommercialApiService
     {
         try
         {
-            var client = await CreateAuthenticatedClientAsync(username);
             var url = $"api/proveedores?pageSize={pageSize}";
             if (!string.IsNullOrWhiteSpace(searchTerm))
             {
@@ -194,7 +251,7 @@ public class CommercialApiService : ICommercialApiService
             }
 
             _logger.LogInformation("Buscando proveedores con término '{SearchTerm}'", searchTerm);
-            var response = await client.GetAsync(url);
+            var response = await SendAsync(username, c => c.GetAsync(url));
 
             if (!response.IsSuccessStatusCode)
             {
@@ -226,7 +283,6 @@ public class CommercialApiService : ICommercialApiService
     {
         try
         {
-            var client = await CreateAuthenticatedClientAsync(username);
             var url = $"api/productos?pageSize=100000&onlyActive={onlyActive.ToString().ToLower()}";
             if (!string.IsNullOrWhiteSpace(searchTerm))
             {
@@ -234,7 +290,7 @@ public class CommercialApiService : ICommercialApiService
             }
 
             _logger.LogInformation("Buscando productos con término '{SearchTerm}'", searchTerm);
-            var response = await client.GetAsync(url);
+            var response = await SendAsync(username, c => c.GetAsync(url));
 
             if (!response.IsSuccessStatusCode)
             {
@@ -265,11 +321,10 @@ public class CommercialApiService : ICommercialApiService
     {
         try
         {
-            var client = await CreateAuthenticatedClientAsync(username);
             var url = $"api/productos/{id}";
 
             _logger.LogInformation("Consultando producto {Id} por ID", id);
-            var response = await client.GetAsync(url);
+            var response = await SendAsync(username, c => c.GetAsync(url));
 
             if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
             {
@@ -302,12 +357,10 @@ public class CommercialApiService : ICommercialApiService
     {
         try
         {
-            var client = await CreateAuthenticatedClientAsync(username);
-            
             // Construir los parámetros query
             var queryParams = new List<string>();
             if (!string.IsNullOrWhiteSpace(serie)) queryParams.Add($"serie={Uri.EscapeDataString(serie)}");
-            if (folio.HasValue) queryParams.Add($"folio={folio.Value}");
+            if (folio.HasValue) queryParams.Add($"folio={folio.Value.ToString(CultureInfo.InvariantCulture)}");
             if (fechaDesde.HasValue) queryParams.Add($"fechaDesde={fechaDesde.Value:yyyy-MM-dd}");
             if (fechaHasta.HasValue) queryParams.Add($"fechaHasta={fechaHasta.Value:yyyy-MM-dd}");
 
@@ -318,7 +371,7 @@ public class CommercialApiService : ICommercialApiService
             }
 
             _logger.LogInformation("Consultando salidas en API Comercial: {Url}", url);
-            var response = await client.GetAsync(url);
+            var response = await SendAsync(username, c => c.GetAsync(url));
 
             if (!response.IsSuccessStatusCode)
             {
@@ -352,15 +405,13 @@ public class CommercialApiService : ICommercialApiService
     {
         try
         {
-            var client = await CreateAuthenticatedClientAsync(username);
-            
             var conceptoPath = Uri.EscapeDataString(codigoConcepto ?? "");
             var seriePath = string.IsNullOrWhiteSpace(serie) ? "-" : Uri.EscapeDataString(serie);
             
-            var url = $"api/SalidasAlmacen/{conceptoPath}/{seriePath}/{folio}/pdf";
+            var url = $"api/SalidasAlmacen/{conceptoPath}/{seriePath}/{folio.ToString(CultureInfo.InvariantCulture)}/pdf";
             
             _logger.LogInformation("Descargando PDF de salida de la API Comercial: {Url}", url);
-            var response = await client.GetAsync(url);
+            var response = await SendAsync(username, c => c.GetAsync(url));
 
             if (!response.IsSuccessStatusCode)
             {
@@ -384,11 +435,10 @@ public class CommercialApiService : ICommercialApiService
     {
         try
         {
-            var client = await CreateAuthenticatedClientAsync(username);
             var url = $"api/Conceptos?tipoDocumento={tipoDocumento}";
 
             _logger.LogInformation("Consultando conceptos en API Comercial: {Url}", url);
-            var response = await client.GetAsync(url);
+            var response = await SendAsync(username, c => c.GetAsync(url));
 
             if (!response.IsSuccessStatusCode)
             {
@@ -418,11 +468,10 @@ public class CommercialApiService : ICommercialApiService
     {
         try
         {
-            var client = await CreateAuthenticatedClientAsync(username);
             var url = "api/SalidasAlmacen";
             
             _logger.LogInformation("Creando nueva salida de almacén en API Comercial: {Url}", url);
-            var response = await client.PostAsJsonAsync(url, dto);
+            var response = await SendAsync(username, c => c.PostAsJsonAsync(url, dto));
 
             if (!response.IsSuccessStatusCode)
             {
