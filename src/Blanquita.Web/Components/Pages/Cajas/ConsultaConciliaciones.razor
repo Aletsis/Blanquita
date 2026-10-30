@@ -38,7 +38,7 @@
 
         <!-- Panel de Búsqueda y Filtros -->
         <MudPaper Elevation="4" Class="pa-4 pa-sm-6 rounded-xl mb-6 bg-light border-light shadow-sm">
-            <MudGrid AlignItems="AlignItems.Center">
+            <MudGrid Class="align-center">
                 <!-- Selector de Sucursal -->
                 <MudItem xs="12" sm="5">
                     <MudSelect T="string" 
@@ -518,7 +518,7 @@
             { x => x.UsuarioActual, _supervisorName }
         };
 
-        var dialog = await DialogService.ShowAsync<DialogoEditarConciliacion>("Editar Conciliación", parameters);
+        var dialog = await DialogService.ShowAsync<DialogoEditarConciliacion>("Editar Conciliación", parameters, new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true });
         var result = await dialog.Result;
 
         if (result != null && !result.Canceled)

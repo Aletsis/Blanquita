@@ -5,7 +5,7 @@
 
 <MudDialog>
     <DialogContent>
-        <MudTabs Elevation="2" Rounded="true" ApplyEffectsToContainer="true" PanelClass="pa-3">
+        <MudTabs Elevation="2" Rounded="true" ApplyEffectsToContainer="true" TabPanelsClass="pa-3">
             <MudTabPanel Text="Configuración General">
                 <MudGrid>
                     <MudItem xs="12">
@@ -214,10 +214,10 @@
                             </MudSelect>
                         </MudItem>
                         <MudItem xs="4">
-                            <MudNumericField @bind-Value="_newElement.XMm" Label="X (mm)" Variant="Variant.Outlined" Step="0.1M" Min="0" Dense="true" />
+                            <MudNumericField @bind-Value="_newElement.XMm" Label="X (mm)" Variant="Variant.Outlined" Step="0.1M" Min="0" Margin="Margin.Dense" />
                         </MudItem>
                         <MudItem xs="4">
-                            <MudNumericField @bind-Value="_newElement.YMm" Label="Y (mm)" Variant="Variant.Outlined" Step="0.1M" Min="0" Dense="true" />
+                            <MudNumericField @bind-Value="_newElement.YMm" Label="Y (mm)" Variant="Variant.Outlined" Step="0.1M" Min="0" Margin="Margin.Dense" />
                         </MudItem>
                         <MudItem xs="8">
                             <MudGrid Class="pa-0">
@@ -233,17 +233,17 @@
                                 <MudItem xs="6">
                                     @if (_selectedVariableVariable == "Custom")
                                     {
-                                        <MudTextField @bind-Value="_newElement.Content" Label="Texto Personalizado" Variant="Variant.Outlined" Dense="true" />
+                                        <MudTextField @bind-Value="_newElement.Content" Label="Texto Personalizado" Variant="Variant.Outlined" Margin="Margin.Dense" />
                                     }
                                     else
                                     {
-                                        <MudTextField Value="@_newElement.Content" Label="Valor Seleccionado" Variant="Variant.Filled" ReadOnly="true" Dense="true" />
+                                        <MudTextField Value="@_newElement.Content" Label="Valor Seleccionado" Variant="Variant.Filled" ReadOnly="true" Margin="Margin.Dense" />
                                     }
                                 </MudItem>
                             </MudGrid>
                         </MudItem>
                         <MudItem xs="4">
-                            <MudNumericField @bind-Value="_newElement.FontSize" Label="Tamaño Fuente" Variant="Variant.Outlined" Min="10" Dense="true" />
+                            <MudNumericField @bind-Value="_newElement.FontSize" Label="Tamaño Fuente" Variant="Variant.Outlined" Min="10" Margin="Margin.Dense" />
                         </MudItem>
                         <MudItem xs="12" Class="d-flex justify-end gap-2">
                             @if (_editingElement != null)
