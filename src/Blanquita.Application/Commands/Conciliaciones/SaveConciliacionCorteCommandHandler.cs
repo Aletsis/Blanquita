@@ -1,7 +1,7 @@
 using Blanquita.Application.DTOs;
 using Blanquita.Application.Interfaces;
 using Blanquita.Application.Interfaces.Repositories;
-using Blanquita.Domain.Repositories;
+using Blanquita.Application.Services;
 using MediatR;
 using Microsoft.Extensions.Logging;
 
@@ -15,30 +15,18 @@ public class SaveConciliacionCorteCommandHandler : IRequestHandler<SaveConciliac
     private readonly IConciliacionService _conciliacionService;
     private readonly IFoxProShiftRepository _shiftRepository;
     private readonly ILogger<SaveConciliacionCorteCommandHandler> _logger;
-    private readonly IConfiguracionService _configuracionService;
-    private readonly IEmailService _emailService;
-    private readonly IWhatsAppService _whatsAppService;
-    private readonly ISupervisorRepository _supervisorRepository;
-    private readonly IBranchRepository _branchRepository;
+    private readonly IBackgroundJobQueue _backgroundJobQueue;
 
     public SaveConciliacionCorteCommandHandler(
         IConciliacionService conciliacionService,
         IFoxProShiftRepository shiftRepository,
         ILogger<SaveConciliacionCorteCommandHandler> logger,
-        IConfiguracionService configuracionService,
-        IEmailService emailService,
-        IWhatsAppService whatsAppService,
-        ISupervisorRepository supervisorRepository,
-        IBranchRepository branchRepository)
+        IBackgroundJobQueue backgroundJobQueue)
     {
         _conciliacionService = conciliacionService;
         _shiftRepository = shiftRepository;
         _logger = logger;
-        _configuracionService = configuracionService;
-        _emailService = emailService;
-        _whatsAppService = whatsAppService;
-        _supervisorRepository = supervisorRepository;
-        _branchRepository = branchRepository;
+        _backgroundJobQueue = backgroundJobQueue;
     }
 
     public async Task<bool> Handle(SaveConciliacionCorteCommand request, CancellationToken cancellationToken)
@@ -113,111 +101,29 @@ public class SaveConciliacionCorteCommandHandler : IRequestHandler<SaveConciliac
             await _conciliacionService.SaveConciliacionCorteAsync(dto, cancellationToken);
             _logger.LogInformation("Conciliación de corte para turno {ShiftId} guardada con éxito en el handler", request.ShiftId);
 
-            // Alertas por Descuadres Financieros (Fase 5 - 5.2)
-            if (Math.Abs(diferencia) >= 50.00m)
+            // Alertas por Descuadres Financieros (Fase 5 - 5.2).
+            // Se encolan en Hangfire: el correo y el WhatsApp no deben retrasar ni hacer fallar el guardado
+            if (Math.Abs(diferencia) >= DescuadreAlertService.Threshold)
             {
-                _logger.LogWarning("Se detectó un descuadre financiero de {Diferencia:C} (umbral >= $50.00 MXN) para el turno {ShiftId}. Enviando alertas...", diferencia, request.ShiftId);
+                _logger.LogWarning("Se detectó un descuadre financiero de {Diferencia:C} (umbral >= $50.00 MXN) para el turno {ShiftId}. Encolando alertas...", diferencia, request.ShiftId);
 
-                // Buscar ID de sucursal
-                int? branchId = null;
                 try
                 {
-                    var branches = await _branchRepository.GetAllAsync(cancellationToken);
-                    var branch = branches.FirstOrDefault(b => string.Equals(b.Name, request.BranchName, StringComparison.OrdinalIgnoreCase));
-                    if (branch != null)
+                    _backgroundJobQueue.EnqueueDescuadreAlert(new DescuadreAlertDto
                     {
-                        branchId = branch.Id;
-                    }
-                    else
-                    {
-                        _logger.LogWarning("No se encontró una sucursal con el nombre '{BranchName}' para enviar alertas de descuadre por WhatsApp.", request.BranchName);
-                    }
+                        ShiftId = request.ShiftId,
+                        BranchName = request.BranchName,
+                        CashRegisterName = request.CashRegisterName,
+                        CashierName = request.CashierName,
+                        TotalEntregado = totalEntregado,
+                        TotalEsperado = totalEsperado,
+                        Diferencia = diferencia
+                    });
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Error al buscar la sucursal '{BranchName}' para alertas de descuadre.", request.BranchName);
-                }
-
-                // 1. Enviar Alertas por Correo
-                try
-                {
-                    var config = await _configuracionService.ObtenerConfiguracionAsync();
-                    if (config != null && !string.IsNullOrWhiteSpace(config.AlertEmails))
-                    {
-                        var emails = config.AlertEmails
-                            .Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries)
-                            .Select(e => e.Trim())
-                            .Where(e => !string.IsNullOrEmpty(e));
-
-                        var subject = $"⚠️ Alerta de Descuadre Financiero - Sucursal: {request.BranchName}";
-                        var body = $@"
-<h3>Alerta de Descuadre Financiero Detectado</h3>
-<p>Se ha registrado un descuadre en el corte del turno <strong>{request.ShiftId}</strong> que supera el límite de $50.00 MXN.</p>
-<table>
-    <tr><td><strong>Sucursal:</strong></td><td>{System.Net.WebUtility.HtmlEncode(request.BranchName)}</td></tr>
-    <tr><td><strong>Caja:</strong></td><td>{System.Net.WebUtility.HtmlEncode(request.CashRegisterName)}</td></tr>
-    <tr><td><strong>Cajero:</strong></td><td>{System.Net.WebUtility.HtmlEncode(request.CashierName)}</td></tr>
-    <tr><td><strong>Total Entregado:</strong></td><td>{totalEntregado:C}</td></tr>
-    <tr><td><strong>Total Esperado:</strong></td><td>{totalEsperado:C}</td></tr>
-    <tr><td><strong>Diferencia:</strong></td><td><strong style='color:red;'>{diferencia:C}</strong></td></tr>
-</table>
-<br/>
-<p>Por favor revise la conciliación correspondiente.</p>";
-
-                        foreach (var email in emails)
-                        {
-                            try
-                            {
-                                await _emailService.SendEmailAsync(email, subject, body);
-                                _logger.LogInformation("Alerta de descuadre enviada a {Email}", email);
-                            }
-                            catch (Exception ex)
-                            {
-                                _logger.LogError(ex, "Error al enviar correo de alerta a {Email}", email);
-                            }
-                        }
-                    }
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Error al procesar el envío de alertas por correo.");
-                }
-
-                // 2. Enviar Alertas por WhatsApp
-                if (branchId.HasValue)
-                {
-                    try
-                    {
-                        var supervisors = await _supervisorRepository.GetByBranchAsync(branchId.Value, cancellationToken);
-                        var activeSupervisorsWithPhone = supervisors
-                            .Where(s => s.IsActive && !string.IsNullOrWhiteSpace(s.PhoneNumber));
-
-                        var waMessage = $"⚠️ *ALERTA DE DESCUADRE* ⚠️\n\n" +
-                                        $"Se registró un descuadre de *{diferencia:C}* en el corte del turno *{request.ShiftId}*.\n\n" +
-                                        $"*Detalles:*\n" +
-                                        $"• Sucursal: {request.BranchName}\n" +
-                                        $"• Caja: {request.CashRegisterName}\n" +
-                                        $"• Cajero: {request.CashierName}\n" +
-                                        $"• Total Entregado: {totalEntregado:C}\n" +
-                                        $"• Total Esperado: {totalEsperado:C}";
-
-                        foreach (var supervisor in activeSupervisorsWithPhone)
-                        {
-                            try
-                            {
-                                await _whatsAppService.SendMessageAsync(supervisor.PhoneNumber!, waMessage);
-                                _logger.LogInformation("Alerta de descuadre por WhatsApp enviada al supervisor {SupervisorName} ({Phone})", supervisor.Name, supervisor.PhoneNumber);
-                            }
-                            catch (Exception ex)
-                            {
-                                _logger.LogError(ex, "Error al enviar alerta por WhatsApp al supervisor {SupervisorName} ({Phone})", supervisor.Name, supervisor.PhoneNumber);
-                            }
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex, "Error al procesar el envío de alertas por WhatsApp.");
-                    }
+                    // La conciliación ya quedó guardada; solo se pierde el aviso
+                    _logger.LogError(ex, "No se pudo encolar la alerta de descuadre del turno {ShiftId}", request.ShiftId);
                 }
             }
 

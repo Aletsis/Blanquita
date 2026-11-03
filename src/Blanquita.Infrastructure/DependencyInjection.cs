@@ -151,6 +151,7 @@ public static class DependencyInjection
 
         services.AddHangfireServer();
         services.AddScoped<IJobScheduler, HangfireJobScheduler>();
+        services.AddScoped<IBackgroundJobQueue, HangfireBackgroundJobQueue>();
 
         return services;
     }
