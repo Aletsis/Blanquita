@@ -62,11 +62,8 @@ public class AuthenticationService : IAuthenticationService
     {
         var user = await _userManager.FindByNameAsync(username);
         if (user == null) return false;
-        
-        // Por ahora retornamos true si el usuario existe. 
-        // TODO: Implementar roles reales
-        return true;
-        // return await _userManager.IsInRoleAsync(user, "Admin");
+
+        return await _userManager.IsInRoleAsync(user, "Admin");
     }
 
     /// <inheritdoc/>

@@ -98,15 +98,31 @@ public class AuthenticationServiceTests
     }
 
     [Fact]
-    public async Task IsAdministratorAsync_ShouldReturnTrue_WhenUserExists()
+    public async Task IsAdministratorAsync_ShouldReturnTrue_WhenUserHasAdminRole()
     {
         var user = new ApplicationUser { UserName = "admin" };
         _userManagerMock.Setup(x => x.FindByNameAsync("admin"))
             .ReturnsAsync(user);
+        _userManagerMock.Setup(x => x.IsInRoleAsync(user, "Admin"))
+            .ReturnsAsync(true);
 
         var result = await _service.IsAdministratorAsync("admin");
 
         Assert.True(result);
+    }
+
+    [Fact]
+    public async Task IsAdministratorAsync_ShouldReturnFalse_WhenUserIsNotAdmin()
+    {
+        var user = new ApplicationUser { UserName = "cajera" };
+        _userManagerMock.Setup(x => x.FindByNameAsync("cajera"))
+            .ReturnsAsync(user);
+        _userManagerMock.Setup(x => x.IsInRoleAsync(user, "Admin"))
+            .ReturnsAsync(false);
+
+        var result = await _service.IsAdministratorAsync("cajera");
+
+        Assert.False(result);
     }
 
     [Fact]
