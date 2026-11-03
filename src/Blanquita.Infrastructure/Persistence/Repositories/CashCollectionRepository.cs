@@ -34,6 +34,12 @@ public class CashCollectionRepository : ICashCollectionRepository
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<IReadOnlyList<CashCollection>> SearchAsync(CashCollectionSearchCriteria criteria, CancellationToken cancellationToken = default)
+    {
+        return await CashSearchQueries.Apply(_context.CashCollections.AsNoTracking(), criteria)
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<IEnumerable<CashCollection>> GetByDateRangeAsync(DateTime startDate, DateTime endDate, CancellationToken cancellationToken = default)
     {
         return await _context.CashCollections

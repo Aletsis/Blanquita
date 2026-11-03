@@ -90,40 +90,43 @@ public class CashCollectionServiceTests
     }
 
     [Fact]
-    public async Task SearchAsync_ShouldFilterResults()
+    public async Task SearchAsync_ShouldSendFiltersToRepository()
     {
-        var c1 = CashCollection.Create(1, 0, 0, 0, 0, 0, "Reg1", "User1", "Sup1", 1); // 1000
-        var c2 = CashCollection.Create(0, 1, 0, 0, 0, 0, "Reg2", "User2", "Sup1", 2); // 500
-        
-        var all = new List<CashCollection> { c1, c2 };
-        _repositoryMock.Setup(x => x.GetAllAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(all);
+        CashCollectionSearchCriteria? criteria = null;
+        _repositoryMock.Setup(x => x.SearchAsync(It.IsAny<CashCollectionSearchCriteria>(), It.IsAny<CancellationToken>()))
+            .Callback<CashCollectionSearchCriteria, CancellationToken>((c, _) => criteria = c)
+            .ReturnsAsync(new List<CashCollection> { CashCollection.Create(1, 0, 0, 0, 0, 0, "Reg1", "User1", "Sup1", 1) });
 
-        // Filter by Register
-        var request = new SearchCashCollectionRequest { CashRegisterName = "Reg1" };
+        var request = new SearchCashCollectionRequest { CashRegisterName = "Reg1", IsCut = false, Page = 2, PageSize = 10 };
         var results = await _service.SearchAsync(request);
 
         Assert.Single(results);
-        Assert.Equal("Reg1", results.First().CashRegisterName);
+        Assert.NotNull(criteria);
+        Assert.Equal("Reg1", criteria!.CashRegisterName);
+        Assert.False(criteria.IsForCashCut);
+        Assert.Equal(10, criteria.Skip);
+        Assert.Equal(10, criteria.Take);
+        Assert.Null(criteria.FromUtc);
+        _repositoryMock.Verify(x => x.GetAllAsync(It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
     public async Task SearchAsync_ShouldIncludeEveningCollections_WhenFilteringByLocalDay()
     {
         // Recolección hecha hoy a las 20:00 hora local, almacenada en UTC (como la devuelve Npgsql).
-        // En zonas con offset negativo (México) cae en el día UTC siguiente.
-        var eveningLocal = DateTime.SpecifyKind(DateTime.Today.AddHours(20), DateTimeKind.Local);
-        var collection = CashCollection.Create(1, 0, 0, 0, 0, 0, "Reg1", "C", "S", 1);
-        typeof(CashCollection).GetProperty(nameof(CashCollection.CollectionDateTime))!
-            .SetValue(collection, eveningLocal.ToUniversalTime());
+        // En zonas con offset negativo (México) cae en el día UTC siguiente: el rango debe cubrirla.
+        var eveningUtc = DateTime.SpecifyKind(DateTime.Today.AddHours(20), DateTimeKind.Local).ToUniversalTime();
 
-        _repositoryMock.Setup(x => x.GetAllAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new List<CashCollection> { collection });
+        CashCollectionSearchCriteria? criteria = null;
+        _repositoryMock.Setup(x => x.SearchAsync(It.IsAny<CashCollectionSearchCriteria>(), It.IsAny<CancellationToken>()))
+            .Callback<CashCollectionSearchCriteria, CancellationToken>((c, _) => criteria = c)
+            .ReturnsAsync(new List<CashCollection>());
 
         var request = new SearchCashCollectionRequest { FechaInicio = DateTime.Today, FechaFin = DateTime.Today };
-        var results = await _service.SearchAsync(request);
+        await _service.SearchAsync(request);
 
-        Assert.Single(results);
+        Assert.NotNull(criteria);
+        Assert.InRange(eveningUtc, criteria!.FromUtc!.Value, criteria.ToUtc!.Value);
     }
 
     [Fact]

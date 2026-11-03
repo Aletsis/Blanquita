@@ -64,101 +64,33 @@ public class CashCutService : ICashCutService
             request.CashRegisterName ?? "All",
             request.CashierName ?? "All");
 
-        // Construir query con filtros
-        var results = await _repository.GetAllAsync(cancellationToken);
-
-        // Aplicar filtro de fecha
+        DateTime? fromUtc = null, toUtc = null;
         if (request.HasDateFilter())
         {
             var (inicio, fin) = request.GetNormalizedUtcRange();
-            results = results.Where(c => c.CutDateTime >= inicio && c.CutDateTime <= fin);
+            (fromUtc, toUtc) = (inicio, fin);
         }
 
-        // Aplicar filtro de sucursal
-        if (request.HasSucursalFilter())
+        // Filtros, orden y paginación se aplican en la base de datos
+        var results = await _repository.SearchAsync(new CashCutSearchCriteria
         {
-            var sucursalNombre = request.Sucursal!.Nombre;
-            results = results.Where(c => c.BranchName == sucursalNombre);
-        }
+            FromUtc = fromUtc,
+            ToUtc = toUtc,
+            BranchName = request.HasSucursalFilter() ? request.Sucursal!.Nombre : null,
+            CashRegisterName = request.HasCashRegisterFilter() ? request.CashRegisterName : null,
+            CashierName = request.HasCashierFilter() ? request.CashierName : null,
+            SupervisorName = request.HasSupervisorFilter() ? request.SupervisorName : null,
+            MinGrandTotal = request.MinAmount,
+            MaxGrandTotal = request.MaxAmount,
+            SortColumn = request.SortColumn,
+            SortAscending = request.SortAscending,
+            Skip = request.GetSkip(),
+            Take = request.RequiresPagination() ? request.PageSize : null
+        }, cancellationToken);
 
-        // Aplicar filtro de caja registradora
-        if (request.HasCashRegisterFilter())
-        {
-            results = results.Where(c => c.CashRegisterName == request.CashRegisterName);
-        }
+        _logger.LogInformation("Found {Count} cash cuts matching criteria", results.Count);
 
-        // Aplicar filtro de cajera
-        if (request.HasCashierFilter())
-        {
-            results = results.Where(c => c.CashierName.Contains(request.CashierName!, StringComparison.OrdinalIgnoreCase));
-        }
-
-        // Aplicar filtro de supervisor
-        if (request.HasSupervisorFilter())
-        {
-            results = results.Where(c => c.SupervisorName.Contains(request.SupervisorName!, StringComparison.OrdinalIgnoreCase));
-        }
-
-        // Aplicar filtro de monto
-        if (request.HasAmountFilter())
-        {
-            var (min, max) = request.GetAmountRange();
-            results = results.Where(c =>
-            {
-                var total = c.GetGrandTotal();
-                return total >= min && total <= max;
-            });
-        }
-
-        // Ordenamiento
-        results = ApplySorting(results, request);
-
-        var finalResults = results.ToList();
-        var totalCount = finalResults.Count;
-
-        // Aplicar paginación
-        if (request.RequiresPagination())
-        {
-            finalResults = finalResults
-                .Skip(request.GetSkip())
-                .Take(request.PageSize!.Value)
-                .ToList();
-        }
-
-        _logger.LogInformation("Found {Count} cash cuts matching criteria", totalCount);
-
-        return finalResults.Select(c => c.ToDto());
-    }
-
-    private IEnumerable<CashCut> ApplySorting(IEnumerable<CashCut> query, SearchCashCutRequest request)
-    {
-        if (!request.HasSorting())
-        {
-            return query.OrderByDescending(c => c.CutDateTime);
-        }
-
-        return request.SortColumn?.ToLower() switch
-        {
-            "cutdatetime" or "date" => request.SortAscending
-                ? query.OrderBy(c => c.CutDateTime)
-                : query.OrderByDescending(c => c.CutDateTime),
-            "cashregistername" or "register" => request.SortAscending
-                ? query.OrderBy(c => c.CashRegisterName)
-                : query.OrderByDescending(c => c.CashRegisterName),
-            "cashiername" or "cashier" => request.SortAscending
-                ? query.OrderBy(c => c.CashierName)
-                : query.OrderByDescending(c => c.CashierName),
-            "supervisorname" or "supervisor" => request.SortAscending
-                ? query.OrderBy(c => c.SupervisorName)
-                : query.OrderByDescending(c => c.SupervisorName),
-            "branchname" or "branch" => request.SortAscending
-                ? query.OrderBy(c => c.BranchName)
-                : query.OrderByDescending(c => c.BranchName),
-            "grandtotal" or "total" => request.SortAscending
-                ? query.OrderBy(c => (decimal)c.GetGrandTotal())
-                : query.OrderByDescending(c => (decimal)c.GetGrandTotal()),
-            _ => query.OrderByDescending(c => c.CutDateTime)
-        };
+        return results.Select(c => c.ToDto());
     }
 
     public async Task<CashCutDto> ProcessCashCutAsync(ProcessCashCutRequest request, CancellationToken cancellationToken = default)

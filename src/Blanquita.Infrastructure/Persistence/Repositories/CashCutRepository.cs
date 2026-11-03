@@ -28,6 +28,12 @@ public class CashCutRepository : ICashCutRepository
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<IReadOnlyList<CashCut>> SearchAsync(CashCutSearchCriteria criteria, CancellationToken cancellationToken = default)
+    {
+        return await CashSearchQueries.Apply(_context.CashCuts.AsNoTracking(), criteria)
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<IEnumerable<CashCut>> GetByDateRangeAsync(DateTime startDate, DateTime endDate, CancellationToken cancellationToken = default)
     {
         return await _context.CashCuts

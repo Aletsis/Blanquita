@@ -7,6 +7,7 @@ public interface ICashCollectionRepository
     Task<CashCollection?> GetByIdAsync(int id, CancellationToken cancellationToken = default);
     Task<CashCollection?> GetByFolioAsync(int folio, CancellationToken cancellationToken = default);
     Task<IEnumerable<CashCollection>> GetAllAsync(CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<CashCollection>> SearchAsync(CashCollectionSearchCriteria criteria, CancellationToken cancellationToken = default);
     Task<IEnumerable<CashCollection>> GetByDateRangeAsync(DateTime startDate, DateTime endDate, CancellationToken cancellationToken = default);
     Task<IEnumerable<CashCollection>> GetByCashRegisterAsync(string cashRegisterName, CancellationToken cancellationToken = default);
     Task<IEnumerable<CashCollection>> GetForCashCutAsync(CancellationToken cancellationToken = default);

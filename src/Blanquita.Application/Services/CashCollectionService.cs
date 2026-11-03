@@ -50,49 +50,25 @@ public class CashCollectionService : ICashCollectionService
             request.Sucursal?.Nombre ?? "All",
             request.CashRegisterName ?? "All");
 
-        // Obtener todas las recolecciones
-        var allCollections = await _repository.GetAllAsync(cancellationToken);
-
-        // Aplicar filtro de fecha
+        DateTime? fromUtc = null, toUtc = null;
         if (request.HasDateFilter())
         {
             var (inicio, fin) = request.GetNormalizedUtcRange();
-            allCollections = allCollections.Where(c =>
-                c.CollectionDateTime >= inicio && c.CollectionDateTime <= fin);
+            (fromUtc, toUtc) = (inicio, fin);
         }
 
-        // Aplicar filtro de sucursal (si aplica - necesitarías tener esta info en CashCollection)
-        if (request.HasSucursalFilter())
+        // Pendiente: filtro por sucursal; CashCollection no guarda la sucursal
+
+        // Los filtros y la paginación se aplican en la base de datos
+        var results = await _repository.SearchAsync(new CashCollectionSearchCriteria
         {
-            // Nota: Esto requeriría que CashCollection tenga información de sucursal
-            // Por ahora lo dejamos como comentario
-            // var sucursalNombre = request.Sucursal!.Nombre;
-            // allCollections = allCollections.Where(c => c.BranchName == sucursalNombre);
-        }
-
-        // Aplicar filtro de caja registradora
-        if (request.HasCashRegisterFilter())
-        {
-            allCollections = allCollections.Where(c =>
-                c.CashRegisterName.Equals(request.CashRegisterName, StringComparison.OrdinalIgnoreCase));
-        }
-
-        // Aplicar filtro de estado de corte
-        if (request.HasCutStatusFilter())
-        {
-            allCollections = allCollections.Where(c => c.IsForCashCut == request.IsCut!.Value);
-        }
-
-        var results = allCollections.ToList();
-
-        // Aplicar paginación si se especificó
-        if (request.RequiresPagination())
-        {
-            results = results
-                .Skip(request.GetSkip())
-                .Take(request.PageSize!.Value)
-                .ToList();
-        }
+            FromUtc = fromUtc,
+            ToUtc = toUtc,
+            CashRegisterName = request.HasCashRegisterFilter() ? request.CashRegisterName : null,
+            IsForCashCut = request.IsCut,
+            Skip = request.GetSkip(),
+            Take = request.RequiresPagination() ? request.PageSize : null
+        }, cancellationToken);
 
         _logger.LogInformation("Found {Count} cash collections matching criteria", results.Count);
 
