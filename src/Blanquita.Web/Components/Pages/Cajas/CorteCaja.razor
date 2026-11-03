@@ -390,6 +390,12 @@
             Snackbar.Add("❗ No se identificó el usuario responsable.", Severity.Warning);
             return;
         }
+        if (model.TotalSlips <= 0)
+        {
+            // El dominio también lo rechaza; aquí se avisa antes de enviar
+            Snackbar.Add("❗ El total de la tira debe ser mayor a cero.", Severity.Warning);
+            return;
+        }
         _isSubmitting = true;
         try
         {
