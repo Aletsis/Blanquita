@@ -7,7 +7,6 @@ using DotNetEnv;
 using MudBlazor.Services;
 using Serilog;
 using Serilog.Events;
-using CurrieTechnologies.Razor.SweetAlert2;
 using Hangfire;
 
 // Busca .env en el directorio actual y sus padres (las variables ya definidas en el entorno tienen prioridad)
@@ -80,8 +79,6 @@ Env.TraversePath().NoClobber().Load();
         // UI-specific services (only services that belong to the presentation layer)
         builder.Services.AddSingleton<BrowserPrintService>();
         builder.Services.AddScoped<Blanquita.Application.Interfaces.IFileDownloadService, FileDownloadService>();
-        
-        builder.Services.AddSweetAlert2();
 
         // Add Application layer (includes MediatR and handlers)
         builder.Services.AddApplication();
