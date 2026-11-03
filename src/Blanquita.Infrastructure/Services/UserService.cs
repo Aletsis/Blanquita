@@ -183,6 +183,27 @@ public class UserService : IUserService
         }
     }
 
+    /// <summary>
+    /// Aplica la política de contraseñas sin modificar al usuario; lanza ArgumentException con los requisitos faltantes.
+    /// </summary>
+    private async Task EnsurePasswordIsValidAsync(ApplicationUser user, string password)
+    {
+        var errors = new List<string>();
+        foreach (var validator in _userManager.PasswordValidators)
+        {
+            var result = await validator.ValidateAsync(_userManager, user, password);
+            if (!result.Succeeded)
+            {
+                errors.AddRange(result.Errors.Select(e => e.Description));
+            }
+        }
+
+        if (errors.Count > 0)
+        {
+            throw new ArgumentException(string.Join(" ", errors));
+        }
+    }
+
     /// <inheritdoc/>
     public async Task<bool> CreateAsync(CreateUserDto dto)
     {
@@ -256,6 +277,12 @@ public class UserService : IUserService
             {
                 _logger.LogWarning("No se encontró el usuario con Id {UserId} para actualizar.", dto.Id);
                 return false;
+            }
+
+            // Validar la contraseña nueva antes de guardar el perfil, para no dejar el cambio a medias
+            if (!string.IsNullOrWhiteSpace(dto.Password))
+            {
+                await EnsurePasswordIsValidAsync(user, dto.Password);
             }
 
             user.FullName = dto.FullName;

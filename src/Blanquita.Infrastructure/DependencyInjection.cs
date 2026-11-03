@@ -44,11 +44,13 @@ public static class DependencyInjection
         // Identity
         services.AddIdentityCore<ApplicationUser>(options => 
         {
-            options.Password.RequireDigit = false;
-            options.Password.RequireLowercase = false;
-            options.Password.RequireUppercase = false;
+            // Al menos 8 caracteres con una mayúscula, una minúscula y un número.
+            // Solo se valida al crear usuarios o cambiar contraseñas; las existentes siguen funcionando.
+            options.Password.RequireDigit = true;
+            options.Password.RequireLowercase = true;
+            options.Password.RequireUppercase = true;
             options.Password.RequireNonAlphanumeric = false;
-            options.Password.RequiredLength = 4;
+            options.Password.RequiredLength = 8;
 
             // Bloqueo temporal tras intentos fallidos para mitigar fuerza bruta
             options.Lockout.AllowedForNewUsers = true;
@@ -59,6 +61,7 @@ public static class DependencyInjection
         .AddEntityFrameworkStores<BlanquitaDbContext>()
         .AddSignInManager<SignInManager<ApplicationUser>>()
         .AddClaimsPrincipalFactory<CustomUserClaimsPrincipalFactory>()
+        .AddErrorDescriber<SpanishIdentityErrorDescriber>()
         .AddDefaultTokenProviders();
 
         services.AddAuthentication(options =>
