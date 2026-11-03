@@ -333,7 +333,9 @@
     private string _supervisorBranchName = string.Empty;
     private string _supervisorName = string.Empty;
 
-    private bool _isSupervisorBranchLocked => !_isAdmin && _supervisorBranchId > 0;
+    // Quien no es administrador solo consulta su sucursal; si no tiene una asignada, el selector queda bloqueado y vacío
+    private bool _isSupervisorBranchLocked => !_isAdmin;
+    private bool SinSucursalAsignada => !_isAdmin && _supervisorBranchId <= 0;
 
     // Filtros e Historial
     private List<BranchDto> _branches = new();
@@ -381,6 +383,12 @@
                 _supervisorBranchName = _isAdmin ? "Todas las sucursales" : string.Empty;
             }
 
+            if (SinSucursalAsignada)
+            {
+                Snackbar.Add("⚠️ Su usuario no tiene una sucursal asignada. Pida a un administrador que se la asigne para poder continuar.", Severity.Warning);
+                return;
+            }
+
             await CargarSucursales();
         }
         catch (Exception ex)
@@ -409,7 +417,7 @@
                     _selectedBranch = _branches.First().Name;
                 }
             }
-            else if (_branches.Any() && string.IsNullOrEmpty(_selectedBranch))
+            else if (_isAdmin && _branches.Any() && string.IsNullOrEmpty(_selectedBranch))
             {
                 _selectedBranch = _branches.First().Name;
             }

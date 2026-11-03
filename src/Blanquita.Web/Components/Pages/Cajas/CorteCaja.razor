@@ -244,6 +244,9 @@
     private string _supervisorBranchName = string.Empty;
     private string _supervisorName = string.Empty;
     private bool _isAdmin;
+
+    // Un usuario que no es administrador y no tiene sucursal no debe ver las cajas de todas las sucursales
+    private bool SinSucursalAsignada => !_isAdmin && _supervisorBranchId <= 0;
     private CashCutViewModel model = new CashCutViewModel();
     private int _selectedCashRegisterId = 0;
     private List<AvailableBoxDto> _availableBoxes = new();
@@ -284,6 +287,11 @@
                 _supervisorBranchName = _isAdmin ? "Todas las sucursales" : string.Empty;
             }
 
+            if (SinSucursalAsignada)
+            {
+                Snackbar.Add("⚠️ Su usuario no tiene una sucursal asignada. Pida a un administrador que se la asigne para poder continuar.", Severity.Warning);
+            }
+
             await CargarCajas();
         }
         catch (Exception ex)
@@ -295,6 +303,12 @@
 
     private async Task CargarCajas()
     {
+        if (SinSucursalAsignada)
+        {
+            _availableBoxes = new();
+            return;
+        }
+
         _isLoadingBoxes = true;
         StateHasChanged();
         try
