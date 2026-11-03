@@ -43,6 +43,11 @@ public class SaveConciliacionCorteCommandHandlerTests
             _mockWhatsAppService.Object,
             _mockSupervisorRepository.Object,
             _mockBranchRepository.Object);
+
+        // Recolecciones registradas en el servidor para el turno
+        _mockConciliacionService
+            .Setup(s => s.GetTotalRecolectadoAsync(It.IsAny<string>(), It.IsAny<ShiftConciliationDataDto>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(1500m);
     }
 
     private static T SetId<T>(T entity, int id) where T : BaseEntity
@@ -80,7 +85,7 @@ public class SaveConciliacionCorteCommandHandlerTests
                 OpeningTime = DateTime.Now.AddHours(-8),
                 ClosingTime = DateTime.Now,
                 Status = 1, // Closed
-                CashCollected = 2000m,
+                CashCollected = 2100m,
                 CardCollected = 500m,
                 ReturnsTotal = 100m
             });
@@ -193,7 +198,7 @@ public class SaveConciliacionCorteCommandHandlerTests
                 OpeningTime = DateTime.Now.AddHours(-8),
                 ClosingTime = DateTime.Now,
                 Status = 1, // Closed
-                CashCollected = 2000m,
+                CashCollected = 2200m,
                 CardCollected = 500m,
                 ReturnsTotal = 100m
             });
@@ -279,7 +284,7 @@ public class SaveConciliacionCorteCommandHandlerTests
                 OpeningTime = DateTime.Now.AddHours(-8),
                 ClosingTime = DateTime.Now,
                 Status = 1, // Closed
-                CashCollected = 2000m,
+                CashCollected = 2200m,
                 CardCollected = 500m,
                 ReturnsTotal = 100m
             });
@@ -299,5 +304,87 @@ public class SaveConciliacionCorteCommandHandlerTests
         Assert.True(result);
 
         _mockConciliacionService.Verify(s => s.SaveConciliacionCorteAsync(It.IsAny<ConciliacionCorteDto>(), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    private static ShiftConciliationDataDto ClosedShift(decimal cash = 2100m, decimal card = 500m, decimal returns = 100m) => new()
+    {
+        InternalId = 123,
+        IdContpaqi = 1,
+        CashierId = 1,
+        OpeningTime = DateTime.Now.AddHours(-8),
+        ClosingTime = DateTime.Now,
+        Status = 1,
+        CashCollected = cash,
+        CardCollected = card,
+        ReturnsTotal = returns
+    };
+
+    private static SaveConciliacionCorteCommand ValidCommand(
+        decimal totalRecolecciones = 1500m,
+        decimal totalSold = 2600m,
+        decimal returnsTotal = 100m,
+        decimal salidasEfectivo = 0m,
+        List<ConciliacionSalidaEfectivoDto>? salidas = null) => new(
+            ShiftId: 123,
+            BranchName: "Sucursal Chapultepec",
+            CashRegisterName: "Caja 1",
+            CashierName: "Maria Garcia",
+            TotalRecolecciones: totalRecolecciones,
+            EfectivoEntregado: 500m,
+            Banregio: 300m,
+            Banbajio: 200m,
+            ReturnsTotal: returnsTotal,
+            TotalSold: totalSold,
+            Fecha: DateTime.UtcNow,
+            SalidasEfectivo: salidasEfectivo,
+            Salidas: salidas);
+
+    [Theory]
+    [InlineData(1400, 2600, 100)] // llegó otra recolección después de consultar
+    [InlineData(1500, 2550, 100)] // CONTPAQi cambió el total vendido
+    [InlineData(1500, 2600, 150)] // cambiaron las devoluciones
+    public async Task Handle_ScreenTotalsDifferFromServer_RejectsWithoutSaving(double recolecciones, double vendido, double devoluciones)
+    {
+        _mockShiftRepository
+            .Setup(s => s.GetShiftDataAsync(123, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(ClosedShift());
+
+        var command = ValidCommand((decimal)recolecciones, (decimal)vendido, (decimal)devoluciones);
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => _handler.Handle(command, CancellationToken.None));
+
+        Assert.Contains("Vuelva a consultar", ex.Message);
+        _mockConciliacionService.Verify(s => s.SaveConciliacionCorteAsync(It.IsAny<ConciliacionCorteDto>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Handle_ReturnsSentAsNegative_IsAccepted()
+    {
+        // Las devoluciones pueden venir con signo negativo; se comparan en valor absoluto
+        _mockShiftRepository
+            .Setup(s => s.GetShiftDataAsync(123, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(ClosedShift(returns: -100m));
+
+        var result = await _handler.Handle(ValidCommand(returnsTotal: -100m), CancellationToken.None);
+
+        Assert.True(result);
+        _mockConciliacionService.Verify(s => s.SaveConciliacionCorteAsync(
+            It.Is<ConciliacionCorteDto>(dto => dto.Devoluciones == 100m && dto.TotalEsperado == 2500m),
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_SalidasTotalDoesNotMatchList_RejectsWithoutSaving()
+    {
+        _mockShiftRepository
+            .Setup(s => s.GetShiftDataAsync(123, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(ClosedShift());
+
+        var salidas = new List<ConciliacionSalidaEfectivoDto> { new() { Monto = 80m, Motivo = "Gas" } };
+        var command = ValidCommand(salidasEfectivo: 50m, salidas: salidas);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => _handler.Handle(command, CancellationToken.None));
+
+        _mockConciliacionService.Verify(s => s.SaveConciliacionCorteAsync(It.IsAny<ConciliacionCorteDto>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 }

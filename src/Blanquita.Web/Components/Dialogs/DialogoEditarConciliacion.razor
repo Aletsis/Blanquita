@@ -357,6 +357,7 @@
         {
             var command = new UpdateConciliacionCorteCommand(
                 Id: ConciliacionId,
+                Version: _conciliacion.Version,
                 EfectivoEntregado: _efectivoRecibido,
                 SalidasEfectivo: TotalSalidasEfectivo,
                 Banregio: _terminalBanRegio,
@@ -369,6 +370,13 @@
             await Mediator.Send(command);
             Snackbar.Add("Conciliación actualizada exitosamente", Severity.Success);
             MudDialog.Close(DialogResult.Ok(true));
+        }
+        catch (Blanquita.Domain.Exceptions.ConcurrencyConflictException ex)
+        {
+            // Otro usuario guardó primero: se recargan sus datos para no pisarlos
+            Logger.LogWarning(ex, "Conflicto de edición en la conciliación {Id}", ConciliacionId);
+            Snackbar.Add($"{ex.Message} Se cargaron los datos actuales.", Severity.Warning);
+            await CargarConciliacion();
         }
         catch (Exception ex)
         {

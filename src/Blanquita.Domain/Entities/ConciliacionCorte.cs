@@ -27,6 +27,9 @@ public class ConciliacionCorte : BaseEntity
     public DateTime? FechaModificacion { get; private set; }
     public string? ModificadoPor { get; private set; }
 
+    /// <summary>Versión de la fila (xmin de PostgreSQL), usada para detectar ediciones simultáneas.</summary>
+    public uint Version { get; private set; }
+
     public ICollection<ConciliacionSalidaEfectivo> Salidas { get; private set; } = new List<ConciliacionSalidaEfectivo>();
 
     // EF Core Constructor

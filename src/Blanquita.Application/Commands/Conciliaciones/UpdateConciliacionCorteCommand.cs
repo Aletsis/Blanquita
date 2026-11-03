@@ -7,9 +7,11 @@ namespace Blanquita.Application.Commands.Conciliaciones;
 
 /// <summary>
 /// Comando para actualizar/editar una conciliación de corte existente.
+/// <paramref name="Version"/> es la versión con la que se cargó; si otro usuario guardó antes, la edición se rechaza.
 /// </summary>
 public record UpdateConciliacionCorteCommand(
     int Id,
+    uint Version,
     decimal EfectivoEntregado,
     decimal SalidasEfectivo,
     decimal Banregio,

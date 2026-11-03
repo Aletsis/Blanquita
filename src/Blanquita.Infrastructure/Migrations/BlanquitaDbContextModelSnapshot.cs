@@ -372,6 +372,12 @@ namespace Blanquita.Infrastructure.Migrations
                         .HasColumnType("character varying(100)")
                         .HasColumnName("Usuario");
 
+                    b.Property<uint>("Version")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
                     b.HasKey("Id");
 
                     b.HasIndex("AperturaId");

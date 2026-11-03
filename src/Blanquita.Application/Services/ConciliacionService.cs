@@ -58,17 +58,11 @@ public class ConciliacionService : IConciliacionService
             : null;
 
         // 2. Obtener recolecciones internas (solo las que ocurrieron durante el horario de este turno)
-        var startTime = shiftData?.OpeningTime ?? date.Date;
-        var endTime = shiftData?.ClosingTime ?? DateTime.Now;
-
-        var collections = await _cashCollectionRepository.GetCollectionsByRegisterAndTimeAsync(
-            cashRegister.Name, 
-            startTime, 
-            endTime, 
+        var totalRecolectado = await SumCollectionsAsync(
+            cashRegister.Name,
+            shiftData?.OpeningTime ?? date.Date,
+            shiftData?.ClosingTime ?? DateTime.Now,
             cancellationToken);
-        
-        var totalRecolectado = collections
-            .Sum(c => c.GetTotalAmount().Amount);
 
         return new ConciliacionResultDto
         {
@@ -82,6 +76,22 @@ public class ConciliacionService : IConciliacionService
             Status = shiftData?.Status ?? 0,
             Fecha = shiftData?.OpeningTime ?? date
         };
+    }
+
+    public Task<decimal> GetTotalRecolectadoAsync(string cashRegisterName, ShiftConciliationDataDto shift, CancellationToken cancellationToken = default)
+    {
+        return SumCollectionsAsync(cashRegisterName, shift.OpeningTime, shift.ClosingTime ?? DateTime.Now, cancellationToken);
+    }
+
+    private async Task<decimal> SumCollectionsAsync(string cashRegisterName, DateTime startTime, DateTime endTime, CancellationToken cancellationToken)
+    {
+        var collections = await _cashCollectionRepository.GetCollectionsByRegisterAndTimeAsync(
+            cashRegisterName,
+            startTime,
+            endTime,
+            cancellationToken);
+
+        return collections.Sum(c => c.GetTotalAmount().Amount);
     }
 
     public async Task SaveConciliacionCorteAsync(ConciliacionCorteDto dto, CancellationToken cancellationToken = default)
@@ -185,7 +195,7 @@ public class ConciliacionService : IConciliacionService
             }
         }
 
-        await _conciliacionCorteRepository.UpdateAsync(entity, cancellationToken);
+        await _conciliacionCorteRepository.UpdateAsync(entity, dto.Version, cancellationToken);
         _logger.LogInformation("Conciliación de corte ID {Id} actualizada exitosamente.", dto.Id);
     }
 
@@ -231,6 +241,7 @@ public class ConciliacionService : IConciliacionService
             FechaCreacion = c.FechaCreacion,
             FechaModificacion = c.FechaModificacion,
             ModificadoPor = c.ModificadoPor,
+            Version = c.Version,
             Salidas = c.Salidas.Select(s => new ConciliacionSalidaEfectivoDto
             {
                 Id = s.Id,

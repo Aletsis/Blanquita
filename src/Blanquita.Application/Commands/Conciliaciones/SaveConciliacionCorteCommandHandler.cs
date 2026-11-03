@@ -59,12 +59,32 @@ public class SaveConciliacionCorteCommandHandler : IRequestHandler<SaveConciliac
                 throw new InvalidOperationException($"No se puede guardar la conciliación de corte para el turno {request.ShiftId} porque no ha sido cerrado en CONTPAQi POS.");
             }
 
+            // Ventas, devoluciones y recolecciones se vuelven a leer en el servidor; los de la pantalla solo se comparan.
+            // Si cambiaron desde la consulta, el usuario cuadró contra datos viejos y debe volver a consultar.
+            var totalRecolecciones = await _conciliacionService.GetTotalRecolectadoAsync(request.CashRegisterName, shift, cancellationToken);
+            var totalSold = shift.TotalSold;
+            var devoluciones = Math.Abs(shift.ReturnsTotal);
+            var salidasEfectivo = request.Salidas?.Sum(s => s.Monto) ?? request.SalidasEfectivo;
+
+            if (!SameAmount(totalRecolecciones, request.TotalRecolecciones) ||
+                !SameAmount(totalSold, request.TotalSold) ||
+                !SameAmount(devoluciones, Math.Abs(request.ReturnsTotal)) ||
+                !SameAmount(salidasEfectivo, request.SalidasEfectivo))
+            {
+                _logger.LogWarning(
+                    "Montos del turno {ShiftId} distintos a los de la pantalla. Recolecciones {Recolecciones}/{RecoPantalla}, vendido {Vendido}/{VendidoPantalla}, devoluciones {Devoluciones}/{DevPantalla}, salidas {Salidas}/{SalidasPantalla}",
+                    request.ShiftId, totalRecolecciones, request.TotalRecolecciones, totalSold, request.TotalSold,
+                    devoluciones, Math.Abs(request.ReturnsTotal), salidasEfectivo, request.SalidasEfectivo);
+
+                throw new InvalidOperationException(
+                    "Los montos del turno cambiaron desde que se consultaron (ventas, devoluciones o recolecciones). Vuelva a consultar el turno y cuadre de nuevo antes de guardar.");
+            }
+
             // Fórmulas financieras centralizadas
-            var totalEfectivo = request.TotalRecolecciones + request.EfectivoEntregado + request.SalidasEfectivo;
+            var totalEfectivo = totalRecolecciones + request.EfectivoEntregado + salidasEfectivo;
             var totalTarjetas = request.Banregio + request.Banbajio;
-            var devoluciones = Math.Abs(request.ReturnsTotal);
             var totalEntregado = totalEfectivo + totalTarjetas;
-            var totalEsperado = request.TotalSold - devoluciones;
+            var totalEsperado = totalSold - devoluciones;
             var diferencia = totalEntregado - totalEsperado;
 
             var dto = new ConciliacionCorteDto
@@ -73,9 +93,9 @@ public class SaveConciliacionCorteCommandHandler : IRequestHandler<SaveConciliac
                 Sucursal = request.BranchName,
                 Caja = request.CashRegisterName,
                 Cajero = request.CashierName,
-                TotalRecolecciones = request.TotalRecolecciones,
+                TotalRecolecciones = totalRecolecciones,
                 EfectivoEntregado = request.EfectivoEntregado,
-                SalidasEfectivo = request.SalidasEfectivo,
+                SalidasEfectivo = salidasEfectivo,
                 TotalEfectivo = totalEfectivo,
                 Banregio = request.Banregio,
                 Banbajio = request.Banbajio,
@@ -209,4 +229,8 @@ public class SaveConciliacionCorteCommandHandler : IRequestHandler<SaveConciliac
             throw;
         }
     }
+
+    // La pantalla redondea a centavos; diferencias menores no cuentan como cambio
+    private static bool SameAmount(decimal server, decimal screen) =>
+        Math.Round(server, 2, MidpointRounding.AwayFromZero) == Math.Round(screen, 2, MidpointRounding.AwayFromZero);
 }

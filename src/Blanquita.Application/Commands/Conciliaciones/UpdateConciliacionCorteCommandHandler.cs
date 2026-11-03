@@ -3,6 +3,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Blanquita.Application.DTOs;
 using Blanquita.Application.Interfaces;
+using Blanquita.Domain.Exceptions;
 using Blanquita.Domain.Repositories;
 using MediatR;
 using Microsoft.Extensions.Logging;
@@ -35,7 +36,17 @@ public class UpdateConciliacionCorteCommandHandler : IRequestHandler<UpdateConci
             throw new InvalidOperationException($"No se encontró la conciliación de corte con ID {request.Id}.");
         }
 
-        var totalEfectivo = existing.TotalRecolecciones + request.EfectivoEntregado + request.SalidasEfectivo;
+        // Aviso temprano; la base de datos vuelve a validar la versión al guardar
+        if (existing.Version != request.Version)
+        {
+            throw new ConcurrencyConflictException(
+                "Otro usuario modificó esta conciliación mientras la editaba. Vuelva a abrirla para ver los cambios.");
+        }
+
+        // El total de salidas se calcula de la lista que se guarda, no del monto enviado por la pantalla
+        var salidasEfectivo = request.Salidas?.Sum(s => s.Monto) ?? request.SalidasEfectivo;
+
+        var totalEfectivo = existing.TotalRecolecciones + request.EfectivoEntregado + salidasEfectivo;
         var totalTarjetas = request.Banregio + request.Banbajio;
         var totalEntregado = totalEfectivo + totalTarjetas;
         var diferencia = totalEntregado - existing.TotalEsperado;
@@ -49,7 +60,7 @@ public class UpdateConciliacionCorteCommandHandler : IRequestHandler<UpdateConci
             Cajero = existing.Cajero,
             TotalRecolecciones = existing.TotalRecolecciones,
             EfectivoEntregado = request.EfectivoEntregado,
-            SalidasEfectivo = request.SalidasEfectivo,
+            SalidasEfectivo = salidasEfectivo,
             TotalEfectivo = totalEfectivo,
             Banregio = request.Banregio,
             Banbajio = request.Banbajio,
@@ -59,6 +70,7 @@ public class UpdateConciliacionCorteCommandHandler : IRequestHandler<UpdateConci
             TotalEsperado = existing.TotalEsperado,
             Diferencia = diferencia,
             ModificadoPor = request.ModificadoPor,
+            Version = request.Version,
             Salidas = request.Salidas ?? new(),
             Terminales = request.Terminales ?? new()
         };
