@@ -28,7 +28,8 @@ namespace Blanquita.Infrastructure.Tests
             _output = output;
         }
 
-        [Fact]
+        // Diagnóstico manual contra un respaldo real de CONTPAQi; se ejecuta quitando Skip en una máquina que tenga el archivo
+        [Fact(Skip = @"Diagnóstico manual: requiere C:\RespaldoResp_15042025_1930\POS10008.dbf")]
         public void TestPOS10008FullScan()
         {
             Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);

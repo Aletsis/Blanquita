@@ -25,26 +25,30 @@ public class DatabaseBackupServiceTests
     }
 
     [Fact]
-    public void FindPgToolPath_ShouldNotAppendExe_OnLinux()
+    public void FindPgToolPath_ShouldUseConfiguredBinPath_WithPlatformExtension()
     {
-        // This test assumes running on Linux environment.
-        // If the platform is not Windows, FindPgToolPath("pg_dump") should search for "pg_dump".
-        
-        // Arrange
-        // We know /usr/bin/pg_dump exists on this environment.
-        
-        // Act
-        // This is a private method, but we can't test private methods directly easily.
-        // We can test by calling a public method that uses it, but it might throw if tools are missing or DB connection fails.
-        // Actually, we can use reflection to test the private method.
-        
-        var methodInfo = typeof(DatabaseBackupService).GetMethod("FindPgToolPath", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-        
-        var result = (string)methodInfo.Invoke(_service, new object[] { "pg_dump" });
-        
-        // Assert
-        Assert.False(result.EndsWith(".exe"), "On Linux, the tool path should not end with .exe");
-        Assert.Equal("/usr/bin/pg_dump", result);
+        // Herramienta falsa en una carpeta temporal: la prueba no depende de tener PostgreSQL instalado
+        var binDir = Path.Combine(Path.GetTempPath(), $"pgbin_{Guid.NewGuid():N}");
+        Directory.CreateDirectory(binDir);
+        var toolName = OperatingSystem.IsWindows() ? "pg_dump.exe" : "pg_dump";
+        var toolPath = Path.Combine(binDir, toolName);
+        File.WriteAllText(toolPath, string.Empty);
+
+        try
+        {
+            var config = new Mock<IConfiguration>();
+            config.Setup(c => c["DatabaseBackup:PostgresBinPath"]).Returns(binDir);
+            var service = new DatabaseBackupService(config.Object, _loggerMock.Object);
+
+            var result = service.FindPgToolPath("pg_dump");
+
+            Assert.Equal(toolPath, result);
+            Assert.Equal(OperatingSystem.IsWindows(), result.EndsWith(".exe"));
+        }
+        finally
+        {
+            Directory.Delete(binDir, recursive: true);
+        }
     }
 
     private static (DatabaseBackupService Service, string Directory) CreateServiceWithTempDirectory()

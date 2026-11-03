@@ -10,6 +10,9 @@ public class FileSystemServiceTests
     private readonly Mock<ILogger<FileSystemService>> _loggerMock;
     private readonly FileSystemService _service;
 
+    // Rutas armadas con el separador del sistema, para que las pruebas pasen en Windows y en Linux
+    private static readonly string BaseDir = Path.Combine(Path.GetTempPath(), "Path");
+
     public FileSystemServiceTests()
     {
         _loggerMock = new Mock<ILogger<FileSystemService>>();
@@ -85,7 +88,7 @@ public class FileSystemServiceTests
     [Fact]
     public void ValidateFileName_ShouldReturnTrue_WhenNamesMatch()
     {
-        var result = _service.ValidateFileName("C:\\Path\\test.dbf", "test.dbf");
+        var result = _service.ValidateFileName(Path.Combine(BaseDir, "test.dbf"), "test.dbf");
 
         Assert.True(result);
     }
@@ -93,7 +96,7 @@ public class FileSystemServiceTests
     [Fact]
     public void ValidateFileName_ShouldReturnTrue_WhenNamesMatchCaseInsensitive()
     {
-        var result = _service.ValidateFileName("C:\\Path\\TEST.DBF", "test.dbf");
+        var result = _service.ValidateFileName(Path.Combine(BaseDir, "TEST.DBF"), "test.dbf");
 
         Assert.True(result);
     }
@@ -101,7 +104,7 @@ public class FileSystemServiceTests
     [Fact]
     public void ValidateFileName_ShouldReturnFalse_WhenNamesDontMatch()
     {
-        var result = _service.ValidateFileName("C:\\Path\\test.dbf", "other.dbf");
+        var result = _service.ValidateFileName(Path.Combine(BaseDir, "test.dbf"), "other.dbf");
 
         Assert.False(result);
     }
@@ -117,10 +120,9 @@ public class FileSystemServiceTests
     [Fact]
     public void GetParentDirectory_ShouldReturnParent_WhenPathValid()
     {
-        var result = _service.GetParentDirectory("C:\\Path\\SubPath");
+        var result = _service.GetParentDirectory(Path.Combine(BaseDir, "SubPath"));
 
-        Assert.NotNull(result);
-        Assert.Contains("Path", result);
+        Assert.Equal(BaseDir, result);
     }
 
     [Fact]
@@ -134,7 +136,7 @@ public class FileSystemServiceTests
     [Fact]
     public void GetFileName_ShouldReturnFileName_WhenPathValid()
     {
-        var result = _service.GetFileName("C:\\Path\\test.dbf");
+        var result = _service.GetFileName(Path.Combine(BaseDir, "test.dbf"));
 
         Assert.Equal("test.dbf", result);
     }
