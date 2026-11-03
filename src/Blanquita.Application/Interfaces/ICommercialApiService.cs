@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 using Blanquita.Application.DTOs;
 
@@ -19,9 +20,16 @@ public interface ICommercialApiService
     
     Task<IEnumerable<CommercialProveedorDto>> SearchProveedoresAsync(string? searchTerm, string username, int pageSize = 50);
     
-    Task<IEnumerable<CommercialProductoDto>> GetProductosAsync(string? searchTerm, string username, bool onlyActive = true);
+    /// <summary>Busca productos; devuelve como máximo <paramref name="pageSize"/> resultados.</summary>
+    Task<IEnumerable<CommercialProductoDto>> GetProductosAsync(string? searchTerm, string username, bool onlyActive = true, int pageSize = 50);
     
     Task<CommercialProductoDto?> GetProductoByIdAsync(int id, string username);
+
+    /// <summary>
+    /// Consulta solo los productos indicados (p. ej. los de las partidas de un documento), en lugar de todo el catálogo.
+    /// Los que no se encuentran o fallan se omiten del resultado.
+    /// </summary>
+    Task<IReadOnlyDictionary<int, CommercialProductoDto>> GetProductosByIdsAsync(IEnumerable<int> ids, string username, CancellationToken cancellationToken = default);
     
     Task<IEnumerable<CommercialSalidaDto>> GetSalidasAsync(
         string? serie, 

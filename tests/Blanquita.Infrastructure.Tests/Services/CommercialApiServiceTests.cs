@@ -143,4 +143,40 @@ public class CommercialApiServiceTests
 
         Assert.Contains(handler.RequestUris, u => u.Contains("folio=12.5"));
     }
+
+    [Fact]
+    public async Task GetProductosAsync_ShouldRequestLimitedPage()
+    {
+        var handler = new FakeCommercialApiHandler(_ => Json("{\"items\":[]}"));
+        var service = CreateService(handler, $"http://api-{Guid.NewGuid():N}");
+
+        await service.GetProductosAsync("jab", UniqueUser());
+
+        Assert.Contains(handler.RequestUris, u => u.Contains("api/productos?pageSize=50&"));
+        Assert.DoesNotContain(handler.RequestUris, u => u.Contains("pageSize=100000"));
+    }
+
+    [Fact]
+    public async Task GetProductosByIdsAsync_ShouldQueryEachDistinctIdAndSkipFailures()
+    {
+        var handler = new FakeCommercialApiHandler(request =>
+        {
+            var id = request.RequestUri!.Segments.Last();
+            return id switch
+            {
+                "1" => Json("{\"id\":1,\"codigo\":\"A1\",\"nombre\":\"Azucar\"}"),
+                "2" => new HttpResponseMessage(HttpStatusCode.NotFound),
+                _ => new HttpResponseMessage(HttpStatusCode.InternalServerError)
+            };
+        });
+        var service = CreateService(handler, $"http://api-{Guid.NewGuid():N}");
+
+        var result = await service.GetProductosByIdsAsync(new[] { 1, 1, 2, 3 }, UniqueUser());
+
+        Assert.Single(result);
+        Assert.Equal("Azucar", result[1].Nombre);
+        // Sin descargar el catálogo y sin repetir el ID duplicado
+        Assert.Equal(3, handler.RequestUris.Count(u => u.Contains("api/productos/")));
+        Assert.DoesNotContain(handler.RequestUris, u => u.Contains("api/productos?"));
+    }
 }

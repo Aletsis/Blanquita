@@ -279,11 +279,11 @@ public class CommercialApiService : ICommercialApiService
         }
     }
 
-    public async Task<IEnumerable<CommercialProductoDto>> GetProductosAsync(string? searchTerm, string username, bool onlyActive = true)
+    public async Task<IEnumerable<CommercialProductoDto>> GetProductosAsync(string? searchTerm, string username, bool onlyActive = true, int pageSize = 50)
     {
         try
         {
-            var url = $"api/productos?pageSize=100000&onlyActive={onlyActive.ToString().ToLower()}";
+            var url = $"api/productos?pageSize={pageSize}&onlyActive={onlyActive.ToString().ToLower()}";
             if (!string.IsNullOrWhiteSpace(searchTerm))
             {
                 url += $"&search={Uri.EscapeDataString(searchTerm)}";
@@ -346,6 +346,34 @@ public class CommercialApiService : ICommercialApiService
             throw;
         }
      }
+
+    /// <summary>Consultas por ID simultáneas como máximo, para no saturar la API Comercial.</summary>
+    private const int MaxParallelProductLookups = 6;
+
+    public async Task<IReadOnlyDictionary<int, CommercialProductoDto>> GetProductosByIdsAsync(IEnumerable<int> ids, string username, CancellationToken cancellationToken = default)
+    {
+        var result = new ConcurrentDictionary<int, CommercialProductoDto>();
+        var options = new ParallelOptions { MaxDegreeOfParallelism = MaxParallelProductLookups, CancellationToken = cancellationToken };
+
+        await Parallel.ForEachAsync(ids.Distinct(), options, async (id, _) =>
+        {
+            try
+            {
+                var producto = await GetProductoByIdAsync(id, username);
+                if (producto != null)
+                {
+                    result[id] = producto;
+                }
+            }
+            catch (Exception ex)
+            {
+                // Un producto que falla no debe impedir mostrar el resto del documento
+                _logger.LogWarning(ex, "No se pudo obtener el producto {Id}; se mostrará sin nombre", id);
+            }
+        });
+
+        return result;
+    }
 
     public async Task<IEnumerable<CommercialSalidaDto>> GetSalidasAsync(
         string? serie, 
