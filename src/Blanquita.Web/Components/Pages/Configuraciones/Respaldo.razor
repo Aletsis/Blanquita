@@ -273,20 +273,11 @@
 
         try
         {
-            var backupDir = await BackupService.GetBackupDirectoryAsync();
-            if (!Directory.Exists(backupDir))
-            {
-                Directory.CreateDirectory(backupDir);
-            }
-
-            var destinationPath = Path.Combine(backupDir, file.Name);
-            
             // Límite de tamaño: 250 MB
-            using var stream = file.OpenReadStream(maxAllowedSize: 1024 * 1024 * 250); 
-            using var fileStream = new FileStream(destinationPath, FileMode.Create);
-            await stream.CopyToAsync(fileStream);
+            using var stream = file.OpenReadStream(maxAllowedSize: 1024 * 1024 * 250);
+            var savedPath = await BackupService.SaveUploadedBackupAsync(stream, file.Name);
 
-            Snackbar.Add("Archivo de respaldo subido exitosamente", Severity.Success);
+            Snackbar.Add($"Archivo de respaldo subido exitosamente como {Path.GetFileName(savedPath)}", Severity.Success);
             await CargarRespaldosAsync();
         }
         catch (Exception ex)

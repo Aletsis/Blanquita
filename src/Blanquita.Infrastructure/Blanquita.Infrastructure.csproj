@@ -30,4 +30,8 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="Blanquita.Infrastructure.Tests" />
+  </ItemGroup>
+
 </Project>
