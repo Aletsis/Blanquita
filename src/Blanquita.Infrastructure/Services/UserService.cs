@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Blanquita.Application.DTOs;
 using Blanquita.Application.Interfaces;
 using Blanquita.Domain.Repositories;
+using Blanquita.Infrastructure.Persistence.Context;
 using Blanquita.Infrastructure.Persistence.Identity;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -20,18 +21,57 @@ public class UserService : IUserService
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly RoleManager<IdentityRole> _roleManager;
     private readonly IBranchRepository _branchRepository;
+    private readonly BlanquitaDbContext _context;
     private readonly ILogger<UserService> _logger;
 
     public UserService(
         UserManager<ApplicationUser> userManager,
         RoleManager<IdentityRole> roleManager,
         IBranchRepository branchRepository,
+        BlanquitaDbContext context,
         ILogger<UserService> logger)
     {
         _userManager = userManager;
         _roleManager = roleManager;
         _branchRepository = branchRepository;
+        _context = context;
         _logger = logger;
+    }
+
+    /// <summary>
+    /// Rol de cada usuario en una sola consulta (en lugar de GetRolesAsync por usuario).
+    /// Los usuarios tienen un solo rol; si tuvieran varios se toma el primero por nombre.
+    /// </summary>
+    private async Task<Dictionary<string, string>> GetRoleByUserAsync(IEnumerable<string> userIds)
+    {
+        var ids = userIds.ToList();
+
+        var pairs = await (
+            from ur in _context.UserRoles
+            join r in _context.Roles on ur.RoleId equals r.Id
+            where ids.Contains(ur.UserId) && r.Name != null
+            select new { ur.UserId, RoleName = r.Name! })
+            .ToListAsync();
+
+        return pairs
+            .GroupBy(p => p.UserId)
+            .ToDictionary(g => g.Key, g => g.Select(p => p.RoleName).OrderBy(n => n, StringComparer.Ordinal).First());
+    }
+
+    /// <summary>
+    /// Ordena por el primer rol del usuario con una subconsulta que EF traduce a SQL,
+    /// para que el orden aplique a todos los usuarios y no solo a la página cargada.
+    /// </summary>
+    internal static IQueryable<ApplicationUser> OrderByRole(IQueryable<ApplicationUser> query, BlanquitaDbContext context, bool ascending)
+    {
+        var userRoles = context.UserRoles;
+        var roles = context.Roles;
+
+        return ascending
+            ? query.OrderBy(u => userRoles.Where(ur => ur.UserId == u.Id)
+                .Join(roles, ur => ur.RoleId, r => r.Id, (ur, r) => r.Name).Min())
+            : query.OrderByDescending(u => userRoles.Where(ur => ur.UserId == u.Id)
+                .Join(roles, ur => ur.RoleId, r => r.Id, (ur, r) => r.Name).Min());
     }
 
     /// <inheritdoc/>
@@ -44,10 +84,10 @@ public class UserService : IUserService
 
             var branches = await _branchRepository.GetAllAsync();
             var branchDict = branches.ToDictionary(b => b.Id, b => b.Name);
+            var roleByUser = await GetRoleByUserAsync(users.Select(u => u.Id));
 
             foreach (var u in users)
             {
-                var roles = await _userManager.GetRolesAsync(u);
                 list.Add(new UserDto
                 {
                     Id = u.Id,
@@ -55,7 +95,7 @@ public class UserService : IUserService
                     FullName = u.FullName ?? string.Empty,
                     Email = u.Email ?? string.Empty,
                     PhoneNumber = u.PhoneNumber ?? string.Empty,
-                    Role = roles.FirstOrDefault() ?? "Ninguno",
+                    Role = roleByUser.GetValueOrDefault(u.Id) ?? "Ninguno",
                     BranchId = u.BranchId,
                     BranchName = u.BranchId.HasValue && branchDict.TryGetValue(u.BranchId.Value, out var name) ? name : "Ninguna",
                     EmployeeNumber = u.EmployeeNumber
@@ -343,6 +383,7 @@ public class UserService : IUserService
                     "phonenumber" => request.SortAscending ? query.OrderBy(u => u.PhoneNumber) : query.OrderByDescending(u => u.PhoneNumber),
                     "branchid" => request.SortAscending ? query.OrderBy(u => u.BranchId) : query.OrderByDescending(u => u.BranchId),
                     "employeenumber" => request.SortAscending ? query.OrderBy(u => u.EmployeeNumber) : query.OrderByDescending(u => u.EmployeeNumber),
+                    "role" => OrderByRole(query, _context, request.SortAscending),
                     _ => request.SortAscending ? query.OrderBy(u => u.Id) : query.OrderByDescending(u => u.Id)
                 };
             }
@@ -359,10 +400,10 @@ public class UserService : IUserService
             var list = new List<UserDto>();
             var branches = await _branchRepository.GetAllAsync();
             var branchDict = branches.ToDictionary(b => b.Id, b => b.Name);
+            var roleByUser = await GetRoleByUserAsync(pagedUsers.Select(u => u.Id));
 
             foreach (var u in pagedUsers)
             {
-                var roles = await _userManager.GetRolesAsync(u);
                 list.Add(new UserDto
                 {
                     Id = u.Id,
@@ -370,18 +411,11 @@ public class UserService : IUserService
                     FullName = u.FullName ?? string.Empty,
                     Email = u.Email ?? string.Empty,
                     PhoneNumber = u.PhoneNumber ?? string.Empty,
-                    Role = roles.FirstOrDefault() ?? "Ninguno",
+                    Role = roleByUser.GetValueOrDefault(u.Id) ?? "Ninguno",
                     BranchId = u.BranchId,
                     BranchName = u.BranchId.HasValue && branchDict.TryGetValue(u.BranchId.Value, out var name) ? name : "Ninguna",
                     EmployeeNumber = u.EmployeeNumber
                 });
-            }
-
-            if (!string.IsNullOrWhiteSpace(request.SortColumn) && request.SortColumn.ToLower() == "role")
-            {
-                list = request.SortAscending 
-                    ? list.OrderBy(u => u.Role).ToList() 
-                    : list.OrderByDescending(u => u.Role).ToList();
             }
 
             return PagedResult<UserDto>.Create(list, totalCount, request.Page, request.PageSize);
