@@ -116,13 +116,13 @@ public class PrinterCommandBuilder
 
         cmds.AddRange(Text("----------------------------------------\n"));
         cmds.AddRange(BoldOn());
-        cmds.AddRange(Text($"TOTAL RECOLECCIONES:          {FormatMoney(cashCut.GrandTotal)}\n"));
+        cmds.AddRange(Text($"TOTAL RECOLECCIONES:          {FormatMoney(cashCut.CollectionsTotal)}\n"));
         cmds.AddRange(Text($"TOTAL TIRA:                   {FormatMoney(cashCut.TotalSlips)}\n"));
         cmds.AddRange(Text($"TOTAL BANBAJIO:               {FormatMoney(cashCut.TotalBanbajio)}\n"));
         cmds.AddRange(Text($"TOTAL BANREGIO:               {FormatMoney(cashCut.TotalBanregio)}\n"));
         cmds.AddRange(Text($"TOTAL TARJETAS:               {FormatMoney(cashCut.TotalCards)}\n\n"));
 
-        decimal efectivo = cashCut.TotalSlips - cashCut.TotalCards - cashCut.GrandTotal;
+        decimal efectivo = cashCut.TotalSlips - cashCut.TotalCards - cashCut.CollectionsTotal;
         cmds.AddRange(Text($"EFECTIVO A ENTREGAR:          {FormatMoney(efectivo)}\n\n\n\n"));
 
         cmds.AddRange(BoldOff());

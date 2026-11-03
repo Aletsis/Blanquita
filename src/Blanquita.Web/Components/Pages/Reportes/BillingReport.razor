@@ -212,6 +212,7 @@
         }
         catch (Exception ex)
         {
+            Logger.LogError(ex, "Error al cargar sucursales");
             Snackbar.Add("Error al cargar sucursales", Severity.Error);
         }
     }

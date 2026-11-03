@@ -406,7 +406,6 @@
     private ConfiguracionDto _configuracion = new();
     private List<PrinterDto> _printers = new();
     private bool _guardando = false;
-    private bool _loadingPrinters = false;
     private bool _enviandoPrueba = false;
     private bool _isInitialized = false;
 
@@ -685,18 +684,14 @@
 
     private async Task RecargarImpresoras()
     {
-        _loadingPrinters = true;
         try
         {
             _printers = await PrinterService.GetAllAsync();
         }
         catch (Exception ex)
         {
+            Logger.LogError(ex, "Error al cargar impresoras");
             Snackbar.Add($"Error al cargar impresoras: {ex.Message}", Severity.Error);
-        }
-        finally
-        {
-            _loadingPrinters = false;
         }
     }
 

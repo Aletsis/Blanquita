@@ -118,7 +118,7 @@ public class PrinterCommandBuilderTests
             TotalSlips = 10000m,
             TotalBanbajio = 300m,
             TotalBanregio = 200m,
-            GrandTotal = 10000m,
+            CollectionsTotal = 10000m,
             CashRegisterName = "Caja 1",
             SupervisorName = "Pedro",
             CashierName = "Juan",
