@@ -34,7 +34,10 @@ public static class DependencyInjection
         // Memory Cache para optimizar lecturas de FoxPro
         services.AddMemoryCache(options =>
         {
-            options.SizeLimit = 1000; // Límite de entradas en caché
+            // Cada entrada cuenta 1 (un cliente, un producto o la lista de cortes de un día).
+            // Clientes y productos se guardan uno por ID y duran 4 horas, así que 1000 se llenaba rápido
+            // y la compactación descartaba entradas útiles; 20000 DTOs pequeños ocupan solo unos MB
+            options.SizeLimit = 20_000;
             options.CompactionPercentage = 0.25; // Compactar 25% cuando se alcanza el límite
         });
 

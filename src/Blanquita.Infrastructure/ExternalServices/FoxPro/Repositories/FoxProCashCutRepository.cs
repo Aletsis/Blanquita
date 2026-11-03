@@ -64,11 +64,12 @@ public class FoxProCashCutRepository : IFoxProCashCutRepository
         // Si no está en caché, leer del archivo
         var cashCuts = await ReadCashCutsFromFileAsync(date, branchId, cancellationToken);
 
-        // Guardar en caché con expiración
+        // Guardar en caché con expiración. Cada lista cuenta como una entrada: si contara un punto por corte,
+        // un día con muchos cortes superaría el límite del caché y nunca se guardaría
         var cacheOptions = new MemoryCacheEntryOptions
         {
             AbsoluteExpirationRelativeToNow = CacheDuration,
-            Size = cashCuts.Count() // Ayuda a controlar el tamaño del caché
+            Size = 1
         };
 
         _cache.Set(cacheKey, cashCuts, cacheOptions);
