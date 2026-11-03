@@ -25,11 +25,13 @@ public class ReporteHistorico : BaseEntity
     /// </summary>
     public decimal Diferencia => TotalCorteManual - TotalSistema;
 
+#pragma warning disable CS8618 // EF Core asigna las propiedades al materializar
     private ReporteHistorico() 
     { 
         Notas = string.Empty;
         Usuario = string.Empty;
     } // Para EF Core
+#pragma warning restore CS8618
 
     private ReporteHistorico(
         Sucursal sucursal,

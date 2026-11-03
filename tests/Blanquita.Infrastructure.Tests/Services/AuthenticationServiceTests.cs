@@ -20,7 +20,7 @@ public class AuthenticationServiceTests
         // Mock UserManager
         var userStoreMock = new Mock<IUserStore<ApplicationUser>>();
         _userManagerMock = new Mock<UserManager<ApplicationUser>>(
-            userStoreMock.Object, null, null, null, null, null, null, null, null);
+            userStoreMock.Object, null!, null!, null!, null!, null!, null!, null!, null!);
 
         // Mock SignInManager
         var contextAccessorMock = new Mock<Microsoft.AspNetCore.Http.IHttpContextAccessor>();
@@ -29,7 +29,7 @@ public class AuthenticationServiceTests
             _userManagerMock.Object,
             contextAccessorMock.Object,
             claimsFactoryMock.Object,
-            null, null, null, null);
+            null!, null!, null!, null!);
 
         _loggerMock = new Mock<ILogger<AuthenticationService>>();
         _service = new AuthenticationService(_signInManagerMock.Object, _userManagerMock.Object, _loggerMock.Object);

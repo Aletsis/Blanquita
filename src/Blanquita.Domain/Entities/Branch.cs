@@ -12,7 +12,9 @@ public class Branch : BaseEntity
     public string Direccion { get; private set; } = string.Empty;
     public string? ConceptosSalida { get; private set; }
 
+#pragma warning disable CS8618 // EF Core asigna las propiedades al materializar
     private Branch() { }
+#pragma warning restore CS8618
 
     public Branch(string name, string code, string seriesCliente, string seriesGlobal, string seriesDevolucion, string direccion, string? conceptosSalida)
     {

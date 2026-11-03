@@ -480,7 +480,7 @@
                 {
                     if (result.UsedBackupPrinter)
                     {
-                        Snackbar.Add(result.Message, Severity.Warning);
+                        Snackbar.Add(result.Message ?? "Recolección impresa en la impresora de respaldo.", Severity.Warning);
                     }
                     else
                     {

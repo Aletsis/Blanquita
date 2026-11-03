@@ -296,7 +296,7 @@ public class ExportService : IExportService
                                             }
                                             else
                                             {
-                                                var text = value.ToString();
+                                                var text = value.ToString() ?? string.Empty;
                                                 
                                                 if (prop.Name.Contains("Hora", StringComparison.OrdinalIgnoreCase))
                                                 {

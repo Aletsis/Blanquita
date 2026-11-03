@@ -264,7 +264,7 @@
         var dialog = await DialogService.ShowAsync<DialogoDisenoEtiqueta>(title, parameters, options);
         var result = await dialog.Result;
 
-        if (!result.Canceled && result.Data is LabelDesignDto diseñoResult)
+        if (result != null && !result.Canceled && result.Data is LabelDesignDto diseñoResult)
         {
             try
             {

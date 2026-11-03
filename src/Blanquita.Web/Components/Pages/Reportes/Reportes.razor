@@ -428,7 +428,7 @@
         var dialog = await DialogService.ShowAsync<DialogoConfirmarGuardado>("Confirmar Guardado", parameters);
         var result = await dialog.Result;
 
-        if (result.Canceled)
+        if (result == null || result.Canceled)
             return;
 
         guardando = true;

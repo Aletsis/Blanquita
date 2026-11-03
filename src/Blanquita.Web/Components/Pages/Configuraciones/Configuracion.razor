@@ -581,7 +581,7 @@
             var dialog = await DialogService.ShowAsync<DialogoSeleccionArchivo>("Seleccionar Archivo", parameters, dialogOptions);
             var result = await dialog.Result;
 
-            if (!result.Canceled && result.Data is string rutaSeleccionada)
+            if (result != null && !result.Canceled && result.Data is string rutaSeleccionada)
             {
                 _configuracion.EstablecerRutaPorTipo(tipoArchivo, rutaSeleccionada);
                 Logger.LogInformation("Ruta actualizada para {TipoArchivo}: {Ruta}", tipoArchivo, rutaSeleccionada);
@@ -609,7 +609,7 @@
             var dialog = await DialogService.ShowAsync<DialogoSeleccionCarpeta>("Seleccionar Carpeta", parameters, dialogOptions);
             var result = await dialog.Result;
 
-            if (!result.Canceled && result.Data is string rutaSeleccionada)
+            if (result != null && !result.Canceled && result.Data is string rutaSeleccionada)
             {
                 _configuracion.FacturasPath = rutaSeleccionada;
                 Logger.LogInformation("Ruta de facturas actualizada: {Ruta}", rutaSeleccionada);
@@ -716,7 +716,7 @@
         var dialog = await DialogService.ShowAsync<DialogoImpresora>(title, parameters, options);
         var result = await dialog.Result;
 
-        if (!result.Canceled && result.Data is PrinterDto printerResult)
+        if (result != null && !result.Canceled && result.Data is PrinterDto printerResult)
         {
             try
             {
@@ -823,7 +823,7 @@
         var dialog = await DialogService.ShowAsync<DialogoSucursal>(title, parameters, options);
         var result = await dialog.Result;
 
-        if (!result.Canceled && result.Data is BranchDto branchResult)
+        if (result != null && !result.Canceled && result.Data is BranchDto branchResult)
         {
             try
             {
@@ -878,7 +878,7 @@
         var dialog = await DialogService.ShowAsync<DialogoCaja>(title, parameters, options);
         var result = await dialog.Result;
 
-        if (!result.Canceled && result.Data is DialogoCaja.CashRegisterDialogModel cajaResult)
+        if (result != null && !result.Canceled && result.Data is DialogoCaja.CashRegisterDialogModel cajaResult)
         {
             try
             {

@@ -15,7 +15,9 @@ public class CashCut : BaseEntity
     public DateTime CutDateTime { get; private set; }
 
     // EF Core constructor
+#pragma warning disable CS8618 // EF Core asigna las propiedades al materializar
     private CashCut() { }
+#pragma warning restore CS8618
 
     private CashCut(CashCutTotals totals, string cashRegisterName, string supervisorName,
         string cashierName, string branchName, DateTime cutDateTime)

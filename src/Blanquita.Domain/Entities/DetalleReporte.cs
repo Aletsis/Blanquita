@@ -16,7 +16,9 @@ public class DetalleReporte : BaseEntity
     // Navigation property
     public int ReporteHistoricoId { get; private set; }
 
+#pragma warning disable CS8618 // EF Core asigna las propiedades al materializar
     private DetalleReporte() { } // Para EF Core
+#pragma warning restore CS8618
 
     private DetalleReporte(
         string fecha,

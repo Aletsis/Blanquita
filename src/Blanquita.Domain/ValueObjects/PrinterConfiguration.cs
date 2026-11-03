@@ -8,7 +8,9 @@ public record PrinterConfiguration
     public int Port { get; }
 
     // Constructor requerido por EF Core
+#pragma warning disable CS8618 // EF Core asigna las propiedades al materializar
     private PrinterConfiguration() { }
+#pragma warning restore CS8618
 
     private PrinterConfiguration(string ipAddress, int port)
     {

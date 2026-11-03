@@ -271,8 +271,9 @@
     [CascadingParameter]
     private IMudDialogInstance MudDialog { get; set; } = null!;
 
+    // Opcional: si no se pasa, OnInitialized crea un diseño nuevo con valores predeterminados
     [Parameter]
-    public LabelDesignDto? Model { get; set; }
+    public LabelDesignDto Model { get; set; } = null!;
     
     // Temp storage for new element form
     private LabelElementDto _newElement = new() { ElementType = "Text", FontSize = 30 };
@@ -336,7 +337,7 @@
 
     private void Submit()
     {
-        if (string.IsNullOrWhiteSpace(Model?.Name))
+        if (string.IsNullOrWhiteSpace(Model.Name))
         {
             Snackbar.Add("El nombre es requerido", Severity.Warning);
             return;
@@ -400,8 +401,8 @@
             _editingElement.YMm = _newElement.YMm;
             _editingElement.Content = _newElement.Content;
             _editingElement.FontSize = _newElement.FontSize;
-            _editingElement.HeightMm = _newElement.ElementType == "Barcode" ? Model!.BarcodeHeightInMm : null;
-            _editingElement.BarWidth = _newElement.ElementType == "Barcode" ? Model!.BarcodeWidth : null;
+            _editingElement.HeightMm = _newElement.ElementType == "Barcode" ? Model.BarcodeHeightInMm : null;
+            _editingElement.BarWidth = _newElement.ElementType == "Barcode" ? Model.BarcodeWidth : null;
 
             Snackbar.Add("Elemento actualizado", Severity.Success);
             CancelEdit();
@@ -409,7 +410,7 @@
         else
         {
             // Add new
-            Model!.Elements.Add(new LabelElementDto
+            Model.Elements.Add(new LabelElementDto
             {
                 ElementType = _newElement.ElementType,
                 XMm = _newElement.XMm,
@@ -466,7 +467,7 @@
     
     private void RemoveElement(LabelElementDto element)
     {
-        Model!.Elements.Remove(element);
+        Model.Elements.Remove(element);
         if (_editingElement == element) CancelEdit();
     }
 }

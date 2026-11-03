@@ -14,7 +14,9 @@ public class Supervisor : BaseEntity
     public string? PhoneNumber { get; private set; }
 
     // EF Core constructor
+#pragma warning disable CS8618 // EF Core asigna las propiedades al materializar
     private Supervisor() { }
+#pragma warning restore CS8618
 
     private Supervisor(int employeeNumber, string name, BranchId branchId, string? phoneNumber, bool isActive = true)
     {

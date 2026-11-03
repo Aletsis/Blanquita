@@ -45,9 +45,9 @@ public class TestAsyncQueryProvider<TEntity> : IAsyncQueryProvider
             .MakeGenericMethod(expectedResultType)
             .Invoke(_inner, new[] { expression });
 
-        return (TResult)typeof(Task).GetMethod(nameof(Task.FromResult))
+        return (TResult)typeof(Task).GetMethod(nameof(Task.FromResult))!
             .MakeGenericMethod(expectedResultType)
-            .Invoke(null, new[] { executionResult });
+            .Invoke(null, new[] { executionResult })!;
     }
 }
 

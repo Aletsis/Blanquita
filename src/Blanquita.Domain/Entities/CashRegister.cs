@@ -17,7 +17,9 @@ public class CashRegister : BaseEntity
     public bool IsLastRegister { get; private set; }
 
     // EF Core constructor
+#pragma warning disable CS8618 // EF Core asigna las propiedades al materializar
     private CashRegister() { }
+#pragma warning restore CS8618
 
     private CashRegister(string name, string serie, int idContpaqi, PrinterConfiguration printerConfig, BranchId branchId, TipoTerminal tipo, bool isLastRegister = false)
     {
