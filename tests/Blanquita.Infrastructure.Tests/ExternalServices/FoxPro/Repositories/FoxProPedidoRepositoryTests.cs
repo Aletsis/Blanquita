@@ -1,0 +1,174 @@
+using Blanquita.Application.DTOs;
+using Blanquita.Application.Interfaces;
+using Blanquita.Application.Interfaces.Repositories;
+using Blanquita.Infrastructure.ExternalServices.FoxPro.Common;
+using Blanquita.Infrastructure.ExternalServices.FoxPro.Repositories;
+using Microsoft.Extensions.Logging;
+using Moq;
+using Xunit;
+
+namespace Blanquita.Infrastructure.Tests.ExternalServices.FoxPro.Repositories;
+
+public class FoxProPedidoRepositoryTests : IDisposable
+{
+    private static readonly DateTime Hoy = new(2026, 11, 8);
+
+    private readonly Mock<IConfiguracionService> _mockConfigService = new();
+    private readonly Mock<IFoxProReaderFactory> _mockReaderFactory = new();
+    private readonly Mock<IClientCatalogRepository> _mockClientRepository = new();
+    private readonly Mock<IProductCatalogRepository> _mockProductRepository = new();
+    private readonly FoxProPedidoRepository _repository;
+    private readonly string _tempFilePath;
+
+    public FoxProPedidoRepositoryTests()
+    {
+        _tempFilePath = Path.GetTempFileName();
+
+        _mockConfigService
+            .Setup(s => s.ObtenerConfiguracionAsync())
+            .ReturnsAsync(new ConfiguracionDto { Pos10008Path = _tempFilePath });
+
+        _mockClientRepository
+            .Setup(r => r.GetByIdsAsync(It.IsAny<IEnumerable<int>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Enumerable.Empty<ClientSearchDto>());
+
+        _repository = new FoxProPedidoRepository(
+            _mockConfigService.Object,
+            _mockReaderFactory.Object,
+            _mockClientRepository.Object,
+            _mockProductRepository.Object,
+            Mock.Of<ILogger<FoxProPedidoRepository>>());
+    }
+
+    public void Dispose()
+    {
+        try { File.Delete(_tempFilePath); } catch { }
+    }
+
+    private void SetupRows(params Dictionary<string, object>[] rows)
+    {
+        _mockReaderFactory
+            .Setup(f => f.CreateReverseReader(_tempFilePath))
+            .Returns(() => new FakeFoxProReader(rows));
+    }
+
+    private static Dictionary<string, object> Row(DateTime fecha, string serie, string folio, string texto01 = "", string texto02 = "") => new()
+    {
+        ["CFECHA"] = fecha,
+        ["CSERIEDO01"] = serie,
+        ["CFOLIO"] = folio,
+        ["CIDDOCUM01"] = $"{serie}{folio}",
+        ["CTEXTOEX01"] = texto01,
+        ["CTEXTOEX02"] = texto02,
+        ["CTOTAL"] = 100m,
+        ["CIDCLIEN01"] = 1,
+    };
+
+    [Fact]
+    public async Task SearchPedidosAsync_SoloDevuelveLaFechaExacta()
+    {
+        // Lectura en reversa: más recientes primero
+        SetupRows(
+            Row(Hoy.AddDays(1), "PA", "10"),
+            Row(Hoy, "PA", "9"),
+            Row(Hoy.AddDays(-1), "PA", "8"),
+            Row(Hoy.AddDays(-30), "PA", "7"));
+
+        var result = (await _repository.SearchPedidosAsync(Hoy, new[] { "PA" })).ToList();
+
+        var pedido = Assert.Single(result);
+        Assert.Equal("PA-9", pedido.Folio);
+        Assert.Equal("PA", pedido.Serie);
+        Assert.Equal("9", pedido.NumeroFolio);
+    }
+
+    [Fact]
+    public async Task SearchPedidosAsync_FiltraPorSerie()
+    {
+        SetupRows(
+            Row(Hoy, "PA", "1"),
+            Row(Hoy, "PB", "2"));
+
+        var result = (await _repository.SearchPedidosAsync(Hoy, new[] { "pb" })).ToList();
+
+        Assert.Equal("PB-2", Assert.Single(result).Folio);
+    }
+
+    [Theory]
+    [InlineData("R01")]
+    [InlineData("r01")]
+    [InlineData(" R01 ")]
+    [InlineData("R1")]
+    [InlineData("1")]
+    [InlineData("01")]
+    public async Task SearchRutasAsync_RutaCoincide(string filtro)
+    {
+        SetupRows(
+            Row(Hoy, "PA", "1", "R01 1343"),
+            Row(Hoy, "PA", "2", "R02 1343"));
+
+        var result = (await _repository.SearchRutasAsync(Hoy, new[] { "PA" }, ruta: filtro)).ToList();
+
+        Assert.Equal("PA-1", Assert.Single(result).Folio);
+    }
+
+    [Theory]
+    [InlineData("R10")]
+    [InlineData("X01")]
+    [InlineData("10")]
+    public async Task SearchRutasAsync_RutaNoCoincide(string filtro)
+    {
+        SetupRows(Row(Hoy, "PA", "1", "R01 1343"));
+
+        var result = await _repository.SearchRutasAsync(Hoy, new[] { "PA" }, ruta: filtro);
+
+        Assert.Empty(result);
+    }
+
+    [Theory]
+    [InlineData("1343", true)]
+    [InlineData("01343", true)]
+    [InlineData("134", false)]
+    public async Task SearchRutasAsync_FiltraPorNominaToleraCeros(string nomina, bool esperado)
+    {
+        SetupRows(Row(Hoy, "PA", "1", "R01 01343"));
+
+        var result = await _repository.SearchRutasAsync(Hoy, new[] { "PA" }, repartidorNomina: nomina);
+
+        Assert.Equal(esperado, result.Any());
+    }
+
+    /// <summary>
+    /// Lector en memoria que expone filas como columnas por nombre.
+    /// </summary>
+    private sealed class FakeFoxProReader : IFoxProDataReader
+    {
+        private readonly IReadOnlyList<Dictionary<string, object>> _rows;
+        private readonly List<string> _columns;
+        private int _index = -1;
+
+        public FakeFoxProReader(IReadOnlyList<Dictionary<string, object>> rows)
+        {
+            _rows = rows;
+            _columns = rows.SelectMany(r => r.Keys).Distinct().ToList();
+        }
+
+        private object? Current(int ordinal) =>
+            _rows[_index].TryGetValue(_columns[ordinal], out var v) ? v : null;
+
+        public bool Read() => ++_index < _rows.Count;
+        public int GetOrdinal(string name)
+        {
+            var i = _columns.IndexOf(name);
+            if (i < 0) throw new IndexOutOfRangeException(name);
+            return i;
+        }
+        public bool IsDBNull(int ordinal) => Current(ordinal) is null;
+        public object GetValue(int ordinal) => Current(ordinal)!;
+        public string GetString(int ordinal) => Current(ordinal)?.ToString() ?? string.Empty;
+        public decimal GetDecimal(int ordinal) => Convert.ToDecimal(Current(ordinal));
+        public int GetInt32(int ordinal) => Convert.ToInt32(Current(ordinal));
+        public DateTime GetDateTime(int ordinal) => (DateTime)Current(ordinal)!;
+        public void Dispose() { }
+    }
+}

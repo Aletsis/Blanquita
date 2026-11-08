@@ -10,6 +10,8 @@
 @inject ICashRegisterService CashRegisterService
 @inject IFoxProPedidoRepository PedidoRepository
 @inject ISnackbar Snackbar
+@inject NavigationManager Navigation
+@implements IDisposable
 @inject IDialogService DialogService
 @inject ILogger<ConsultarRutas> Logger
 
@@ -40,14 +42,14 @@
                 </MudSelect>
             </MudItem>
             <MudItem xs="12" md="3">
-                <MudTextField @bind-Value="_ruta" Label="Ruta" Variant="Variant.Outlined" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Route" Placeholder="Nombre o No. de Ruta (Ej: R01)" Clearable="true" Margin="Margin.Dense" />
+                <MudTextField @bind-Value="_ruta" Label="Ruta" Variant="Variant.Outlined" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Route" Placeholder="Ruta o número (Ej: R01 o 1)" Clearable="true" Margin="Margin.Dense" />
             </MudItem>
             <MudItem xs="12" md="3">
                 <MudSelect T="string" Label="Repartidor" @bind-Value="_repartidor" Variant="Variant.Outlined" AnchorOrigin="Origin.BottomCenter" AdornmentIcon="@Icons.Material.Filled.Person" AdornmentColor="Color.Primary" Margin="Margin.Dense" Clearable="true">
                     <MudSelectItem Value="@("")">Todos los repartidores</MudSelectItem>
                     @foreach (var rep in _availableDeliverers)
                     {
-                        <MudSelectItem Value="@rep.EmployeeNumber.ToString()">@rep.Name (@rep.EmployeeNumber)</MudSelectItem>
+                        <MudSelectItem Value="@rep.EmployeeNumber.ToString()">@rep.Name (@rep.EmployeeNumber)@(rep.IsActive ? "" : " — inactivo")</MudSelectItem>
                     }
                 </MudSelect>
             </MudItem>
@@ -141,7 +143,7 @@
                             <MudIconButton Icon="@Icons.Material.Filled.Visibility" Color="Color.Info" Size="Size.Small" Variant="Variant.Filled" Class="mr-1" OnClick="@(() => VerDetalles(context))" />
                         </MudTooltip>
                         <MudTooltip Text="Imprimir">
-                            <MudIconButton Icon="@Icons.Material.Filled.Print" Color="Color.Default" Size="Size.Small" Variant="Variant.Outlined" />
+                            <MudIconButton Icon="@Icons.Material.Filled.Print" Color="Color.Default" Size="Size.Small" Variant="Variant.Outlined" OnClick="@(() => Imprimir(context))" />
                         </MudTooltip>
                     </MudTd>
                 </RowTemplate>
@@ -198,6 +200,7 @@
     private bool _loading = false;
     private bool _hasSearched = false;
     private List<PedidoDto> _pedidos = new();
+    private CancellationTokenSource? _cts;
 
     protected override async Task OnInitializedAsync()
     {
@@ -224,16 +227,12 @@
 
     private void UpdateAvailableDeliverers()
     {
-        if (_selectedBranchId == 0)
-        {
-            _availableDeliverers = _allDeliverers.Where(d => d.IsActive).ToList();
-        }
-        else
-        {
-            _availableDeliverers = _allDeliverers
-                .Where(d => d.BranchId == _selectedBranchId && d.IsActive)
-                .ToList();
-        }
+        // Se incluyen los repartidores inactivos para poder consultar rutas históricas
+        _availableDeliverers = _allDeliverers
+            .Where(d => _selectedBranchId == 0 || d.BranchId == _selectedBranchId)
+            .OrderByDescending(d => d.IsActive)
+            .ThenBy(d => d.Name)
+            .ToList();
     }
 
     private async Task Consultar()
@@ -244,65 +243,48 @@
             return;
         }
 
+        // Cancelar cualquier búsqueda anterior que siga en curso
+        _cts?.Cancel();
+        _cts?.Dispose();
+        _cts = new CancellationTokenSource();
+        var token = _cts.Token;
+
         _loading = true;
-        _hasSearched = true;
-        _pedidos.Clear();
-        
+        _hasSearched = false;
+        _pedidos = new();
+
         try
         {
-            var series = new List<string>();
-            string branchName = "Todas";
+            var serieToBranch = await ObtenerSeriesAsync();
 
-            if (_selectedBranchId > 0)
+            if (serieToBranch.Count == 0)
             {
-                var branch = _branches.FirstOrDefault(b => b.Id == _selectedBranchId);
-                branchName = branch?.Name ?? "Sucursal";
-                
-                // Obtener cajas de la sucursal de tipo Pedidos para saber qué series buscar
-                var registers = await CashRegisterService.GetByBranchAsync(_selectedBranchId);
-                series = registers
-                    .Where(r => r.Tipo == TipoTerminal.Pedidos)
-                    .Select(r => r.Serie)
-                    .Where(s => !string.IsNullOrEmpty(s))
-                    .Distinct()
-                    .ToList();
-
-                if (!series.Any())
-                {
-                    Logger.LogWarning("La sucursal {BranchId} ({BranchName}) no tiene cajas de pedidos configuradas con series", _selectedBranchId, branchName);
-                }
-            }
-            else
-            {
-                // Obtener todas las cajas del sistema de tipo Pedidos para buscar sus series
-                var registers = await CashRegisterService.GetAllAsync();
-                series = registers
-                    .Where(r => r.Tipo == TipoTerminal.Pedidos)
-                    .Select(r => r.Serie)
-                    .Where(s => !string.IsNullOrEmpty(s))
-                    .Distinct()
-                    .ToList();
-
-                if (!series.Any())
-                {
-                    Logger.LogWarning("No se encontraron cajas de pedidos configuradas con series en el sistema");
-                }
+                var mensaje = _selectedBranchId > 0
+                    ? "La sucursal seleccionada no tiene cajas de pedidos con serie configurada."
+                    : "No hay cajas de pedidos con serie configurada en el sistema.";
+                Logger.LogWarning("Consulta de rutas sin series. BranchId: {BranchId}", _selectedBranchId);
+                Snackbar.Add(mensaje, Severity.Warning);
+                return;
             }
 
-            // Realizar la búsqueda real en el repositorio de FoxPro
-            var results = await PedidoRepository.SearchRutasAsync(
-                _selectedDate.Value, 
-                series, 
-                _ruta, 
-                _repartidor);
-            
+            var date = _selectedDate.Value;
+            var ruta = _ruta?.Trim();
+            var repartidor = _repartidor?.Trim();
+            var series = serieToBranch.Keys.ToList();
+
+            // El escaneo del archivo FoxPro es síncrono; se ejecuta fuera del hilo del circuito
+            var results = await Task.Run(() => PedidoRepository.SearchRutasAsync(date, series, ruta, repartidor, token), token);
+
             _pedidos = results.ToList();
+            AsignarSucursal(_pedidos, serieToBranch);
+            _hasSearched = true;
 
-            // Si se filtró por sucursal, nos aseguramos que el nombre de la sucursal sea el correcto
-            if (_selectedBranchId > 0)
-            {
-                foreach(var p in _pedidos) p.BranchName = branchName;
-            }
+            if (_pedidos.Any())
+                Snackbar.Add($"Búsqueda completada. {_pedidos.Count} notas encontradas.", Severity.Success);
+        }
+        catch (OperationCanceledException)
+        {
+            // Búsqueda reemplazada por otra o componente destruido; no se notifica
         }
         catch (Exception ex)
         {
@@ -311,11 +293,49 @@
         }
         finally
         {
-            _loading = false;
+            if (!token.IsCancellationRequested)
+                _loading = false;
         }
+    }
 
-        if (_pedidos.Any())
-            Snackbar.Add($"Búsqueda completada. {_pedidos.Count} notas encontradas.", Severity.Success);
+    /// <summary>
+    /// Obtiene las series de las cajas de tipo Pedidos (de la sucursal seleccionada o de todas)
+    /// junto con el nombre de la sucursal a la que pertenece cada serie.
+    /// </summary>
+    private async Task<Dictionary<string, string>> ObtenerSeriesAsync()
+    {
+        var registers = _selectedBranchId > 0
+            ? await CashRegisterService.GetByBranchAsync(_selectedBranchId)
+            : await CashRegisterService.GetAllAsync();
+
+        var branchNames = _branches.ToDictionary(b => b.Id, b => b.Name);
+
+        return registers
+            .Where(r => r.Tipo == TipoTerminal.Pedidos && !string.IsNullOrWhiteSpace(r.Serie))
+            .GroupBy(r => r.Serie.Trim(), StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(
+                g => g.Key,
+                g => branchNames.TryGetValue(g.First().BranchId, out var name) ? name : "Sin sucursal",
+                StringComparer.OrdinalIgnoreCase);
+    }
+
+    private static void AsignarSucursal(IEnumerable<PedidoDto> pedidos, IReadOnlyDictionary<string, string> serieToBranch)
+    {
+        foreach (var p in pedidos)
+        {
+            p.BranchName = serieToBranch.TryGetValue(p.Serie, out var name) ? name : "Sin sucursal";
+        }
+    }
+
+    private void Imprimir(PedidoDto pedido)
+    {
+        Navigation.NavigateTo($"/reimprimir-pedidos?serie={Uri.EscapeDataString(pedido.Serie)}&folio={Uri.EscapeDataString(pedido.NumeroFolio)}");
+    }
+
+    public void Dispose()
+    {
+        _cts?.Cancel();
+        _cts?.Dispose();
     }
 
     private async Task VerDetalles(PedidoDto pedido)

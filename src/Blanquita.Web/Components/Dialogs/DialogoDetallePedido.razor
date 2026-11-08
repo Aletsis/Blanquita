@@ -1,5 +1,7 @@
 @inject IFoxProPedidoRepository PedidoRepository
 @inject IClientCatalogRepository ClientRepository
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
 @using Blanquita.Application.Interfaces.Repositories
 @using Blanquita.Application.DTOs
 
@@ -240,8 +242,15 @@
 
     private void Cerrar() => MudDialog.Cancel();
     
-    private void Imprimir() 
+    private void Imprimir()
     {
-        // Funcionalidad dummy
+        if (string.IsNullOrEmpty(Pedido.Serie) || string.IsNullOrEmpty(Pedido.NumeroFolio))
+        {
+            Snackbar.Add("No se pudo identificar la serie y folio del pedido", Severity.Warning);
+            return;
+        }
+
+        MudDialog.Close();
+        Navigation.NavigateTo($"/reimprimir-pedidos?serie={Uri.EscapeDataString(Pedido.Serie)}&folio={Uri.EscapeDataString(Pedido.NumeroFolio)}");
     }
 }

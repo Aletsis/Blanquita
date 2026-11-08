@@ -193,6 +193,10 @@
     private List<CashRegister> cashRegisters = new();
     private int selectedCashRegisterId = 0;
 
+    // Permite llegar desde Consultar Pedidos / Consultar Rutas con el pedido ya identificado
+    [SupplyParameterFromQuery(Name = "serie")] public string? SerieQuery { get; set; }
+    [SupplyParameterFromQuery(Name = "folio")] public string? FolioQuery { get; set; }
+
     protected override async Task OnInitializedAsync()
     {
         try
@@ -202,6 +206,13 @@
         catch (Exception ex)
         {
             Logger.LogError(ex, "Error loading cash registers");
+        }
+
+        if (!string.IsNullOrWhiteSpace(SerieQuery) && !string.IsNullOrWhiteSpace(FolioQuery))
+        {
+            series = SerieQuery.Trim();
+            folio = FolioQuery.Trim();
+            await BuscarPedido();
         }
     }
 

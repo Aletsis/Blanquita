@@ -2,7 +2,10 @@ namespace Blanquita.Application.DTOs;
 
 public class PedidoDto
 {
+    /// <summary>Folio compuesto con formato "SERIE-NUMERO".</summary>
     public string Folio { get; set; } = string.Empty;
+    public string Serie { get; set; } = string.Empty;
+    public string NumeroFolio { get; set; } = string.Empty;
     public DateTime Fecha { get; set; }
     public string Hora { get; set; } = string.Empty;
     public string BranchName { get; set; } = string.Empty;

@@ -72,8 +72,9 @@ public class FoxProPedidoRepository : IFoxProPedidoRepository
                         recordCount, skippedCount, cfecha, date);
                     break;
                 }
-                // Si la fecha es más reciente (ej. buscamos ayer, pero estamos leyendo hoy), la saltamos
-                if (cfecha.Date > date.Date) continue;
+                // Solo se devuelven los registros de la fecha exacta solicitada.
+                // Los más recientes o más antiguos (dentro de la ventana de tolerancia) se saltan.
+                if (cfecha.Date != date.Date) continue;
 
                 var cseriedo01 = reader.GetStringSafe("CSERIEDO01")?.Trim() ?? string.Empty;
                 if (seriesList.Any() && !seriesList.Contains(cseriedo01.ToUpper())) continue;
@@ -89,10 +90,13 @@ public class FoxProPedidoRepository : IFoxProPedidoRepository
                     if (!CompareComanda(extractedComanda, comanda)) continue;
                 }
 
+                var cfolio = reader.GetStringSafe("CFOLIO")?.Trim() ?? string.Empty;
                 var pedido = new PedidoDto
                 {
                     IdDocumento = reader.GetStringSafe("CIDDOCUM01"),
-                    Folio = $"{cseriedo01}-{reader.GetStringSafe("CFOLIO")}",
+                    Folio = $"{cseriedo01}-{cfolio}",
+                    Serie = cseriedo01,
+                    NumeroFolio = cfolio,
                     Fecha = cfecha,
                     Comanda = extractedComanda,
                     Ruta = extractedRuta,
@@ -176,8 +180,9 @@ public class FoxProPedidoRepository : IFoxProPedidoRepository
                         recordCount, skippedCount, cfecha, date);
                     break;
                 }
-                // Si la fecha es más reciente (ej. buscamos ayer, pero estamos leyendo hoy), la saltamos
-                if (cfecha.Date > date.Date) continue;
+                // Solo se devuelven los registros de la fecha exacta solicitada.
+                // Los más recientes o más antiguos (dentro de la ventana de tolerancia) se saltan.
+                if (cfecha.Date != date.Date) continue;
 
                 var cseriedo01 = reader.GetStringSafe("CSERIEDO01")?.Trim() ?? string.Empty;
                 if (seriesList.Any() && !seriesList.Contains(cseriedo01.ToUpper())) continue;
@@ -186,26 +191,29 @@ public class FoxProPedidoRepository : IFoxProPedidoRepository
                 var (extractedRuta, extractedNomina) = ExtractRutaAndNomina(ctextoex01);
 
                 // Filtrar por Ruta si se proporcionó
-                if (!string.IsNullOrEmpty(ruta))
+                if (!string.IsNullOrWhiteSpace(ruta))
                 {
-                    if (!extractedRuta.Equals(ruta, StringComparison.OrdinalIgnoreCase)) continue;
+                    if (!CompareRuta(extractedRuta, ruta)) continue;
                 }
 
                 // Filtrar por Repartidor (Nómina) si se proporcionó
-                if (!string.IsNullOrEmpty(repartidorNomina))
+                if (!string.IsNullOrWhiteSpace(repartidorNomina))
                 {
-                    if (extractedNomina != repartidorNomina) continue;
+                    if (!CompareNomina(extractedNomina, repartidorNomina)) continue;
                 }
 
                 var ctextoex02 = reader.GetStringSafe("CTEXTOEX02") ?? string.Empty;
                 var extractedComanda = ExtractComanda(ctextoex02);
 
-                _logger.LogInformation("Ruta encontrada: Folio {Folio}, Ruta {Ruta}, Repartidor {Rep}", reader.GetStringSafe("CFOLIO"), extractedRuta, extractedNomina);
+                _logger.LogDebug("Ruta encontrada: Folio {Folio}, Ruta {Ruta}, Repartidor {Rep}", reader.GetStringSafe("CFOLIO"), extractedRuta, extractedNomina);
 
+                var cfolio = reader.GetStringSafe("CFOLIO")?.Trim() ?? string.Empty;
                 var pedido = new PedidoDto
                 {
                     IdDocumento = reader.GetStringSafe("CIDDOCUM01"),
-                    Folio = $"{cseriedo01}-{reader.GetStringSafe("CFOLIO")}",
+                    Folio = $"{cseriedo01}-{cfolio}",
+                    Serie = cseriedo01,
+                    NumeroFolio = cfolio,
                     Fecha = cfecha,
                     Comanda = extractedComanda,
                     Ruta = extractedRuta,
@@ -280,6 +288,8 @@ public class FoxProPedidoRepository : IFoxProPedidoRepository
                     {
                         IdDocumento = reader.GetStringSafe("CIDDOCUM01"),
                         Folio = $"{cseriedo01}-{cfolio}",
+                        Serie = cseriedo01,
+                        NumeroFolio = cfolio,
                         Fecha = reader.GetDateTimeSafe("CFECHA"),
                         Comanda = extractedComanda,
                         Ruta = extractedRuta,
@@ -338,6 +348,55 @@ public class FoxProPedidoRepository : IFoxProPedidoRepository
         var nomina = parts[1]; // Ej: 1343
 
         return (ruta, nomina);
+    }
+
+    /// <summary>
+    /// Compara una ruta extraída (ej. "R01") con el filtro del usuario.
+    /// Acepta coincidencia exacta, sin importar mayúsculas ni ceros a la izquierda ("r1" = "R01"),
+    /// o solo el número de ruta ("1" o "01" = "R01").
+    /// </summary>
+    private static bool CompareRuta(string extracted, string filter)
+    {
+        extracted = extracted?.Trim() ?? string.Empty;
+        filter = filter?.Trim() ?? string.Empty;
+
+        if (filter.Length == 0) return true;
+        if (extracted.Length == 0) return false;
+        if (extracted.Equals(filter, StringComparison.OrdinalIgnoreCase)) return true;
+
+        var (extPrefix, extNumber) = SplitRuta(extracted);
+        var (filPrefix, filNumber) = SplitRuta(filter);
+
+        if (extNumber is null || filNumber is null) return false;
+        if (extNumber != filNumber) return false;
+
+        // Si el usuario solo escribió el número, no se exige el prefijo
+        return filPrefix.Length == 0 || extPrefix.Equals(filPrefix, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static (string Prefix, int? Number) SplitRuta(string value)
+    {
+        var i = 0;
+        while (i < value.Length && !char.IsDigit(value[i])) i++;
+
+        var prefix = value[..i].Trim();
+        var digits = value[i..].Trim();
+
+        return int.TryParse(digits, out var number) ? (prefix, number) : (prefix, null);
+    }
+
+    /// <summary>
+    /// Compara números de nómina tolerando ceros a la izquierda y espacios.
+    /// </summary>
+    private static bool CompareNomina(string extracted, string filter)
+    {
+        extracted = extracted?.Trim() ?? string.Empty;
+        filter = filter?.Trim() ?? string.Empty;
+
+        if (int.TryParse(extracted, out var ext) && int.TryParse(filter, out var fil))
+            return ext == fil;
+
+        return extracted.Equals(filter, StringComparison.OrdinalIgnoreCase);
     }
 
     public async Task<IEnumerable<PedidoItemDto>> GetPedidoItemsAsync(string idDocumento, CancellationToken cancellationToken = default)
@@ -562,10 +621,13 @@ public class FoxProPedidoRepository : IFoxProPedidoRepository
                 var ctextoex02 = reader.GetStringSafe("CTEXTOEX02") ?? string.Empty;
                 var extractedComanda = ExtractComanda(ctextoex02);
 
+                var cfolio = reader.GetStringSafe("CFOLIO")?.Trim() ?? string.Empty;
                 var pedido = new PedidoDto
                 {
                     IdDocumento = reader.GetStringSafe("CIDDOCUM01"),
-                    Folio = $"{cseriedo01}-{reader.GetStringSafe("CFOLIO")}",
+                    Folio = $"{cseriedo01}-{cfolio}",
+                    Serie = cseriedo01,
+                    NumeroFolio = cfolio,
                     Fecha = cfecha,
                     Hora = chora,
                     Comanda = extractedComanda,
