@@ -1,6 +1,6 @@
-﻿@page "/reimprimir"
+@page "/reimprimir"
 @using Microsoft.AspNetCore.Authorization
-@attribute [Authorize(Roles = "Admin")]
+@attribute [Authorize(Roles = "Admin,Security")]
 @using Blanquita.Application.DTOs
 @using Blanquita.Application.Interfaces
 @using Blanquita.Domain.Enums
