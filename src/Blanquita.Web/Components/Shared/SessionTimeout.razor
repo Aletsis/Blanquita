@@ -1,6 +1,8 @@
 @using Microsoft.JSInterop
 @inject IJSRuntime JSRuntime
-@inject NavigationManager NavigationManager
+@inject AntiforgeryStateProvider Antiforgery
+@using Blanquita.Web.Extensions
+@using Microsoft.AspNetCore.Components.Forms
 @implements IAsyncDisposable
 
 @code {
@@ -17,10 +19,10 @@
     }
 
     [JSInvokable]
-    public void OnSessionTimeout()
+    public async Task OnSessionTimeout()
     {
-        // Redirigir a la acción de logout
-        NavigationManager.NavigateTo("/Account/logout", forceLoad: true);
+        // Cerrar sesión con POST (el endpoint de logout ya no acepta GET)
+        await JSRuntime.SubmitLogoutAsync(Antiforgery);
     }
 
     public async ValueTask DisposeAsync()

@@ -1,4 +1,5 @@
 using Blanquita.Application.DTOs;
+using Blanquita.Application.Interfaces.Repositories;
 
 namespace Blanquita.Application.Interfaces;
 
@@ -6,6 +7,8 @@ public interface IConciliacionService
 {
     Task<ConciliacionResultDto> GetConciliacionAsync(int cashRegisterId, int shiftId, int cashierId, DateTime date, CancellationToken cancellationToken = default);
     Task<IEnumerable<AvailableBoxDto>> GetAvailableBoxesAsync(DateTime date, int? branchId = null, CancellationToken cancellationToken = default);
+    /// <summary>Suma de las recolecciones de la caja registradas durante el horario del turno.</summary>
+    Task<decimal> GetTotalRecolectadoAsync(string cashRegisterName, ShiftConciliationDataDto shift, CancellationToken cancellationToken = default);
     Task SaveConciliacionCorteAsync(ConciliacionCorteDto dto, CancellationToken cancellationToken = default);
     Task UpdateConciliacionCorteAsync(ConciliacionCorteDto dto, CancellationToken cancellationToken = default);
     Task<ConciliacionCorteDto?> GetConciliacionByIdAsync(int id, CancellationToken cancellationToken = default);

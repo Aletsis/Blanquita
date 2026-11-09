@@ -372,6 +372,12 @@ namespace Blanquita.Infrastructure.Migrations
                         .HasColumnType("character varying(100)")
                         .HasColumnName("Usuario");
 
+                    b.Property<uint>("Version")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
                     b.HasKey("Id");
 
                     b.HasIndex("AperturaId");
@@ -743,6 +749,9 @@ namespace Blanquita.Infrastructure.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("ClientCode", "FileName")
+                        .IsUnique();
 
                     b.ToTable("SentInvoiceLogs");
                 });

@@ -17,6 +17,7 @@ public class ConfiguracionService : IConfiguracionService
     private readonly IAppConfigurationManager _legacyConfigManager; // For migration
     private readonly IEncryptionService _encryptionService;
     private readonly ILogger<ConfiguracionService> _logger;
+    private readonly IJobScheduler _jobScheduler;
 
     private static DTOs.ConfiguracionDto? _staticCachedConfig;
     private static readonly System.Threading.SemaphoreSlim _semaphore = new System.Threading.SemaphoreSlim(1, 1);
@@ -39,21 +40,26 @@ public class ConfiguracionService : IConfiguracionService
         IFileSystemService fileSystemService,
         IAppConfigurationManager legacyConfigManager,
         IEncryptionService encryptionService,
-        ILogger<ConfiguracionService> logger)
+        ILogger<ConfiguracionService> logger,
+        IJobScheduler jobScheduler)
     {
         _repository = repository;
         _fileSystemService = fileSystemService;
         _legacyConfigManager = legacyConfigManager;
         _encryptionService = encryptionService;
         _logger = logger;
+        _jobScheduler = jobScheduler;
     }
 
     /// <inheritdoc/>
     public async Task<ConfiguracionDto> ObtenerConfiguracionAsync()
     {
-        if (_staticCachedConfig != null)
+        // Se entrega siempre una copia: la instancia en caché es compartida por todos los usuarios y Hangfire,
+        // y las pantallas enlazan sus controles directamente al DTO devuelto.
+        var cached = _staticCachedConfig;
+        if (cached != null)
         {
-            return _staticCachedConfig;
+            return cached.Clone();
         }
 
         await _semaphore.WaitAsync();
@@ -61,12 +67,17 @@ public class ConfiguracionService : IConfiguracionService
         {
             if (_staticCachedConfig != null)
             {
-                return _staticCachedConfig;
+                return _staticCachedConfig.Clone();
             }
 
             _logger.LogInformation("Obteniendo configuración del sistema desde la base de datos");
             
             var configEntity = await _repository.GetAsync();
+
+            if (configEntity != null)
+            {
+                await CifrarApiKeysEnTextoPlanoAsync(configEntity);
+            }
             
             if (configEntity == null)
             {
@@ -104,7 +115,7 @@ public class ConfiguracionService : IConfiguracionService
             }
 
             _staticCachedConfig = MapearADto(configEntity);
-            return _staticCachedConfig;
+            return _staticCachedConfig.Clone();
         }
         catch (Exception ex)
         {
@@ -202,11 +213,27 @@ public class ConfiguracionService : IConfiguracionService
             }
 
             _logger.LogInformation("Configuración guardada exitosamente");
+
+            // Aplicar de inmediato la hora del envío automático de facturas (antes requería reiniciar)
+            ReprogramarTrabajos(configuracion.InvoiceJobExecutionTime);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error al guardar la configuración del sistema");
             throw;
+        }
+    }
+
+    private void ReprogramarTrabajos(TimeSpan? invoiceJobExecutionTime)
+    {
+        // La configuración ya quedó guardada; un fallo aquí no debe revertirla
+        try
+        {
+            _jobScheduler.ConfigureRecurringJobs(invoiceJobExecutionTime);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "La configuración se guardó, pero no se pudieron reprogramar los trabajos recurrentes");
         }
     }
 
@@ -251,6 +278,23 @@ public class ConfiguracionService : IConfiguracionService
             if (configuracion.PrinterPort <= 0)
             {
                 resultado.AgregarAdvertencia("El puerto de la impresora principal no es válido");
+            }
+
+            // Las credenciales se guardan cifradas y ocupan más espacio que el texto original;
+            // estos límites garantizan que quepan en sus columnas (500 para API Keys, 200 para la contraseña SMTP)
+            if (BytesUtf8(configuracion.CommercialApiKey) > 300)
+            {
+                resultado.AgregarError("El API Key de la API Comercial no puede exceder 300 caracteres (300 bytes)");
+            }
+
+            if (BytesUtf8(configuracion.WhatsAppApiKey) > 300)
+            {
+                resultado.AgregarError("El API Key de WhatsApp no puede exceder 300 caracteres (300 bytes)");
+            }
+
+            if (BytesUtf8(configuracion.SmtpPassword) > 100)
+            {
+                resultado.AgregarError("La contraseña SMTP no puede exceder 100 caracteres (100 bytes)");
             }
 
             if (resultado.Errores.Count == 0)
@@ -326,6 +370,8 @@ public class ConfiguracionService : IConfiguracionService
             {
                 _semaphore.Release();
             }
+
+            ReprogramarTrabajos(new ConfiguracionDto().InvoiceJobExecutionTime);
         }
         catch (Exception ex)
         {
@@ -376,13 +422,61 @@ public class ConfiguracionService : IConfiguracionService
             InvoiceJobExecutionTime = entity.InvoiceJobExecutionTime,
             AlertEmails = entity.AlertEmails,
             CommercialApiUrl = entity.CommercialApiUrl,
-            CommercialApiKey = entity.CommercialApiKey,
+            CommercialApiKey = DescifrarApiKey(entity.CommercialApiKey),
             WhatsAppServiceUrl = entity.WhatsAppServiceUrl,
-            WhatsAppApiKey = entity.WhatsAppApiKey,
+            WhatsAppApiKey = DescifrarApiKey(entity.WhatsAppApiKey),
             IsWhatsAppEnabled = entity.IsWhatsAppEnabled
         };
     }
  
+    private static int BytesUtf8(string? value) =>
+        string.IsNullOrEmpty(value) ? 0 : System.Text.Encoding.UTF8.GetByteCount(value);
+
+    /// <summary>
+    /// Las API Keys se guardaban en texto plano. Solo se descifran si tienen el prefijo del formato cifrado;
+    /// en caso contrario se usan tal cual (no se intenta adivinar si un texto plano "parece" Base64).
+    /// </summary>
+    private string DescifrarApiKey(string storedValue)
+    {
+        return _encryptionService.IsEncrypted(storedValue)
+            ? _encryptionService.Decrypt(storedValue)
+            : storedValue;
+    }
+
+    /// <summary>
+    /// Migra de forma transparente las API Keys guardadas en texto plano a su forma cifrada.
+    /// </summary>
+    private async Task CifrarApiKeysEnTextoPlanoAsync(SystemConfiguration entity)
+    {
+        var requiereActualizar = false;
+
+        if (!string.IsNullOrEmpty(entity.CommercialApiKey) && !_encryptionService.IsEncrypted(entity.CommercialApiKey))
+        {
+            entity.CommercialApiKey = _encryptionService.Encrypt(entity.CommercialApiKey);
+            requiereActualizar = true;
+        }
+
+        if (!string.IsNullOrEmpty(entity.WhatsAppApiKey) && !_encryptionService.IsEncrypted(entity.WhatsAppApiKey))
+        {
+            entity.WhatsAppApiKey = _encryptionService.Encrypt(entity.WhatsAppApiKey);
+            requiereActualizar = true;
+        }
+
+        if (!requiereActualizar) return;
+
+        try
+        {
+            await _repository.UpdateAsync(entity);
+            _logger.LogInformation("API Keys de la configuración migradas a almacenamiento cifrado");
+        }
+        catch (Exception ex)
+        {
+            // Si no se pudo guardar, los valores en memoria siguen siendo válidos (cifrados) para esta lectura;
+            // se reintentará en la siguiente carga de la configuración.
+            _logger.LogError(ex, "No se pudieron cifrar las API Keys guardadas en texto plano");
+        }
+    }
+
     private void ActualizarEntidad(SystemConfiguration entity, ConfiguracionDto dto)
     {
         entity.Pos10041Path = dto.Pos10041Path;
@@ -411,9 +505,9 @@ public class ConfiguracionService : IConfiguracionService
         entity.InvoiceJobExecutionTime = dto.InvoiceJobExecutionTime;
         entity.AlertEmails = dto.AlertEmails;
         entity.CommercialApiUrl = dto.CommercialApiUrl;
-        entity.CommercialApiKey = dto.CommercialApiKey;
+        entity.CommercialApiKey = _encryptionService.Encrypt(dto.CommercialApiKey);
         entity.WhatsAppServiceUrl = dto.WhatsAppServiceUrl;
-        entity.WhatsAppApiKey = dto.WhatsAppApiKey;
+        entity.WhatsAppApiKey = _encryptionService.Encrypt(dto.WhatsAppApiKey);
         entity.IsWhatsAppEnabled = dto.IsWhatsAppEnabled;
     }
 }

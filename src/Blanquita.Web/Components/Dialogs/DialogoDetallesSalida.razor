@@ -174,11 +174,11 @@
             // 1. Obtener movimientos
             _movimientos = await CommercialApiService.GetMovimientosAsync(DocumentoId, Username);
             
-            // 2. Obtener catálogo de productos (tanto activos como inactivos) para mapear nombres y códigos
-            var products = await CommercialApiService.GetProductosAsync("", Username, onlyActive: false);
-            foreach (var p in products)
+            // 2. Consultar solo los productos de las partidas para mostrar código y nombre
+            var products = await CommercialApiService.GetProductosByIdsAsync(_movimientos.Select(m => m.CIDPRODUCTO), Username);
+            foreach (var (id, p) in products)
             {
-                _productCache[p.Id] = (p.Codigo, p.Nombre);
+                _productCache[id] = (p.Codigo, p.Nombre);
             }
         }
         catch (Exception ex)

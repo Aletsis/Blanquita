@@ -26,3 +26,21 @@ window.submitLoginForm = (action, username, password, returnUrl) => {
     document.body.appendChild(form);
     form.submit();
 };
+
+// Cierra la sesión con un POST que incluye el token antiforgery (el endpoint ya no acepta GET)
+window.submitLogoutForm = (action, tokenName, token) => {
+    const form = document.createElement('form');
+    form.method = 'post';
+    form.action = action;
+
+    if (tokenName && token) {
+        const tokenIn = document.createElement('input');
+        tokenIn.type = 'hidden';
+        tokenIn.name = tokenName;
+        tokenIn.value = token;
+        form.appendChild(tokenIn);
+    }
+
+    document.body.appendChild(form);
+    form.submit();
+};

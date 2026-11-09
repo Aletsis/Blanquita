@@ -41,6 +41,7 @@ public class InvoiceJobService : IInvoiceJobService
 
         var clientsWithoutEmail = new List<string>();
         var invoicesMissingFiles = new List<(string ClientCode, string InvoiceInfo)>();
+        var failedInvoices = new List<(string ClientCode, string InvoiceInfo)>();
         int totalSent = 0;
 
         try
@@ -61,9 +62,12 @@ public class InvoiceJobService : IInvoiceJobService
 
             _logger.LogInformation("Se encontraron facturas recientes para {Count} clientes", recentInvoicesByClient.Count);
 
-            // 2. Obtener todos los clientes para cruzar información
+            // 2. Obtener todos los clientes para cruzar información.
+            // Si el catálogo DBF trae Ids repetidos se usa el primero, en lugar de abortar todo el trabajo.
             var allClients = await _clientRepository.GetAllAsync();
-            var clientMap = allClients.ToDictionary(c => c.Id, c => c);
+            var clientMap = allClients
+                .GroupBy(c => c.Id)
+                .ToDictionary(g => g.Key, g => g.First());
 
             // 3. Procesar clientes con facturas recientes
             foreach (var group in recentInvoicesByClient)
@@ -84,77 +88,28 @@ public class InvoiceJobService : IInvoiceJobService
                     continue;
                 }
 
-                try
+                var clientFolder = Path.Combine(config.FacturasPath, client.Code);
+
+                foreach (var invoice in clientInvoices)
                 {
-                    var clientFolder = Path.Combine(config.FacturasPath, client.Code);
-                    
-                    foreach (var invoice in clientInvoices)
+                    // Un error en una factura no debe impedir el envío de las demás
+                    try
                     {
-                        // 4. Verificar si ya fue enviada
-                        var alreadySent = await _logRepository.ExistsAsync(client.Code, invoice.FileName);
-
-                        if (alreadySent) continue;
-
-                        // 5. Verificar existencia de archivos físicos
-                        if (!_fileSystemService.DirectoryExists(clientFolder))
+                        if (await TrySendInvoiceAsync(config, client, invoice, clientFolder, invoicesMissingFiles))
                         {
-                            invoicesMissingFiles.Add((client.Code, $"Carpeta no encontrada: {client.Code} (Factura {invoice.Serie}{invoice.Folio})"));
-                            continue;
+                            totalSent++;
                         }
-
-                        var xmlPath = Path.Combine(clientFolder, invoice.FileName + ".xml");
-                        var pdfPath = Path.Combine(clientFolder, invoice.FileName + ".pdf");
-                        var attachments = new List<string>();
-
-                        if (_fileSystemService.FileExists(xmlPath)) attachments.Add(xmlPath);
-                        if (_fileSystemService.FileExists(pdfPath)) attachments.Add(pdfPath);
-
-                        // Caso B: Factura sin archivos físicos
-                        if (!attachments.Any())
-                        {
-                            invoicesMissingFiles.Add((client.Code, $"Archivos no encontrados: {invoice.FileName} (Factura {invoice.Serie}{invoice.Folio})"));
-                            continue;
-                        }
-
-                        // 6. Enviar correo al cliente
-                        var subject = $"Factura {invoice.Serie}{invoice.Folio} - {config.SmtpFromName}";
-                        var body = $@"
-                            <div style='font-family: Arial, sans-serif; color: #333;'>
-                                <h2 style='color: #1e88e5;'>Hola {client.Name},</h2>
-                                <p>Le adjuntamos su factura correspondiente a su compra del día <strong>{invoice.Fecha:dd/MM/yyyy}</strong>.</p>
-                                <p><strong>Detalles del Documento:</strong></p>
-                                <ul>
-                                    <li>Serie: {invoice.Serie}</li>
-                                    <li>Folio: {invoice.Folio}</li>
-                                </ul>
-                                <p>Agradecemos su preferencia.</p>
-                                <hr style='border: 0; border-top: 1px solid #eee;' />
-                                <p style='font-size: 0.8rem; color: #999;'>Este es un envío automático del Sistema Blanquita. Por favor no responda a este mensaje.</p>
-                            </div>";
-
-                        await _emailService.SendEmailAsync(client.Email, subject, body, attachments);
-
-                        // 7. Registrar envío en la BD
-                        await _logRepository.AddAsync(new SentInvoiceLog
-                        {
-                            ClientCode = client.Code,
-                            FileName = invoice.FileName,
-                            SentAt = DateTime.UtcNow
-                        });
-
-                        totalSent++;
-                        
-                        _logger.LogInformation("Factura {FileName} enviada exitosamente al cliente {Code}", invoice.FileName, client.Code);
                     }
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Error al procesar facturas para el cliente {Code}", client.Code);
+                    catch (Exception ex)
+                    {
+                        failedInvoices.Add((client.Code, $"{invoice.Serie}{invoice.Folio}: {ex.Message}"));
+                        _logger.LogError(ex, "Error al enviar la factura {FileName} al cliente {Code}", invoice.FileName, client.Code);
+                    }
                 }
             }
 
             // 7. Enviar correo de resumen a las encargadas
-            await SendSummaryEmailAsync(config, totalSent, clientsWithoutEmail, invoicesMissingFiles);
+            await SendSummaryEmailAsync(config, totalSent, clientsWithoutEmail, invoicesMissingFiles, failedInvoices);
         }
         catch (Exception ex)
         {
@@ -162,7 +117,85 @@ public class InvoiceJobService : IInvoiceJobService
         }
     }
 
-    private async Task SendSummaryEmailAsync(ConfiguracionDto config, int totalSent, List<string> clientsWithoutEmail, List<(string ClientCode, string InvoiceInfo)> invoicesMissingFiles)
+    /// <summary>
+    /// Envía una factura si aún no se ha enviado y tiene archivos. Devuelve true si se envió.
+    /// </summary>
+    private async Task<bool> TrySendInvoiceAsync(
+        ConfiguracionDto config,
+        ClientSearchDto client,
+        InvoiceDto invoice,
+        string clientFolder,
+        List<(string ClientCode, string InvoiceInfo)> invoicesMissingFiles)
+    {
+        // 4. Verificar si ya fue enviada
+        if (await _logRepository.ExistsAsync(client.Code, invoice.FileName))
+        {
+            return false;
+        }
+
+        // 5. Verificar existencia de archivos físicos
+        if (!_fileSystemService.DirectoryExists(clientFolder))
+        {
+            invoicesMissingFiles.Add((client.Code, $"Carpeta no encontrada: {client.Code} (Factura {invoice.Serie}{invoice.Folio})"));
+            return false;
+        }
+
+        var xmlPath = Path.Combine(clientFolder, invoice.FileName + ".xml");
+        var pdfPath = Path.Combine(clientFolder, invoice.FileName + ".pdf");
+        var attachments = new List<string>();
+
+        if (_fileSystemService.FileExists(xmlPath)) attachments.Add(xmlPath);
+        if (_fileSystemService.FileExists(pdfPath)) attachments.Add(pdfPath);
+
+        // Caso B: Factura sin archivos físicos
+        if (!attachments.Any())
+        {
+            invoicesMissingFiles.Add((client.Code, $"Archivos no encontrados: {invoice.FileName} (Factura {invoice.Serie}{invoice.Folio})"));
+            return false;
+        }
+
+        // 6. Enviar correo al cliente (los datos del DBF se codifican para no inyectar HTML)
+        var subject = $"Factura {invoice.Serie}{invoice.Folio} - {config.SmtpFromName}";
+        var body = $@"
+            <div style='font-family: Arial, sans-serif; color: #333;'>
+                <h2 style='color: #1e88e5;'>Hola {Html(client.Name)},</h2>
+                <p>Le adjuntamos su factura correspondiente a su compra del día <strong>{invoice.Fecha:dd/MM/yyyy}</strong>.</p>
+                <p><strong>Detalles del Documento:</strong></p>
+                <ul>
+                    <li>Serie: {Html(invoice.Serie)}</li>
+                    <li>Folio: {invoice.Folio}</li>
+                </ul>
+                <p>Agradecemos su preferencia.</p>
+                <hr style='border: 0; border-top: 1px solid #eee;' />
+                <p style='font-size: 0.8rem; color: #999;'>Este es un envío automático del Sistema Blanquita. Por favor no responda a este mensaje.</p>
+            </div>";
+
+        await _emailService.SendEmailAsync(client.Email, subject, body, attachments);
+
+        // 7. Registrar envío en la BD. Si falla, el correo ya salió: se registra el error para no ocultarlo,
+        // pero se cuenta como enviada (el índice único evita duplicar el registro si otro proceso lo insertó).
+        try
+        {
+            await _logRepository.AddAsync(new SentInvoiceLog
+            {
+                ClientCode = client.Code,
+                FileName = invoice.FileName,
+                SentAt = DateTime.UtcNow
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "La factura {FileName} se envió al cliente {Code} pero no se pudo registrar el envío; podría reenviarse en la siguiente ejecución",
+                invoice.FileName, client.Code);
+        }
+
+        _logger.LogInformation("Factura {FileName} enviada exitosamente al cliente {Code}", invoice.FileName, client.Code);
+        return true;
+    }
+
+    private static string Html(string? value) => System.Net.WebUtility.HtmlEncode(value ?? string.Empty);
+
+    private async Task SendSummaryEmailAsync(ConfiguracionDto config, int totalSent, List<string> clientsWithoutEmail, List<(string ClientCode, string InvoiceInfo)> invoicesMissingFiles, List<(string ClientCode, string InvoiceInfo)> failedInvoices)
     {
         if (string.IsNullOrEmpty(config.AlertEmails)) return;
 
@@ -186,7 +219,7 @@ public class InvoiceJobService : IInvoiceJobService
                 bodyBuilder.Append("<ul>");
                 foreach (var client in clientsWithoutEmail.Take(50)) // Limitar para no hacer un correo gigante
                 {
-                    bodyBuilder.Append($"<li>{client}</li>");
+                    bodyBuilder.Append($"<li>{Html(client)}</li>");
                 }
                 if (clientsWithoutEmail.Count > 50) bodyBuilder.Append($"<li>... y {clientsWithoutEmail.Count - 50} más.</li>");
                 bodyBuilder.Append("</ul>");
@@ -199,9 +232,22 @@ public class InvoiceJobService : IInvoiceJobService
                 bodyBuilder.Append("<ul>");
                 foreach (var item in invoicesMissingFiles.Take(50))
                 {
-                    bodyBuilder.Append($"<li><strong>Cliente {item.ClientCode}:</strong> {item.InvoiceInfo}</li>");
+                    bodyBuilder.Append($"<li><strong>Cliente {Html(item.ClientCode)}:</strong> {Html(item.InvoiceInfo)}</li>");
                 }
                 if (invoicesMissingFiles.Count > 50) bodyBuilder.Append($"<li>... y {invoicesMissingFiles.Count - 50} más.</li>");
+                bodyBuilder.Append("</ul>");
+            }
+
+            if (failedInvoices.Any())
+            {
+                bodyBuilder.Append("<h3 style='color: #d32f2f;'>Facturas con Error de Envío</h3>");
+                bodyBuilder.Append("<p>No se pudieron enviar las siguientes facturas; se reintentarán en la próxima ejecución:</p>");
+                bodyBuilder.Append("<ul>");
+                foreach (var item in failedInvoices.Take(50))
+                {
+                    bodyBuilder.Append($"<li><strong>Cliente {Html(item.ClientCode)}:</strong> {Html(item.InvoiceInfo)}</li>");
+                }
+                if (failedInvoices.Count > 50) bodyBuilder.Append($"<li>... y {failedInvoices.Count - 50} más.</li>");
                 bodyBuilder.Append("</ul>");
             }
 

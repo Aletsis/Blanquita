@@ -381,7 +381,8 @@ public class BlanquitaDbContext : IdentityDbContext<ApplicationUser>
             entity.Property(e => e.Sucursal).HasColumnName("Sucursal").IsRequired().HasMaxLength(200);
             entity.Property(e => e.Caja).HasColumnName("Caja").IsRequired().HasMaxLength(200);
             entity.Property(e => e.Cajero).HasColumnName("Cajero").IsRequired().HasMaxLength(200);
-            
+            entity.Property(e => e.Version).IsRowVersion();
+
             entity.Property(e => e.TotalRecolecciones).HasColumnName("TotalRecolecciones").HasColumnType("decimal(18,2)").IsRequired();
             entity.Property(e => e.EfectivoEntregado).HasColumnName("EfectivoEntregado").HasColumnType("decimal(18,2)").IsRequired();
             entity.Property(e => e.SalidasEfectivo).HasColumnName("SalidasEfectivo").HasColumnType("decimal(18,2)").HasDefaultValue(0);
@@ -442,6 +443,12 @@ public class BlanquitaDbContext : IdentityDbContext<ApplicationUser>
             entity.Property(e => e.OldValue).HasColumnName("ValorAnterior").HasColumnType("text");
             entity.Property(e => e.NewValue).HasColumnName("ValorNuevo").HasColumnType("text");
             entity.HasIndex(e => e.ChangedAt);
+        });
+
+        modelBuilder.Entity<SentInvoiceLog>(entity =>
+        {
+            // Una factura solo puede registrarse como enviada una vez por cliente
+            entity.HasIndex(e => new { e.ClientCode, e.FileName }).IsUnique();
         });
     }
 }

@@ -157,4 +157,9 @@ public class ConfiguracionDto
     /// Indica si el servicio de WhatsApp está activo en el sistema
     /// </summary>
     public bool IsWhatsAppEnabled { get; set; }
+
+    /// <summary>
+    /// Crea una copia independiente. Todas las propiedades son escalares, por lo que basta una copia superficial.
+    /// </summary>
+    public ConfiguracionDto Clone() => (ConfiguracionDto)MemberwiseClone();
 }

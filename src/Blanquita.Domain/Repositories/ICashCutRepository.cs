@@ -7,6 +7,7 @@ public interface ICashCutRepository
 {
     Task<CashCut?> GetByIdAsync(int id, CancellationToken cancellationToken = default);
     Task<IEnumerable<CashCut>> GetAllAsync(CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<CashCut>> SearchAsync(CashCutSearchCriteria criteria, CancellationToken cancellationToken = default);
     Task<IEnumerable<CashCut>> GetByDateRangeAsync(DateTime startDate, DateTime endDate, CancellationToken cancellationToken = default);
     Task<IEnumerable<CashCut>> GetByBranchAsync(string branchName, CancellationToken cancellationToken = default);
     Task<IEnumerable<CashCut>> GetByCashRegisterAsync(string cashRegisterName, CancellationToken cancellationToken = default);

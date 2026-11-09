@@ -25,72 +25,29 @@ public class DatabaseBackupServiceTests
     }
 
     [Fact]
-    public void FindPgToolPath_ShouldNotAppendExe_OnLinux()
+    public void FindPgToolPath_ShouldUseConfiguredBinPath_WithPlatformExtension()
     {
-        if (OperatingSystem.IsWindows())
-        {
-            // Skip assertion on Windows
-            return;
-        }
+        // Herramienta falsa en una carpeta temporal: la prueba no depende de tener PostgreSQL instalado
+        var binDir = Path.Combine(Path.GetTempPath(), $"pgbin_{Guid.NewGuid():N}");
+        Directory.CreateDirectory(binDir);
+        var toolName = OperatingSystem.IsWindows() ? "pg_dump.exe" : "pg_dump";
+        var toolPath = Path.Combine(binDir, toolName);
+        File.WriteAllText(toolPath, string.Empty);
 
-        var tempDir = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
-        Directory.CreateDirectory(tempDir);
         try
         {
-            var expectedFilePath = Path.Combine(tempDir, "pg_dump");
-            File.WriteAllText(expectedFilePath, string.Empty);
+            var config = new Mock<IConfiguration>();
+            config.Setup(c => c["DatabaseBackup:PostgresBinPath"]).Returns(binDir);
+            var service = new DatabaseBackupService(config.Object, _loggerMock.Object);
 
-            _configMock.Setup(c => c["DatabaseBackup:PostgresBinPath"]).Returns(tempDir);
+            var result = service.FindPgToolPath("pg_dump");
 
-            var methodInfo = typeof(DatabaseBackupService).GetMethod("FindPgToolPath", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-            Assert.NotNull(methodInfo);
-
-            var result = (string)methodInfo.Invoke(_service, new object[] { "pg_dump" })!;
-
-            Assert.False(result.EndsWith(".exe"), "On Linux, the tool path should not end with .exe");
-            Assert.Equal(expectedFilePath, result);
+            Assert.Equal(toolPath, result);
+            Assert.Equal(OperatingSystem.IsWindows(), result.EndsWith(".exe"));
         }
         finally
         {
-            if (Directory.Exists(tempDir))
-            {
-                Directory.Delete(tempDir, true);
-            }
-        }
-    }
-
-    [Fact]
-    public void FindPgToolPath_ShouldAppendExe_OnWindows()
-    {
-        if (!OperatingSystem.IsWindows())
-        {
-            // Skip on non-Windows
-            return;
-        }
-
-        var tempDir = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
-        Directory.CreateDirectory(tempDir);
-        try
-        {
-            var expectedFilePath = Path.Combine(tempDir, "pg_dump.exe");
-            File.WriteAllText(expectedFilePath, string.Empty);
-
-            _configMock.Setup(c => c["DatabaseBackup:PostgresBinPath"]).Returns(tempDir);
-
-            var methodInfo = typeof(DatabaseBackupService).GetMethod("FindPgToolPath", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-            Assert.NotNull(methodInfo);
-
-            var result = (string)methodInfo.Invoke(_service, new object[] { "pg_dump" })!;
-
-            Assert.True(result.EndsWith(".exe", StringComparison.OrdinalIgnoreCase), "On Windows, the tool path should end with .exe");
-            Assert.Equal(expectedFilePath, result);
-        }
-        finally
-        {
-            if (Directory.Exists(tempDir))
-            {
-                Directory.Delete(tempDir, true);
-            }
+            Directory.Delete(binDir, recursive: true);
         }
     }
 
@@ -103,14 +60,9 @@ public class DatabaseBackupServiceTests
         {
             _configMock.Setup(c => c["DatabaseBackup:PostgresBinPath"]).Returns(tempDir);
 
-            var methodInfo = typeof(DatabaseBackupService).GetMethod("FindPgToolPath", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-            Assert.NotNull(methodInfo);
-
-            var ex = Assert.Throws<System.Reflection.TargetInvocationException>(() =>
-                methodInfo.Invoke(_service, new object[] { "non_existent_pg_tool_xyz_123" })
+            Assert.Throws<FileNotFoundException>(() =>
+                _service.FindPgToolPath("non_existent_pg_tool_xyz_123")
             );
-
-            Assert.IsType<FileNotFoundException>(ex.InnerException);
         }
         finally
         {
@@ -118,6 +70,128 @@ public class DatabaseBackupServiceTests
             {
                 Directory.Delete(tempDir, true);
             }
+        }
+    }
+
+    private static (DatabaseBackupService Service, string Directory) CreateServiceWithTempDirectory()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "blanquita-backup-tests-" + Guid.NewGuid().ToString("N"));
+        System.IO.Directory.CreateDirectory(directory);
+
+        var config = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["ConnectionStrings:DefaultConnection"] = "Host=localhost;Database=test;Username=user;Password=pass",
+                ["DatabaseBackup:BackupDirectory"] = directory
+            })
+            .Build();
+
+        return (new DatabaseBackupService(config, new Mock<ILogger<DatabaseBackupService>>().Object), directory);
+    }
+
+    [Theory]
+    [InlineData("../../etc/respaldo.backup", "respaldo.backup")]
+    [InlineData("C:\\Users\\x\\respaldo.backup", "respaldo.backup")]
+    [InlineData("res<pal>do.backup", "res_pal_do.backup")]
+    public void SanitizeFileName_ShouldRemovePathsAndInvalidCharacters(string input, string expected)
+    {
+        Assert.Equal(expected, DatabaseBackupService.SanitizeFileName(input));
+    }
+
+    [Fact]
+    public void SanitizeFileName_ShouldGenerateName_WhenOnlyExtensionIsProvided()
+    {
+        var result = DatabaseBackupService.SanitizeFileName(".backup");
+
+        Assert.StartsWith("respaldo_subido_", result);
+        Assert.EndsWith(".backup", result);
+    }
+
+    [Fact]
+    public void QuoteIdentifier_ShouldEscapeDoubleQuotes()
+    {
+        Assert.Equal("\"mi\"\"base\"", DatabaseBackupService.QuoteIdentifier("mi\"base"));
+    }
+
+    [Fact]
+    public void BuildDatabaseName_ShouldRespectPostgresIdentifierLimit()
+    {
+        var name = DatabaseBackupService.BuildDatabaseName(new string('a', 80), "_restore_20261030120000");
+
+        Assert.True(name.Length <= 63);
+        Assert.EndsWith("_restore_20261030120000", name);
+    }
+
+    [Fact]
+    public async Task SaveUploadedBackupAsync_ShouldNotOverwriteExistingFile()
+    {
+        var (service, directory) = CreateServiceWithTempDirectory();
+        try
+        {
+            var first = await service.SaveUploadedBackupAsync(new MemoryStream(new byte[] { 1 }), "respaldo.backup");
+            var second = await service.SaveUploadedBackupAsync(new MemoryStream(new byte[] { 2 }), "respaldo.backup");
+
+            Assert.Equal(Path.Combine(directory, "respaldo.backup"), first);
+            Assert.Equal(Path.Combine(directory, "respaldo_1.backup"), second);
+            Assert.Equal(new byte[] { 1 }, File.ReadAllBytes(first));
+            Assert.Equal(new byte[] { 2 }, File.ReadAllBytes(second));
+        }
+        finally
+        {
+            System.IO.Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task SaveUploadedBackupAsync_ShouldKeepFileInsideBackupDirectory_WhenNameContainsPath()
+    {
+        var (service, directory) = CreateServiceWithTempDirectory();
+        try
+        {
+            var saved = await service.SaveUploadedBackupAsync(new MemoryStream(new byte[] { 1 }), "../../fuera.backup");
+
+            Assert.Equal(Path.Combine(directory, "fuera.backup"), saved);
+        }
+        finally
+        {
+            System.IO.Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task SaveUploadedBackupAsync_ShouldReject_NonBackupFiles()
+    {
+        var (service, directory) = CreateServiceWithTempDirectory();
+        try
+        {
+            await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                service.SaveUploadedBackupAsync(new MemoryStream(new byte[] { 1 }), "script.sql"));
+        }
+        finally
+        {
+            System.IO.Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task DeleteAndRestore_ShouldReject_FilesOutsideBackupDirectory()
+    {
+        var (service, directory) = CreateServiceWithTempDirectory();
+        var outside = Path.Combine(Path.GetTempPath(), "otro-" + Guid.NewGuid().ToString("N") + ".backup");
+        File.WriteAllBytes(outside, new byte[] { 1 });
+        try
+        {
+            await Assert.ThrowsAsync<UnauthorizedAccessException>(() => service.DeleteBackupAsync(outside));
+            await Assert.ThrowsAsync<UnauthorizedAccessException>(() => service.RestoreBackupAsync(outside));
+            await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
+                service.DeleteBackupAsync(Path.Combine(directory, "..", Path.GetFileName(outside))));
+
+            Assert.True(File.Exists(outside));
+        }
+        finally
+        {
+            File.Delete(outside);
+            System.IO.Directory.Delete(directory, recursive: true);
         }
     }
 }

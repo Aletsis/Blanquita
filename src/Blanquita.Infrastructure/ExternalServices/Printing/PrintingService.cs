@@ -4,11 +4,16 @@ using Blanquita.Application.Constants;
 using Microsoft.Extensions.Logging;
 using System.Linq;
 using System.Collections.Generic;
+using System.Collections.Concurrent;
 
 namespace Blanquita.Infrastructure.ExternalServices.Printing;
 
 public class PrintingService : IPrintingService
 {
+    // Las impresoras ESC/POS y Zebra en red solo atienden una conexión a la vez: se serializan los trabajos
+    // por impresora (IP:puerto) para que dos usuarios imprimiendo al mismo tiempo no se bloqueen entre sí.
+    private static readonly ConcurrentDictionary<string, SemaphoreSlim> PrinterLocks = new(StringComparer.OrdinalIgnoreCase);
+
     private readonly ILogger<PrintingService> _logger;
     private readonly PrinterCommandBuilder _commandBuilder;
     private readonly ILabelDesignService _labelDesignService;
@@ -132,9 +137,12 @@ public class PrintingService : IPrintingService
         {
             _logger.LogDebug("Testing printer connection to {IpAddress}:{Port}", ipAddress, port);
 
-            using var printerService = new PrinterNetworkService(ipAddress, port);
-            await printerService.ConnectAsync(cancellationToken);
-            printerService.Disconnect();
+            await RunWithPrinterLockAsync(ipAddress, port, async ct =>
+            {
+                using var printerService = new PrinterNetworkService(ipAddress, port);
+                await printerService.ConnectAsync(ct);
+                printerService.Disconnect();
+            }, cancellationToken);
 
             _logger.LogInformation("Printer connection test successful for {IpAddress}:{Port}", ipAddress, port);
             return true;
@@ -192,18 +200,40 @@ public class PrintingService : IPrintingService
     {
         _logger.LogDebug("Sending {DataSize} bytes to printer {IpAddress}:{Port}", data.Length, ipAddress, port);
 
-        using var printerService = new PrinterNetworkService(ipAddress, port);
-
-        try
+        await RunWithPrinterLockAsync(ipAddress, port, async ct =>
         {
-            await printerService.ConnectAsync(cancellationToken);
-            await printerService.SendRawDataAsync(data, cancellationToken);
-            _logger.LogDebug("Data sent successfully to printer");
+            using var printerService = new PrinterNetworkService(ipAddress, port);
+
+            try
+            {
+                await printerService.ConnectAsync(ct);
+                await printerService.SendRawDataAsync(data, ct);
+                _logger.LogDebug("Data sent successfully to printer");
+            }
+            finally
+            {
+                printerService.Disconnect();
+            }
+        }, cancellationToken);
+    }
+
+    private async Task RunWithPrinterLockAsync(string ipAddress, int port, Func<CancellationToken, Task> operation, CancellationToken cancellationToken)
+    {
+        var printerLock = PrinterLocks.GetOrAdd($"{ipAddress?.Trim()}:{port}", _ => new SemaphoreSlim(1, 1));
+
+        if (printerLock.CurrentCount == 0)
+        {
+            _logger.LogInformation("Impresora {IpAddress}:{Port} ocupada; el trabajo espera su turno", ipAddress, port);
         }
 
+        await printerLock.WaitAsync(cancellationToken);
+        try
+        {
+            await operation(cancellationToken);
+        }
         finally
         {
-            printerService.Disconnect();
+            printerLock.Release();
         }
     }
 

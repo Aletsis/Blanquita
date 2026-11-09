@@ -1,4 +1,5 @@
 using Blanquita.Infrastructure.Persistence.Identity;
+using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -10,11 +11,13 @@ public class AccountController : Controller
 {
     private readonly SignInManager<ApplicationUser> _signInManager;
     private readonly UserManager<ApplicationUser> _userManager;
+    private readonly IAntiforgery _antiforgery;
 
-    public AccountController(SignInManager<ApplicationUser> signInManager, UserManager<ApplicationUser> userManager)
+    public AccountController(SignInManager<ApplicationUser> signInManager, UserManager<ApplicationUser> userManager, IAntiforgery antiforgery)
     {
         _signInManager = signInManager;
         _userManager = userManager;
+        _antiforgery = antiforgery;
     }
 
     [HttpPost("login")]
@@ -40,7 +43,17 @@ public class AccountController : Controller
 
         if (user != null)
         {
-            var result = await _signInManager.PasswordSignInAsync(user, password, isPersistent: true, lockoutOnFailure: false);
+            var result = await _signInManager.PasswordSignInAsync(user, password, isPersistent: true, lockoutOnFailure: true);
+
+            if (result.IsLockedOut)
+            {
+                var lockedUrl = "/login?error=CuentaBloqueada";
+                if (!string.IsNullOrWhiteSpace(returnUrl))
+                {
+                    lockedUrl += $"&returnUrl={Uri.EscapeDataString(returnUrl)}";
+                }
+                return Redirect(lockedUrl);
+            }
 
             if (result.Succeeded)
             {
@@ -69,9 +82,19 @@ public class AccountController : Controller
         return Redirect(invalidCredsUrl);
     }
 
-    [HttpGet("logout")]
+    /// <summary>
+    /// Cierra la sesión. Solo por POST con token antiforgery, para que un enlace o una imagen
+    /// en otra página no pueda cerrar la sesión del usuario (CSRF).
+    /// </summary>
+    [HttpPost("logout")]
     public async Task<IActionResult> Logout()
     {
+        // AddControllers no registra el filtro [ValidateAntiForgeryToken]; se valida aquí
+        if (!await _antiforgery.IsRequestValidAsync(HttpContext))
+        {
+            return Redirect("/");
+        }
+
         await _signInManager.SignOutAsync();
         return Redirect("/login");
     }

@@ -1,5 +1,9 @@
 @inherits LayoutComponentBase
 @inject NavigationManager Navigation
+@inject IJSRuntime JS
+@inject AntiforgeryStateProvider Antiforgery
+@using Blanquita.Web.Extensions
+@using Microsoft.AspNetCore.Components.Forms
 
 <MudThemeProvider Theme="_theme" />
 <MudPopoverProvider />
@@ -133,9 +137,9 @@
         _drawerOpen = !_drawerOpen;
     }
 
-    private void Logout()
+    private async Task Logout()
     {
-        Navigation.NavigateTo("/Account/logout", forceLoad: true);
+        await JS.SubmitLogoutAsync(Antiforgery);
     }
 
     private void NavigateToLogin()

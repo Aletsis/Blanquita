@@ -34,23 +34,34 @@ public static class DependencyInjection
         // Memory Cache para optimizar lecturas de FoxPro
         services.AddMemoryCache(options =>
         {
-            options.SizeLimit = 1000; // Límite de entradas en caché
+            // Cada entrada cuenta 1 (un cliente, un producto o la lista de cortes de un día).
+            // Clientes y productos se guardan uno por ID y duran 4 horas, así que 1000 se llenaba rápido
+            // y la compactación descartaba entradas útiles; 20000 DTOs pequeños ocupan solo unos MB
+            options.SizeLimit = 20_000;
             options.CompactionPercentage = 0.25; // Compactar 25% cuando se alcanza el límite
         });
 
         // Identity
         services.AddIdentityCore<ApplicationUser>(options => 
         {
-            options.Password.RequireDigit = false;
-            options.Password.RequireLowercase = false;
-            options.Password.RequireUppercase = false;
+            // Al menos 8 caracteres con una mayúscula, una minúscula y un número.
+            // Solo se valida al crear usuarios o cambiar contraseñas; las existentes siguen funcionando.
+            options.Password.RequireDigit = true;
+            options.Password.RequireLowercase = true;
+            options.Password.RequireUppercase = true;
             options.Password.RequireNonAlphanumeric = false;
-            options.Password.RequiredLength = 4;
+            options.Password.RequiredLength = 8;
+
+            // Bloqueo temporal tras intentos fallidos para mitigar fuerza bruta
+            options.Lockout.AllowedForNewUsers = true;
+            options.Lockout.MaxFailedAccessAttempts = 5;
+            options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(5);
         })
         .AddRoles<IdentityRole>()
         .AddEntityFrameworkStores<BlanquitaDbContext>()
         .AddSignInManager<SignInManager<ApplicationUser>>()
         .AddClaimsPrincipalFactory<CustomUserClaimsPrincipalFactory>()
+        .AddErrorDescriber<SpanishIdentityErrorDescriber>()
         .AddDefaultTokenProviders();
 
         services.AddAuthentication(options =>
@@ -83,6 +94,7 @@ public static class DependencyInjection
         services.AddScoped<ISentInvoiceLogRepository, SentInvoiceLogRepository>();
         services.AddScoped<IReporteHistoricoRepository, EfReporteHistoricoRepository>();
         services.AddScoped<IConciliacionCorteRepository, ConciliacionCorteRepository>();
+        services.AddScoped<IUnitOfWork, Persistence.UnitOfWork>();
 
         // Technical Services (Stay in Infrastructure)
         services.AddHttpClient();
@@ -135,9 +147,14 @@ public static class DependencyInjection
             .UseSimpleAssemblyNameTypeSerializer()
             .UseRecommendedSerializerSettings()
             .UsePostgreSqlStorage(options => 
-                options.UseNpgsqlConnection(configuration.GetConnectionString("DefaultConnection"))));
+                options.UseNpgsqlConnection(configuration.GetConnectionString("DefaultConnection")))
+            // Impide que un mismo trabajo se ejecute dos veces en paralelo (p. ej. ejecución manual
+            // desde el panel mientras corre la programada); la segunda espera hasta 10 minutos el bloqueo.
+            .UseFilter(new DisableConcurrentExecutionAttribute(timeoutInSeconds: 10 * 60)));
 
         services.AddHangfireServer();
+        services.AddScoped<IJobScheduler, HangfireJobScheduler>();
+        services.AddScoped<IBackgroundJobQueue, HangfireBackgroundJobQueue>();
 
         return services;
     }

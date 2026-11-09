@@ -1,4 +1,5 @@
 @page "/reimpresion-devoluciones"
+@attribute [Authorize(Roles = "Admin")]
 @using Blanquita.Application.DTOs
 @using Blanquita.Application.Queries.FoxPro.GetReturnBySeriesAndFolio
 @using Blanquita.Application.Commands.Printing

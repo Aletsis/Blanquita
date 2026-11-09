@@ -1,6 +1,7 @@
 @inject IFoxProPedidoRepository PedidoRepository
 @inject IClientCatalogRepository ClientRepository
 @inject NavigationManager Navigation
+@inject ILogger<DialogoDetallePedido> Logger
 @inject ISnackbar Snackbar
 @using Blanquita.Application.Interfaces.Repositories
 @using Blanquita.Application.DTOs
@@ -230,9 +231,10 @@
             _detalles = (await itemsTask).ToList();
             _clientDetails = await clientTask;
         }
-        catch (Exception)
+        catch (Exception ex)
         {
-            // Error handling
+            Logger.LogError(ex, "Error al cargar el detalle del pedido {IdDocumento}", Pedido.IdDocumento);
+            Snackbar.Add("Error al cargar el detalle del pedido", Severity.Error);
         }
         finally
         {

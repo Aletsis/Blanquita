@@ -16,6 +16,7 @@ public class ConciliacionService : IConciliacionService
     private readonly IConciliacionCorteRepository _conciliacionCorteRepository;
     private readonly IConfiguracionService _configuracionService;
     private readonly ILogger<ConciliacionService> _logger;
+    private readonly IUnitOfWork _unitOfWork;
 
     public ConciliacionService(
         IFoxProShiftRepository foxProShiftRepository,
@@ -25,7 +26,8 @@ public class ConciliacionService : IConciliacionService
         IBranchRepository branchRepository,
         IConciliacionCorteRepository conciliacionCorteRepository,
         IConfiguracionService configuracionService,
-        ILogger<ConciliacionService> logger)
+        ILogger<ConciliacionService> logger,
+        IUnitOfWork unitOfWork)
     {
         _foxProShiftRepository = foxProShiftRepository;
         _cashRegisterRepository = cashRegisterRepository;
@@ -35,6 +37,7 @@ public class ConciliacionService : IConciliacionService
         _conciliacionCorteRepository = conciliacionCorteRepository;
         _configuracionService = configuracionService;
         _logger = logger;
+        _unitOfWork = unitOfWork;
     }
 
     public async Task<ConciliacionResultDto> GetConciliacionAsync(int cashRegisterId, int shiftId, int cashierId, DateTime date, CancellationToken cancellationToken = default)
@@ -55,17 +58,11 @@ public class ConciliacionService : IConciliacionService
             : null;
 
         // 2. Obtener recolecciones internas (solo las que ocurrieron durante el horario de este turno)
-        var startTime = shiftData?.OpeningTime ?? date.Date;
-        var endTime = shiftData?.ClosingTime ?? DateTime.Now;
-
-        var collections = await _cashCollectionRepository.GetCollectionsByRegisterAndTimeAsync(
-            cashRegister.Name, 
-            startTime, 
-            endTime, 
+        var totalRecolectado = await SumCollectionsAsync(
+            cashRegister.Name,
+            shiftData?.OpeningTime ?? date.Date,
+            shiftData?.ClosingTime ?? DateTime.Now,
             cancellationToken);
-        
-        var totalRecolectado = collections
-            .Sum(c => c.GetTotalAmount().Amount);
 
         return new ConciliacionResultDto
         {
@@ -79,6 +76,22 @@ public class ConciliacionService : IConciliacionService
             Status = shiftData?.Status ?? 0,
             Fecha = shiftData?.OpeningTime ?? date
         };
+    }
+
+    public Task<decimal> GetTotalRecolectadoAsync(string cashRegisterName, ShiftConciliationDataDto shift, CancellationToken cancellationToken = default)
+    {
+        return SumCollectionsAsync(cashRegisterName, shift.OpeningTime, shift.ClosingTime ?? DateTime.Now, cancellationToken);
+    }
+
+    private async Task<decimal> SumCollectionsAsync(string cashRegisterName, DateTime startTime, DateTime endTime, CancellationToken cancellationToken)
+    {
+        var collections = await _cashCollectionRepository.GetCollectionsByRegisterAndTimeAsync(
+            cashRegisterName,
+            startTime,
+            endTime,
+            cancellationToken);
+
+        return collections.Sum(c => c.GetTotalAmount().Amount);
     }
 
     public async Task SaveConciliacionCorteAsync(ConciliacionCorteDto dto, CancellationToken cancellationToken = default)
@@ -125,7 +138,18 @@ public class ConciliacionService : IConciliacionService
             }
         }
 
-        await _conciliacionCorteRepository.AddAsync(conciliacion, cancellationToken);
+        // Verificar y guardar bajo bloqueo para que un doble clic o dos usuarios no concilien el mismo turno dos veces
+        await _unitOfWork.ExecuteLockedAsync($"conciliacion:{dto.Sucursal}:{dto.AperturaId}", async ct =>
+        {
+            if (await _conciliacionCorteRepository.ExistsForShiftAsync(dto.AperturaId, dto.Sucursal, ct))
+            {
+                throw new InvalidOperationException(
+                    $"El turno {dto.AperturaId} de la sucursal {dto.Sucursal} ya fue conciliado. Use la opción de edición para modificarlo.");
+            }
+
+            await _conciliacionCorteRepository.AddAsync(conciliacion, ct);
+            return true;
+        }, cancellationToken);
         _logger.LogInformation("Conciliación de corte guardada exitosamente en la base de datos.");
     }
 
@@ -171,7 +195,7 @@ public class ConciliacionService : IConciliacionService
             }
         }
 
-        await _conciliacionCorteRepository.UpdateAsync(entity, cancellationToken);
+        await _conciliacionCorteRepository.UpdateAsync(entity, dto.Version, cancellationToken);
         _logger.LogInformation("Conciliación de corte ID {Id} actualizada exitosamente.", dto.Id);
     }
 
@@ -217,6 +241,7 @@ public class ConciliacionService : IConciliacionService
             FechaCreacion = c.FechaCreacion,
             FechaModificacion = c.FechaModificacion,
             ModificadoPor = c.ModificadoPor,
+            Version = c.Version,
             Salidas = c.Salidas.Select(s => new ConciliacionSalidaEfectivoDto
             {
                 Id = s.Id,

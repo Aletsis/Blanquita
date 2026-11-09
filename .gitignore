@@ -76,3 +76,11 @@ Blanquita/Config/appsettings.custom.json
 .env
 
 .fake
+
+# Sesión de WhatsApp (credenciales) y respaldos locales
+**/auth_info/
+**/backups/
+*.backup
+
+# Dependencias de Node: se instalan en el servidor con npm install (dist/ sí se versiona)
+**/node_modules/

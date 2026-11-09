@@ -13,7 +13,9 @@ public record CashCutTotals
     public Money TotalBanregio { get; } = null!;
 
     // Constructor requerido por EF Core
+#pragma warning disable CS8618 // EF Core asigna las propiedades al materializar
     private CashCutTotals() { }
+#pragma warning restore CS8618
 
     private CashCutTotals(int totalThousands, int totalFiveHundreds, int totalTwoHundreds,
         int totalHundreds, int totalFifties, int totalTwenties,

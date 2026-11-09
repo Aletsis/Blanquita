@@ -16,7 +16,9 @@ public class CashCollection : BaseEntity
     public bool IsForCashCut { get; private set; }
 
     // EF Core constructor
+#pragma warning disable CS8618 // EF Core asigna las propiedades al materializar
     private CashCollection() { }
+#pragma warning restore CS8618
 
     private CashCollection(CashDenominations denominations, string cashRegisterName,
         string cashierName, string supervisorName, DateTime collectionDateTime,

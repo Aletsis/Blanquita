@@ -75,4 +75,45 @@ public class EncryptionServiceTests
         Assert.Equal(string.Empty, service.Encrypt(string.Empty));
         Assert.Equal(string.Empty, service.Decrypt(string.Empty));
     }
+
+    [Fact]
+    public void Encrypt_ShouldAddVersionPrefix_AndIsEncryptedShouldDetectIt()
+    {
+        var service = new EncryptionService(_configMock.Object);
+
+        var encrypted = service.Encrypt("api-key-123");
+
+        Assert.StartsWith(EncryptionService.EncryptedPrefix, encrypted);
+        Assert.True(service.IsEncrypted(encrypted));
+        Assert.False(service.IsEncrypted("api-key-123"));
+        Assert.False(service.IsEncrypted(string.Empty));
+        Assert.False(service.IsEncrypted(null));
+    }
+
+    [Fact]
+    public void Decrypt_ShouldSupportLegacyValuesWithoutPrefix()
+    {
+        // Valores cifrados con la versión anterior (sin prefijo) deben seguir descifrándose
+        var service = new EncryptionService(_configMock.Object);
+        var legacy = service.Encrypt("smtp-password").Substring(EncryptionService.EncryptedPrefix.Length);
+
+        Assert.Equal("smtp-password", service.Decrypt(legacy));
+    }
+
+    [Fact]
+    public void Decrypt_ShouldReturnEmpty_WhenPrefixedValueCannotBeDecrypted()
+    {
+        // Cifrado con una llave y descifrado con otra (p. ej. cambió Encryption:Key)
+        var configA = new Mock<IConfiguration>();
+        configA.Setup(c => c["Encryption:Key"]).Returns("llave-A");
+        var configB = new Mock<IConfiguration>();
+        configB.Setup(c => c["Encryption:Key"]).Returns("llave-B");
+
+        var encrypted = new EncryptionService(configA.Object).Encrypt("secreto");
+        var result = new EncryptionService(configB.Object).Decrypt(encrypted);
+
+        // No debe devolver el texto cifrado como si fuera la credencial
+        Assert.NotEqual(encrypted, result);
+        Assert.NotEqual("secreto", result);
+    }
 }

@@ -17,6 +17,7 @@ public class ConfiguracionServiceTests
     private readonly Mock<IAppConfigurationManager> _configManagerMock;
     private readonly Mock<IEncryptionService> _encryptionServiceMock;
     private readonly Mock<ILogger<ConfiguracionService>> _loggerMock;
+    private readonly Mock<IJobScheduler> _jobSchedulerMock;
     private readonly ConfiguracionService _service;
 
     public ConfiguracionServiceTests()
@@ -26,6 +27,7 @@ public class ConfiguracionServiceTests
         _configManagerMock = new Mock<IAppConfigurationManager>();
         _encryptionServiceMock = new Mock<IEncryptionService>();
         _loggerMock = new Mock<ILogger<ConfiguracionService>>();
+        _jobSchedulerMock = new Mock<IJobScheduler>();
         
         // Mock default behavior for encryption/decryption as pass-through
         _encryptionServiceMock.Setup(x => x.Encrypt(It.IsAny<string>())).Returns<string>(s => s);
@@ -38,7 +40,8 @@ public class ConfiguracionServiceTests
             _fileSystemServiceMock.Object,
             _configManagerMock.Object, 
             _encryptionServiceMock.Object,
-            _loggerMock.Object);
+            _loggerMock.Object,
+            _jobSchedulerMock.Object);
     }
 
     [Fact]
@@ -69,6 +72,22 @@ public class ConfiguracionServiceTests
         Assert.NotNull(result);
         Assert.Equal("test/path", result.Pos10041Path);
         Assert.Equal("TestPrinter", result.PrinterName);
+    }
+
+    [Fact]
+    public async Task ObtenerConfiguracionAsync_ShouldReturnIndependentCopies()
+    {
+        var config = new SystemConfiguration { Pos10041Path = "test/path" };
+        _repositoryMock.Setup(x => x.GetAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(config);
+
+        var first = await _service.ObtenerConfiguracionAsync();
+        first.Pos10041Path = "editado/sin/guardar";
+
+        var second = await _service.ObtenerConfiguracionAsync();
+
+        Assert.NotSame(first, second);
+        Assert.Equal("test/path", second.Pos10041Path);
     }
 
     [Fact]
@@ -107,6 +126,51 @@ public class ConfiguracionServiceTests
 
         _repositoryMock.Verify(x => x.UpdateAsync(It.IsAny<SystemConfiguration>(), It.IsAny<CancellationToken>()), Times.Once);
     }
+
+    [Fact]
+    public async Task GuardarConfiguracionAsync_ShouldRescheduleInvoiceJob_WithNewTime()
+    {
+        var dto = CreateValidDto();
+        dto.InvoiceJobExecutionTime = new TimeSpan(20, 30, 0);
+
+        _fileSystemServiceMock.Setup(x => x.FileExists(It.IsAny<string>())).Returns(true);
+        _repositoryMock.Setup(x => x.GetAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new SystemConfiguration());
+
+        await _service.GuardarConfiguracionAsync(dto);
+
+        _jobSchedulerMock.Verify(x => x.ConfigureRecurringJobs(new TimeSpan(20, 30, 0)), Times.Once);
+    }
+
+    [Fact]
+    public async Task GuardarConfiguracionAsync_ShouldNotFail_WhenReschedulingFails()
+    {
+        var dto = CreateValidDto();
+
+        _fileSystemServiceMock.Setup(x => x.FileExists(It.IsAny<string>())).Returns(true);
+        _repositoryMock.Setup(x => x.GetAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new SystemConfiguration());
+        _jobSchedulerMock.Setup(x => x.ConfigureRecurringJobs(It.IsAny<TimeSpan?>()))
+            .Throws(new InvalidOperationException("Hangfire no disponible"));
+
+        await _service.GuardarConfiguracionAsync(dto);
+
+        _repositoryMock.Verify(x => x.UpdateAsync(It.IsAny<SystemConfiguration>(), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    private static ConfiguracionDto CreateValidDto() => new()
+    {
+        Pos10041Path = "valid/path1",
+        Pos10042Path = "valid/path2",
+        Mgw10008Path = "valid/path3",
+        Mgw10005Path = "valid/path4",
+        Mgw10045Path = "valid/path5",
+        Mgw10002Path = "valid/path6",
+        Mgw10011Path = "valid/path7",
+        Pos10008Path = "valid/path8",
+        Pos10010Path = "valid/path9",
+        PrinterName = "Printer1"
+    };
 
     [Fact]
     public async Task ValidarConfiguracionAsync_ShouldReturnErrors_WhenPathsEmpty()
@@ -227,5 +291,80 @@ public class ConfiguracionServiceTests
         Assert.Equal("[REDACTED]", passLog.OldValue);
         Assert.Equal("[REDACTED]", passLog.NewValue);
         Assert.Equal("AdminUser", passLog.ChangedBy);
+    }
+
+    private void SetupPrefixedEncryption()
+    {
+        // Simula el formato real: los valores cifrados llevan el prefijo "enc:v1:"
+        _encryptionServiceMock.Setup(x => x.Encrypt(It.IsAny<string>()))
+            .Returns<string>(s => string.IsNullOrEmpty(s) ? string.Empty : "enc:v1:" + s);
+        _encryptionServiceMock.Setup(x => x.IsEncrypted(It.IsAny<string?>()))
+            .Returns<string?>(s => s != null && s.StartsWith("enc:v1:"));
+        _encryptionServiceMock.Setup(x => x.Decrypt(It.IsAny<string>()))
+            .Returns<string>(s => s.StartsWith("enc:v1:") ? s.Substring(7) : s);
+    }
+
+    [Fact]
+    public async Task ObtenerConfiguracionAsync_ShouldEncryptPlainTextApiKeys_AndReturnThemDecrypted()
+    {
+        SetupPrefixedEncryption();
+        var entity = new SystemConfiguration { CommercialApiKey = "plain-commercial", WhatsAppApiKey = "plain-whatsapp" };
+        _repositoryMock.Setup(x => x.GetAsync(It.IsAny<CancellationToken>())).ReturnsAsync(entity);
+
+        var result = await _service.ObtenerConfiguracionAsync();
+
+        // Se guardan cifradas en la BD...
+        Assert.Equal("enc:v1:plain-commercial", entity.CommercialApiKey);
+        Assert.Equal("enc:v1:plain-whatsapp", entity.WhatsAppApiKey);
+        _repositoryMock.Verify(x => x.UpdateAsync(entity, It.IsAny<CancellationToken>()), Times.Once);
+
+        // ...y la aplicación las recibe en claro
+        Assert.Equal("plain-commercial", result.CommercialApiKey);
+        Assert.Equal("plain-whatsapp", result.WhatsAppApiKey);
+    }
+
+    [Fact]
+    public async Task ObtenerConfiguracionAsync_ShouldNotRewrite_WhenApiKeysAlreadyEncrypted()
+    {
+        SetupPrefixedEncryption();
+        var entity = new SystemConfiguration { CommercialApiKey = "enc:v1:abc", WhatsAppApiKey = "enc:v1:xyz" };
+        _repositoryMock.Setup(x => x.GetAsync(It.IsAny<CancellationToken>())).ReturnsAsync(entity);
+
+        var result = await _service.ObtenerConfiguracionAsync();
+
+        _repositoryMock.Verify(x => x.UpdateAsync(It.IsAny<SystemConfiguration>(), It.IsAny<CancellationToken>()), Times.Never);
+        Assert.Equal("abc", result.CommercialApiKey);
+        Assert.Equal("xyz", result.WhatsAppApiKey);
+    }
+
+    [Fact]
+    public async Task GuardarConfiguracionAsync_ShouldStoreApiKeysEncrypted()
+    {
+        SetupPrefixedEncryption();
+        var entity = new SystemConfiguration();
+        _fileSystemServiceMock.Setup(x => x.FileExists(It.IsAny<string>())).Returns(true);
+        _repositoryMock.Setup(x => x.GetAsync(It.IsAny<CancellationToken>())).ReturnsAsync(entity);
+
+        var dto = CreateValidDto();
+        dto.CommercialApiKey = "nueva-commercial";
+        dto.WhatsAppApiKey = "nueva-whatsapp";
+
+        await _service.GuardarConfiguracionAsync(dto);
+
+        Assert.Equal("enc:v1:nueva-commercial", entity.CommercialApiKey);
+        Assert.Equal("enc:v1:nueva-whatsapp", entity.WhatsAppApiKey);
+    }
+
+    [Fact]
+    public async Task ValidarConfiguracionAsync_ShouldReject_ApiKeysThatWouldNotFitEncrypted()
+    {
+        var dto = CreateValidDto();
+        dto.WhatsAppApiKey = new string('x', 301);
+        _fileSystemServiceMock.Setup(x => x.FileExists(It.IsAny<string>())).Returns(true);
+
+        var result = await _service.ValidarConfiguracionAsync(dto);
+
+        Assert.False(result.EsValido);
+        Assert.Contains(result.Errores, e => e.Contains("WhatsApp"));
     }
 }

@@ -42,7 +42,7 @@ public class AuthenticationServiceTests
         _userManagerMock.Setup(x => x.FindByNameAsync("admin"))
             .ReturnsAsync(user);
 
-        _signInManagerMock.Setup(x => x.PasswordSignInAsync(user, "password", true, false))
+        _signInManagerMock.Setup(x => x.PasswordSignInAsync(user, "password", true, true))
             .ReturnsAsync(Microsoft.AspNetCore.Identity.SignInResult.Success);
 
         var result = await _service.AuthenticateAsync("admin", "password");
@@ -57,7 +57,7 @@ public class AuthenticationServiceTests
         _userManagerMock.Setup(x => x.FindByNameAsync("admin"))
             .ReturnsAsync(user);
 
-        _signInManagerMock.Setup(x => x.PasswordSignInAsync(user, "wrong", true, false))
+        _signInManagerMock.Setup(x => x.PasswordSignInAsync(user, "wrong", true, true))
             .ReturnsAsync(Microsoft.AspNetCore.Identity.SignInResult.Failed);
 
         var result = await _service.AuthenticateAsync("admin", "wrong");
@@ -75,7 +75,7 @@ public class AuthenticationServiceTests
         var users = new List<ApplicationUser> { user }.AsAsyncQueryable();
         _userManagerMock.Setup(x => x.Users).Returns(users);
 
-        _signInManagerMock.Setup(x => x.PasswordSignInAsync(user, "password", true, false))
+        _signInManagerMock.Setup(x => x.PasswordSignInAsync(user, "password", true, true))
             .ReturnsAsync(Microsoft.AspNetCore.Identity.SignInResult.Success);
 
         var result = await _service.AuthenticateAsync("12345", "password");
@@ -98,15 +98,31 @@ public class AuthenticationServiceTests
     }
 
     [Fact]
-    public async Task IsAdministratorAsync_ShouldReturnTrue_WhenUserExists()
+    public async Task IsAdministratorAsync_ShouldReturnTrue_WhenUserHasAdminRole()
     {
         var user = new ApplicationUser { UserName = "admin" };
         _userManagerMock.Setup(x => x.FindByNameAsync("admin"))
             .ReturnsAsync(user);
+        _userManagerMock.Setup(x => x.IsInRoleAsync(user, "Admin"))
+            .ReturnsAsync(true);
 
         var result = await _service.IsAdministratorAsync("admin");
 
         Assert.True(result);
+    }
+
+    [Fact]
+    public async Task IsAdministratorAsync_ShouldReturnFalse_WhenUserIsNotAdmin()
+    {
+        var user = new ApplicationUser { UserName = "cajera" };
+        _userManagerMock.Setup(x => x.FindByNameAsync("cajera"))
+            .ReturnsAsync(user);
+        _userManagerMock.Setup(x => x.IsInRoleAsync(user, "Admin"))
+            .ReturnsAsync(false);
+
+        var result = await _service.IsAdministratorAsync("cajera");
+
+        Assert.False(result);
     }
 
     [Fact]

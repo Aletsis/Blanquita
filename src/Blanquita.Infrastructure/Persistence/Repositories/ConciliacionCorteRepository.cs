@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Blanquita.Domain.Entities;
+using Blanquita.Domain.Exceptions;
 using Blanquita.Domain.Repositories;
 using Blanquita.Infrastructure.Persistence.Context;
 using Microsoft.EntityFrameworkCore;
@@ -25,10 +26,22 @@ public class ConciliacionCorteRepository : IConciliacionCorteRepository
         await _context.SaveChangesAsync(cancellationToken);
     }
 
-    public async Task UpdateAsync(ConciliacionCorte conciliacion, CancellationToken cancellationToken = default)
+    public async Task UpdateAsync(ConciliacionCorte conciliacion, uint expectedVersion, CancellationToken cancellationToken = default)
     {
         _context.ConciliacionCortes.Update(conciliacion);
-        await _context.SaveChangesAsync(cancellationToken);
+
+        // El UPDATE solo aplica si la fila sigue en la versión que vio el usuario
+        _context.Entry(conciliacion).Property(c => c.Version).OriginalValue = expectedVersion;
+
+        try
+        {
+            await _context.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException ex)
+        {
+            throw new ConcurrencyConflictException(
+                "Otro usuario modificó esta conciliación mientras la editaba. Vuelva a abrirla para ver los cambios.", ex);
+        }
     }
 
     public async Task<ConciliacionCorte?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
@@ -36,6 +49,12 @@ public class ConciliacionCorteRepository : IConciliacionCorteRepository
         return await _context.ConciliacionCortes
             .Include(c => c.Salidas)
             .FirstOrDefaultAsync(c => c.Id == id, cancellationToken);
+    }
+
+    public async Task<bool> ExistsForShiftAsync(int aperturaId, string sucursal, CancellationToken cancellationToken = default)
+    {
+        return await _context.ConciliacionCortes
+            .AnyAsync(c => c.AperturaId == aperturaId && c.Sucursal == sucursal, cancellationToken);
     }
 
     public async Task<ConciliacionCorte?> GetByAperturaIdAsync(int aperturaId, CancellationToken cancellationToken = default)

@@ -14,7 +14,9 @@ public class Cashier : BaseEntity
     public int IDContpaq { get; private set; }
 
     // EF Core constructor
+#pragma warning disable CS8618 // EF Core asigna las propiedades al materializar
     private Cashier() { }
+#pragma warning restore CS8618
 
     private Cashier(int employeeNumber, string name, BranchId branchId, int idContpaq = 0, bool isActive = true)
     {

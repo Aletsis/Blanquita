@@ -17,6 +17,7 @@ public class CashCutService : ICashCutService
     private readonly ICashierService _cashierService;
     private readonly ICashRegisterService _cashRegisterService;
     private readonly IBranchService _branchService;
+    private readonly IUnitOfWork _unitOfWork;
 
     public CashCutService(
         ICashCutRepository repository,
@@ -25,7 +26,8 @@ public class CashCutService : ICashCutService
         ISupervisorService supervisorService,
         ICashierService cashierService,
         ICashRegisterService cashRegisterService,
-        IBranchService branchService)
+        IBranchService branchService,
+        IUnitOfWork unitOfWork)
     {
         _repository = repository;
         _logger = logger;
@@ -34,6 +36,7 @@ public class CashCutService : ICashCutService
         _cashierService = cashierService;
         _cashRegisterService = cashRegisterService;
         _branchService = branchService;
+        _unitOfWork = unitOfWork;
     }
 
     public async Task<CashCutDto?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
@@ -61,101 +64,33 @@ public class CashCutService : ICashCutService
             request.CashRegisterName ?? "All",
             request.CashierName ?? "All");
 
-        // Construir query con filtros
-        var results = await _repository.GetAllAsync(cancellationToken);
-
-        // Aplicar filtro de fecha
+        DateTime? fromUtc = null, toUtc = null;
         if (request.HasDateFilter())
         {
-            var (inicio, fin) = request.GetNormalizedDateRange();
-            results = results.Where(c => c.CutDateTime >= inicio && c.CutDateTime <= fin);
+            var (inicio, fin) = request.GetNormalizedUtcRange();
+            (fromUtc, toUtc) = (inicio, fin);
         }
 
-        // Aplicar filtro de sucursal
-        if (request.HasSucursalFilter())
+        // Filtros, orden y paginación se aplican en la base de datos
+        var results = await _repository.SearchAsync(new CashCutSearchCriteria
         {
-            var sucursalNombre = request.Sucursal!.Nombre;
-            results = results.Where(c => c.BranchName == sucursalNombre);
-        }
+            FromUtc = fromUtc,
+            ToUtc = toUtc,
+            BranchName = request.HasSucursalFilter() ? request.Sucursal!.Nombre : null,
+            CashRegisterName = request.HasCashRegisterFilter() ? request.CashRegisterName : null,
+            CashierName = request.HasCashierFilter() ? request.CashierName : null,
+            SupervisorName = request.HasSupervisorFilter() ? request.SupervisorName : null,
+            MinGrandTotal = request.MinAmount,
+            MaxGrandTotal = request.MaxAmount,
+            SortColumn = request.SortColumn,
+            SortAscending = request.SortAscending,
+            Skip = request.GetSkip(),
+            Take = request.RequiresPagination() ? request.PageSize : null
+        }, cancellationToken);
 
-        // Aplicar filtro de caja registradora
-        if (request.HasCashRegisterFilter())
-        {
-            results = results.Where(c => c.CashRegisterName == request.CashRegisterName);
-        }
+        _logger.LogInformation("Found {Count} cash cuts matching criteria", results.Count);
 
-        // Aplicar filtro de cajera
-        if (request.HasCashierFilter())
-        {
-            results = results.Where(c => c.CashierName.Contains(request.CashierName!, StringComparison.OrdinalIgnoreCase));
-        }
-
-        // Aplicar filtro de supervisor
-        if (request.HasSupervisorFilter())
-        {
-            results = results.Where(c => c.SupervisorName.Contains(request.SupervisorName!, StringComparison.OrdinalIgnoreCase));
-        }
-
-        // Aplicar filtro de monto
-        if (request.HasAmountFilter())
-        {
-            var (min, max) = request.GetAmountRange();
-            results = results.Where(c =>
-            {
-                var total = c.GetGrandTotal();
-                return total >= min && total <= max;
-            });
-        }
-
-        // Ordenamiento
-        results = ApplySorting(results, request);
-
-        var finalResults = results.ToList();
-        var totalCount = finalResults.Count;
-
-        // Aplicar paginación
-        if (request.RequiresPagination())
-        {
-            finalResults = finalResults
-                .Skip(request.GetSkip())
-                .Take(request.PageSize!.Value)
-                .ToList();
-        }
-
-        _logger.LogInformation("Found {Count} cash cuts matching criteria", totalCount);
-
-        return finalResults.Select(c => c.ToDto());
-    }
-
-    private IEnumerable<CashCut> ApplySorting(IEnumerable<CashCut> query, SearchCashCutRequest request)
-    {
-        if (!request.HasSorting())
-        {
-            return query.OrderByDescending(c => c.CutDateTime);
-        }
-
-        return request.SortColumn?.ToLower() switch
-        {
-            "cutdatetime" or "date" => request.SortAscending
-                ? query.OrderBy(c => c.CutDateTime)
-                : query.OrderByDescending(c => c.CutDateTime),
-            "cashregistername" or "register" => request.SortAscending
-                ? query.OrderBy(c => c.CashRegisterName)
-                : query.OrderByDescending(c => c.CashRegisterName),
-            "cashiername" or "cashier" => request.SortAscending
-                ? query.OrderBy(c => c.CashierName)
-                : query.OrderByDescending(c => c.CashierName),
-            "supervisorname" or "supervisor" => request.SortAscending
-                ? query.OrderBy(c => c.SupervisorName)
-                : query.OrderByDescending(c => c.SupervisorName),
-            "branchname" or "branch" => request.SortAscending
-                ? query.OrderBy(c => c.BranchName)
-                : query.OrderByDescending(c => c.BranchName),
-            "grandtotal" or "total" => request.SortAscending
-                ? query.OrderBy(c => (decimal)c.GetGrandTotal())
-                : query.OrderByDescending(c => (decimal)c.GetGrandTotal()),
-            _ => query.OrderByDescending(c => c.CutDateTime)
-        };
+        return results.Select(c => c.ToDto());
     }
 
     public async Task<CashCutDto> ProcessCashCutAsync(ProcessCashCutRequest request, CancellationToken cancellationToken = default)
@@ -193,52 +128,38 @@ public class CashCutService : ICashCutService
         var branch = await _branchService.GetByIdAsync(branchId, cancellationToken);
         var branchName = branch?.Name ?? "Unknown";
 
-        // 2. Fetch Collections
-        var today = DateTime.Today;
-        var endOfDay = today.AddDays(1).AddTicks(-1);
-
-        var searchRequest = new SearchCashCollectionRequest
+        // 2-5. Sumar, crear el corte y marcar las recolecciones de forma atómica.
+        // El bloqueo por caja impide que entre una recolección nueva (o un segundo corte) a mitad del proceso;
+        // si algo falla, la transacción revierte tanto el corte como las marcas.
+        return await _unitOfWork.ExecuteLockedAsync(CashCollectionService.GetRegisterLockKey(register.Name), async ct =>
         {
-            FechaInicio = today,
-            FechaFin = endOfDay,
-            CashRegisterName = register.Name,
-            IsCut = false
-        };
+            // Mismo conjunto (día local convertido a UTC) que MarkAsCutAsync marcará como cortado
+            var registerCollections = (await _cashCollectionService.GetPendingForCutAsync(register.Name, ct)).ToList();
 
-        var collections = await _cashCollectionService.SearchAsync(searchRequest, cancellationToken);
-        
-        var registerCollections = collections.ToList();
+            var createDto = new CreateCashCutDto
+            {
+                TotalThousands = registerCollections.Sum(r => r.Thousands),
+                TotalFiveHundreds = registerCollections.Sum(r => r.FiveHundreds),
+                TotalTwoHundreds = registerCollections.Sum(r => r.TwoHundreds),
+                TotalHundreds = registerCollections.Sum(r => r.Hundreds),
+                TotalFifties = registerCollections.Sum(r => r.Fifties),
+                TotalTwenties = registerCollections.Sum(r => r.Twenties),
+                TotalSlips = request.TotalSlips,
+                TotalBanbajio = request.TotalBanbajio,
+                TotalBanregio = request.TotalBanregio,
+                CashRegisterName = register.Name,
+                SupervisorName = supervisorName,
+                CashierName = cashier.Name,
+                BranchName = branchName
+            };
 
-        // 3. Sum Totals from collections
-        int totalThousands = registerCollections.Sum(r => r.Thousands);
-        int totalFiveHundreds = registerCollections.Sum(r => r.FiveHundreds);
-        int totalTwoHundreds = registerCollections.Sum(r => r.TwoHundreds);
-        int totalHundreds = registerCollections.Sum(r => r.Hundreds);
-        int totalFifties = registerCollections.Sum(r => r.Fifties);
-        int totalTwenties = registerCollections.Sum(r => r.Twenties);
+            // Crear primero: si el corte es inválido, no se marca ninguna recolección
+            var cut = await CreateAsync(createDto, ct);
 
-        // 4. Mark collections as cut
-        await _cashCollectionService.MarkAsCutAsync(register.Name, cancellationToken);
+            await _cashCollectionService.MarkAsCutAsync(register.Name, ct);
 
-        // 5. Create DTO
-        var createDto = new CreateCashCutDto
-        {
-            TotalThousands = totalThousands,
-            TotalFiveHundreds = totalFiveHundreds,
-            TotalTwoHundreds = totalTwoHundreds,
-            TotalHundreds = totalHundreds,
-            TotalFifties = totalFifties,
-            TotalTwenties = totalTwenties,
-            TotalSlips = request.TotalSlips,
-            TotalBanbajio = request.TotalBanbajio,
-            TotalBanregio = request.TotalBanregio,
-            CashRegisterName = register.Name,
-            SupervisorName = supervisorName,
-            CashierName = cashier.Name, 
-            BranchName = branchName
-        };
-
-        return await CreateAsync(createDto, cancellationToken);
+            return cut;
+        }, cancellationToken);
     }
 
     public async Task<CashCutDto> CreateAsync(CreateCashCutDto dto, CancellationToken cancellationToken = default)

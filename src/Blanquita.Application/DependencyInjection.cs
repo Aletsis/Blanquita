@@ -28,6 +28,7 @@ public static class DependencyInjection
         services.AddScoped<IConfiguracionService, Services.ConfiguracionService>();
         services.AddScoped<ILabelDesignService, Services.LabelDesignService>();
         services.AddScoped<IInvoiceJobService, Services.InvoiceJobService>();
+        services.AddScoped<IDescuadreAlertService, Services.DescuadreAlertService>();
         services.AddScoped<IConciliacionService, Services.ConciliacionService>();
         services.AddScoped<IReporteHistoricoService, Services.ReporteHistoricoService>();
         

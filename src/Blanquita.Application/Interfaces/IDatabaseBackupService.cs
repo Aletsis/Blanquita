@@ -15,11 +15,20 @@ public interface IDatabaseBackupService
     Task<string> CreateBackupAsync(string? destinationDirectory = null);
 
     /// <summary>
-    /// Restaura la base de datos a partir de un archivo de respaldo.
-    /// ¡ADVERTENCIA! Esta operación terminará todas las conexiones activas, eliminará la base de datos actual y la volverá a crear antes de restaurar.
+    /// Restaura la base de datos a partir de un archivo de respaldo del directorio de respaldos.
+    /// El respaldo se restaura primero en una base temporal; solo si tiene éxito se reemplaza la base actual
+    /// (las conexiones activas se cierran en ese momento) y se aplican las migraciones pendientes.
+    /// Si la restauración falla, la base de datos actual no se modifica.
     /// </summary>
     /// <param name="backupFilePath">Ruta completa del archivo de respaldo (.backup).</param>
     Task RestoreBackupAsync(string backupFilePath);
+
+    /// <summary>
+    /// Guarda en el directorio de respaldos un archivo subido por el usuario. El nombre se limpia y,
+    /// si ya existe un archivo con ese nombre, se agrega un sufijo para no sobrescribirlo.
+    /// </summary>
+    /// <returns>Ruta completa del archivo guardado.</returns>
+    Task<string> SaveUploadedBackupAsync(Stream content, string originalFileName, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Obtiene la lista de respaldos disponibles en el servidor.
@@ -28,7 +37,7 @@ public interface IDatabaseBackupService
     Task<List<BackupFileInfo>> GetAvailableBackupsAsync(string? directoryPath = null);
 
     /// <summary>
-    /// Elimina un archivo de respaldo específico.
+    /// Elimina un archivo de respaldo específico del directorio de respaldos.
     /// </summary>
     /// <param name="backupFilePath">Ruta completa del archivo de respaldo.</param>
     Task DeleteBackupAsync(string backupFilePath);

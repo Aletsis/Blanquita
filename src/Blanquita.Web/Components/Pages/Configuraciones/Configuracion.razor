@@ -53,7 +53,7 @@
         </MudStack>
     </MudStack>
 
-    <MudTabs Elevation="4" Rounded="true" ApplyEffectsToContainer="true" Class="mt-6 rounded-lg animate-slide-up" Color="Color.Primary">
+    <MudTabs Elevation="4" Rounded="true" ApplyEffectsToContainer="true" TabPanelsClass="pa-6" Class="mt-6 rounded-lg animate-slide-up" Color="Color.Primary">
         
         @* PESTAÑA: BASE DE DATOS *@
         <MudTabPanel Text="Base de Datos" Icon="@Icons.Material.Filled.Storage">
@@ -173,7 +173,7 @@
         @* PESTAÑA: EQUIPOS *@
         <MudTabPanel Text="Equipos" Icon="@Icons.Material.Filled.Dns">
             <MudStack Spacing="6">
-                    <MudTable Items="@_printers" Loading="@_loadingPrinters" Hover="true" Dense="true" Elevation="0" Outlined="true">
+                    <MudTable Items="@_printers" Hover="true" Dense="true" Elevation="0" Outlined="true">
                         <ToolBarContent>
                             <MudText Typo="Typo.h6" Color="Color.Primary">Impresoras Zebra</MudText>
                             <MudSpacer />
@@ -406,7 +406,6 @@
     private ConfiguracionDto _configuracion = new();
     private List<PrinterDto> _printers = new();
     private bool _guardando = false;
-    private bool _loadingPrinters = false;
     private bool _enviandoPrueba = false;
     private bool _isInitialized = false;
 
@@ -685,18 +684,14 @@
 
     private async Task RecargarImpresoras()
     {
-        _loadingPrinters = true;
         try
         {
             _printers = await PrinterService.GetAllAsync();
         }
         catch (Exception ex)
         {
+            Logger.LogError(ex, "Error al cargar impresoras");
             Snackbar.Add($"Error al cargar impresoras: {ex.Message}", Severity.Error);
-        }
-        finally
-        {
-            _loadingPrinters = false;
         }
     }
 
