@@ -44,11 +44,21 @@ public class GetSalesReportByFiltersQueryHandler : IRequestHandler<GetSalesRepor
             }
 
             // 2. Obtener series de cajas configuradas en la base de datos de PostgreSQL
-            var dbRegisters = await _cashRegisterRepository.GetByBranchAsync(request.BranchId, cancellationToken);
+            var dbRegisters = (await _cashRegisterRepository.GetByBranchAsync(request.BranchId, cancellationToken)).ToList();
             var dbSeries = dbRegisters
                 .Select(r => r.Serie)
                 .Where(s => !string.IsNullOrWhiteSpace(s));
             series.AddRange(dbSeries);
+
+            // Resolver también la serie (CSERIENOTA) en POS10041 mediante el IdContpaqi (CIDCAJA) de cada caja
+            foreach (var register in dbRegisters.Where(r => r.IdContpaqi > 0))
+            {
+                var foxProSerie = await _foxProCashRegisterRepository.GetNameByIdAsync(register.IdContpaqi, cancellationToken);
+                if (!string.IsNullOrWhiteSpace(foxProSerie))
+                {
+                    series.Add(foxProSerie);
+                }
+            }
 
             // 3. Obtener series propias de la sucursal (Cliente, Global, Devolución)
             if (!string.IsNullOrWhiteSpace(branch.SeriesCliente)) series.Add(branch.SeriesCliente);

@@ -556,6 +556,88 @@ public class FoxProPedidoRepository : IFoxProPedidoRepository
         return extracted.Equals(filter, StringComparison.OrdinalIgnoreCase);
     }
 
+    /// <summary>
+    /// Parsea la columna CHORA de POS10008, la cual en FoxPro/CONTPAQi POS se almacena
+    /// como cadena/número HHMMSS sin dos puntos (ej. "143025" o "91530") o con formato "HH:mm:ss".
+    /// Evita que TimeSpan.TryParse interprete "143025" como 143,025 días.
+    /// </summary>
+    private static bool TryParseFoxProTime(string? rawHora, out TimeSpan docTime, out string formattedHora)
+    {
+        docTime = TimeSpan.Zero;
+        formattedHora = string.Empty;
+
+        if (string.IsNullOrWhiteSpace(rawHora))
+            return false;
+
+        var trimmed = rawHora.Trim();
+
+        // Caso 1: Formato con dos puntos (ej. "14:30:25", "14:30", "02:30:25 PM")
+        if (trimmed.Contains(':'))
+        {
+            var parts = trimmed.Split(':');
+            if (parts.Length >= 2 &&
+                int.TryParse(parts[0].Trim(), out int h) &&
+                int.TryParse(new string(parts[1].Trim().TakeWhile(char.IsDigit).ToArray()), out int m))
+            {
+                int s = 0;
+                if (parts.Length > 2)
+                {
+                    var secDigits = new string(parts[2].Trim().TakeWhile(char.IsDigit).ToArray());
+                    int.TryParse(secDigits, out s);
+                }
+
+                bool isPm = trimmed.Contains("PM", StringComparison.OrdinalIgnoreCase) ||
+                            trimmed.Contains("P.M", StringComparison.OrdinalIgnoreCase) ||
+                            trimmed.Contains("P. M", StringComparison.OrdinalIgnoreCase);
+                bool isAm = trimmed.Contains("AM", StringComparison.OrdinalIgnoreCase) ||
+                            trimmed.Contains("A.M", StringComparison.OrdinalIgnoreCase) ||
+                            trimmed.Contains("A. M", StringComparison.OrdinalIgnoreCase);
+
+                if (isPm && h < 12) h += 12;
+                if (isAm && h == 12) h = 0;
+
+                if (h is >= 0 and < 24 && m is >= 0 and < 60 && s is >= 0 and < 60)
+                {
+                    docTime = new TimeSpan(h, m, s);
+                    formattedHora = $"{h:D2}:{m:D2}:{s:D2}";
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        // Caso 2: Formato numérico o cadena HHMMSS sin dos puntos en FoxPro (ej. "143025", "91530", "143025.00")
+        var clean = trimmed;
+        if (clean.Contains('.'))
+            clean = clean.Split('.')[0];
+        if (clean.Contains(','))
+            clean = clean.Split(',')[0];
+
+        clean = clean.Trim();
+        if (string.IsNullOrEmpty(clean) || clean.All(c => c == '0'))
+            return false;
+
+        if (clean.All(char.IsDigit))
+        {
+            if (clean.Length < 6)
+                clean = clean.PadLeft(6, '0');
+
+            if (clean.Length >= 6 &&
+                int.TryParse(clean.Substring(0, 2), out int hh) &&
+                int.TryParse(clean.Substring(2, 2), out int mm) &&
+                int.TryParse(clean.Substring(4, 2), out int ss) &&
+                hh is >= 0 and < 24 && mm is >= 0 and < 60 && ss is >= 0 and < 60)
+            {
+                docTime = new TimeSpan(hh, mm, ss);
+                formattedHora = $"{hh:D2}:{mm:D2}:{ss:D2}";
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     public async Task<IEnumerable<PedidoDto>> GetSalesReportByFiltersAsync(
         DateTime startDate,
         DateTime endDate,
@@ -610,18 +692,18 @@ public class FoxProPedidoRepository : IFoxProPedidoRepository
                 if (seriesList.Any() && !seriesList.Contains(cseriedo01.ToUpper())) continue;
 
                 var chora = reader.GetStringSafe("CHORA")?.Trim() ?? string.Empty;
-                if (!string.IsNullOrEmpty(chora))
+                var formattedHora = chora;
+                if (TryParseFoxProTime(chora, out var docTime, out var parsedFormattedHora))
                 {
-                    if (TimeSpan.TryParse(chora, out var docTime))
-                    {
-                        var effectiveEndTime = endTime.Seconds == 0 && endTime.Milliseconds == 0
-                            ? endTime.Add(TimeSpan.FromSeconds(59))
-                            : endTime;
+                    formattedHora = parsedFormattedHora;
 
-                        if (docTime < startTime || docTime > effectiveEndTime)
-                        {
-                            continue;
-                        }
+                    var effectiveEndTime = endTime.Seconds == 0 && endTime.Milliseconds == 0
+                        ? endTime.Add(TimeSpan.FromSeconds(59))
+                        : endTime;
+
+                    if (docTime < startTime || docTime > effectiveEndTime)
+                    {
+                        continue;
                     }
                 }
 
@@ -639,7 +721,7 @@ public class FoxProPedidoRepository : IFoxProPedidoRepository
                     Serie = cseriedo01,
                     NumeroFolio = cfolio,
                     Fecha = cfecha,
-                    Hora = chora,
+                    Hora = formattedHora,
                     Comanda = extractedComanda,
                     Ruta = extractedRuta,
                     Total = reader.GetDecimalSafe("CTOTAL"),

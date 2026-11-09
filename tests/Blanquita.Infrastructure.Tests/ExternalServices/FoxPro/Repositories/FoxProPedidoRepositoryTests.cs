@@ -172,6 +172,39 @@ public class FoxProPedidoRepositoryTests : IDisposable
     }
 
     [Fact]
+    public async Task GetSalesReportByFiltersAsync_SoportaHoraEnFormatoFoxProHHMMSSSinDosPuntos()
+    {
+        var rowTarde = Row(Hoy, "COH", "20");
+        rowTarde["CHORA"] = "143025"; // 14:30:25 en POS10008 (TimeSpan.TryParse lo interpretaba como 143,025 días)
+
+        var rowMananaSinCeroInicial = Row(Hoy, "COH", "19");
+        rowMananaSinCeroInicial["CHORA"] = "91530"; // 09:15:30
+
+        var rowDecimalFoxPro = Row(Hoy, "COH", "21");
+        rowDecimalFoxPro["CHORA"] = "175959.00"; // 17:59:59
+
+        var rowFueraDeRango = Row(Hoy, "COH", "22");
+        rowFueraDeRango["CHORA"] = "231000"; // 23:10:00
+
+        SetupRows(rowFueraDeRango, rowDecimalFoxPro, rowTarde, rowMananaSinCeroInicial);
+
+        var result = (await _repository.GetSalesReportByFiltersAsync(
+            Hoy,
+            Hoy,
+            new TimeSpan(7, 0, 0),
+            new TimeSpan(22, 0, 0),
+            new[] { "COH" })).ToList();
+
+        Assert.Equal(3, result.Count);
+        Assert.Equal("COH-19", result[0].Folio);
+        Assert.Equal("09:15:30", result[0].Hora);
+        Assert.Equal("COH-20", result[1].Folio);
+        Assert.Equal("14:30:25", result[1].Hora);
+        Assert.Equal("COH-21", result[2].Folio);
+        Assert.Equal("17:59:59", result[2].Hora);
+    }
+
+    [Fact]
     public async Task GetPedidoItemsAsync_NoCortaPorRegistrosConIdMenorIntercalados()
     {
         // Simulamos más de 5,000 registros con CIDDOCUM01 menor intercalados con IDs mayores
