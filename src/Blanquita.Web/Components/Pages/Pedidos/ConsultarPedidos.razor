@@ -297,7 +297,10 @@
 
     private async Task VerDetalles(PedidoDto pedido)
     {
-        var parameters = new DialogParameters { ["Pedido"] = pedido };
+        var parameters = new DialogParameters<Blanquita.Web.Components.Dialogs.DialogoDetallePedido>
+        {
+            { x => x.Pedido, pedido }
+        };
         var options = new DialogOptions { 
             CloseButton = true, 
             MaxWidth = MaxWidth.Medium, 

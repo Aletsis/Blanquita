@@ -152,7 +152,7 @@ public class FoxProProductRepository : IProductCatalogRepository
     {
         var idSet = ids.ToHashSet();
         var results = new List<ProductSearchDto>();
-        var missingIds = new List<int>();
+        var missingIds = new HashSet<int>();
 
         // 1. Intentar obtener de caché
         foreach (var id in idSet)
@@ -187,7 +187,7 @@ public class FoxProProductRepository : IProductCatalogRepository
                 cancellationToken.ThrowIfCancellationRequested();
 
                 var id = reader.GetInt32Safe("CIDPRODU01");
-                if (missingIds.Contains(id))
+                if (missingIds.Remove(id))
                 {
                     var product = FoxProProductMapper.MapToSearchDto(reader);
                     results.Add(product);
@@ -197,6 +197,9 @@ public class FoxProProductRepository : IProductCatalogRepository
                         .SetSlidingExpiration(TimeSpan.FromHours(4))
                         .SetSize(1);
                     _cache.Set($"Product_{id}", product, cacheEntryOptions);
+
+                    if (missingIds.Count == 0)
+                        break;
                 }
             }
 

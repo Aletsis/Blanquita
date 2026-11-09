@@ -3,6 +3,7 @@
 @inject NavigationManager Navigation
 @inject ILogger<DialogoDetallePedido> Logger
 @inject ISnackbar Snackbar
+@implements IDisposable
 @using Blanquita.Application.Interfaces.Repositories
 @using Blanquita.Application.DTOs
 
@@ -210,26 +211,35 @@
     private ClientSearchDto? _clientDetails;
     private ClientAddressDto? Address => _clientDetails?.Addresses.FirstOrDefault();
     private bool _loading = true;
+    private CancellationTokenSource? _cts;
 
     protected override async Task OnInitializedAsync()
     {
+        _cts = new CancellationTokenSource();
+        var token = _cts.Token;
+
         try
         {
             _loading = true;
-            
-            // Ejecutar consultas en paralelo para mejorar el tiempo de carga
-            var itemsTask = PedidoRepository.GetPedidoItemsAsync(Pedido.IdDocumento);
-            
-            Task<ClientSearchDto?> clientTask = Task.FromResult<ClientSearchDto?>(null);
-            if (Pedido.ClienteId > 0)
-            {
-                clientTask = ClientRepository.GetByIdAsync(Pedido.ClienteId);
-            }
+            var idDocumento = Pedido.IdDocumento;
+            var clienteId = Pedido.ClienteId;
+
+            // El escaneo de los archivos FoxPro es síncrono; se ejecuta fuera del hilo del circuito de Blazor
+            // para que el diálogo se abra de inmediato y no bloquee la interfaz.
+            var itemsTask = Task.Run(() => PedidoRepository.GetPedidoItemsAsync(idDocumento, token), token);
+
+            var clientTask = clienteId > 0
+                ? Task.Run(() => ClientRepository.GetByIdAsync(clienteId, token), token)
+                : Task.FromResult<ClientSearchDto?>(null);
 
             await Task.WhenAll(itemsTask, clientTask);
 
             _detalles = (await itemsTask).ToList();
             _clientDetails = await clientTask;
+        }
+        catch (OperationCanceledException)
+        {
+            // Diálogo cerrado antes de terminar la lectura; no se notifica
         }
         catch (Exception ex)
         {
@@ -238,8 +248,15 @@
         }
         finally
         {
-            _loading = false;
+            if (!token.IsCancellationRequested)
+                _loading = false;
         }
+    }
+
+    public void Dispose()
+    {
+        _cts?.Cancel();
+        _cts?.Dispose();
     }
 
     private void Cerrar() => MudDialog.Cancel();

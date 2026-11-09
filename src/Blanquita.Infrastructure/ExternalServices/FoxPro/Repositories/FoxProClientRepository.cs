@@ -34,7 +34,7 @@ public class FoxProClientRepository : IClientCatalogRepository
 
     public async Task<ClientSearchDto?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
     {
-        var results = await SearchInternalAsync(string.Empty, isExactMatch: false, cancellationToken, isById: true, idFilter: id);
+        var results = await GetByIdsAsync(new[] { id }, cancellationToken);
         return results.FirstOrDefault();
     }
 
@@ -157,7 +157,15 @@ public class FoxProClientRepository : IClientCatalogRepository
                         };
                         clients.Add(client);
 
-                        if (!isExactMatch && !isGetAll && clients.Count >= 50) break; // Limit results only for UI searches
+                        if (isById)
+                        {
+                            var expectedCount = idSet?.Count ?? 1;
+                            if (clients.Count >= expectedCount) break;
+                        }
+                        else if (!isExactMatch && !isGetAll && clients.Count >= 50)
+                        {
+                            break; // Limit results only for UI searches
+                        }
                     }
                 }
             }

@@ -418,6 +418,7 @@ public class FoxProPedidoRepository : IFoxProPedidoRepository
 
             bool foundBlock = false;
             int nonMatchingRecordsSinceLastMatch = 0;
+            bool hasTargetNumericId = double.TryParse(idDocumento, out var targetDocId);
 
             while (reader.Read())
             {
@@ -427,7 +428,7 @@ public class FoxProPedidoRepository : IFoxProPedidoRepository
                 
                 if (currentIdDoc != idDocumento)
                 {
-                    if (foundBlock)
+                    if (foundBlock || (hasTargetNumericId && double.TryParse(currentIdDoc, out var currentDocId) && currentDocId < targetDocId))
                     {
                         nonMatchingRecordsSinceLastMatch++;
                         // Si ya pasamos un margen seguro de registros sin encontrar más partidas
