@@ -420,6 +420,9 @@ public class FoxProPedidoRepository : IFoxProPedidoRepository
             int nonMatchingRecordsSinceLastMatch = 0;
             var targetIdTrimmed = idDocumento?.Trim() ?? string.Empty;
             bool hasTargetNumericId = double.TryParse(targetIdTrimmed, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var targetDocId);
+            var targetNormalizedNumeric = hasTargetNumericId
+                ? targetDocId.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                : null;
 
             while (reader.Read())
             {
@@ -427,7 +430,10 @@ public class FoxProPedidoRepository : IFoxProPedidoRepository
 
                 var currentIdDoc = reader.GetStringSafe("CIDDOCUM01");
                 bool isSameDoc = string.Equals(currentIdDoc, targetIdTrimmed, StringComparison.OrdinalIgnoreCase) ||
+                    (targetNormalizedNumeric != null && string.Equals(currentIdDoc, targetNormalizedNumeric, StringComparison.OrdinalIgnoreCase)) ||
                     (hasTargetNumericId &&
+                     currentIdDoc.Length > 0 &&
+                     (currentIdDoc[0] == '0' || currentIdDoc.Contains('.')) &&
                      double.TryParse(currentIdDoc, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var matchedDocId) &&
                      matchedDocId == targetDocId);
 

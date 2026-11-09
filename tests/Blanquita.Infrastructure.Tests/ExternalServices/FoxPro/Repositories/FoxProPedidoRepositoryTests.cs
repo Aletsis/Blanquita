@@ -246,6 +246,83 @@ public class FoxProPedidoRepositoryTests : IDisposable
         Assert.Equal(75m, item.Subtotal);
     }
 
+    [Fact]
+    public void FoxProReverseDataReader_LeeRegistrosEnOrdenInversoYSaltaBorrados()
+    {
+        var dbfPath = Path.GetTempFileName();
+        try
+        {
+            WriteMinimalDbf(dbfPath, new[]
+            {
+                (Deleted: false, IdDoc: "100", ProdId: 10, Unidades: 2.50m),
+                (Deleted: true,  IdDoc: "100", ProdId: 99, Unidades: 9.00m),
+                (Deleted: false, IdDoc: "101", ProdId: 20, Unidades: 4.00m)
+            });
+
+            using var reader = new FoxProReverseDataReader(dbfPath);
+
+            Assert.True(reader.Read());
+            Assert.Equal("101", reader.GetStringSafe("CIDDOCUM01"));
+            Assert.Equal(20, reader.GetInt32Safe("CIDPRODU01"));
+            Assert.Equal(4.00m, reader.GetDecimalSafe("CUNIDADES"));
+
+            Assert.True(reader.Read());
+            Assert.Equal("100", reader.GetStringSafe("CIDDOCUM01"));
+            Assert.Equal(10, reader.GetInt32Safe("CIDPRODU01"));
+            Assert.Equal(2.50m, reader.GetDecimalSafe("CUNIDADES"));
+
+            Assert.False(reader.Read());
+        }
+        finally
+        {
+            if (File.Exists(dbfPath)) File.Delete(dbfPath);
+        }
+    }
+
+    private static void WriteMinimalDbf(string path, IReadOnlyList<(bool Deleted, string IdDoc, int ProdId, decimal Unidades)> records)
+    {
+        using var fs = new FileStream(path, FileMode.Create, FileAccess.Write);
+        using var bw = new BinaryWriter(fs, System.Text.Encoding.ASCII);
+
+        // 3 columnas: CIDDOCUM01 (C,10), CIDPRODU01 (N,8,0), CUNIDADES (N,10,2)
+        // RecordLength = 1 (status) + 10 + 8 + 10 = 29 bytes
+        // HeaderLength = 32 + (3 * 32) + 1 = 129 bytes
+        bw.Write((byte)0x03); // dBASE III
+        bw.Write(new byte[] { 26, 11, 9 }); // YY, MM, DD
+        bw.Write(records.Count);
+        bw.Write((short)129); // HeaderLength
+        bw.Write((short)29);  // RecordLength
+        bw.Write(new byte[20]);
+
+        WriteColumnDescriptor(bw, "CIDDOCUM01", 'C', 10, 0);
+        WriteColumnDescriptor(bw, "CIDPRODU01", 'N', 8, 0);
+        WriteColumnDescriptor(bw, "CUNIDADES", 'N', 10, 2);
+        bw.Write((byte)0x0D); // Terminator
+
+        foreach (var r in records)
+        {
+            bw.Write((byte)(r.Deleted ? 0x2A : 0x20));
+            bw.Write(System.Text.Encoding.ASCII.GetBytes(r.IdDoc.PadRight(10)[..10]));
+            bw.Write(System.Text.Encoding.ASCII.GetBytes(r.ProdId.ToString(System.Globalization.CultureInfo.InvariantCulture).PadLeft(8)[..8]));
+            bw.Write(System.Text.Encoding.ASCII.GetBytes(r.Unidades.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture).PadLeft(10)[..10]));
+        }
+
+        bw.Write((byte)0x1A); // EOF
+    }
+
+    private static void WriteColumnDescriptor(BinaryWriter bw, string name, char type, byte length, byte decimals)
+    {
+        var nameBytes = new byte[11];
+        var ascii = System.Text.Encoding.ASCII.GetBytes(name);
+        Array.Copy(ascii, nameBytes, Math.Min(ascii.Length, 10));
+        bw.Write(nameBytes);
+        bw.Write((byte)type);
+        bw.Write(0); // Offset
+        bw.Write(length);
+        bw.Write(decimals);
+        bw.Write(new byte[14]);
+    }
+
     /// <summary>
     /// Lector en memoria que expone filas como columnas por nombre.
     /// </summary>

@@ -115,59 +115,83 @@
 
                 <!-- Listado de Artículos (Detalles POS10010) -->
                 <MudItem xs="12">
-                    <div class="d-flex align-center mb-3">
-                        <MudIcon Icon="@Icons.Material.Filled.ListAlt" Color="Color.Primary" Class="mr-2" Size="Size.Small" />
-                        <MudText Typo="Typo.subtitle1" Class="font-weight-bold">Partidas de la Nota (POS10010)</MudText>
+                    <div class="d-flex align-center justify-space-between mb-3">
+                        <div class="d-flex align-center">
+                            <MudIcon Icon="@Icons.Material.Filled.ListAlt" Color="Color.Primary" Class="mr-2" Size="Size.Small" />
+                            <MudText Typo="Typo.subtitle1" Class="font-weight-bold">Partidas de la Nota (POS10010)</MudText>
+                        </div>
+                        @if (!_loading && _detalles.Any())
+                        {
+                            <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Primary">
+                                @_detalles.Count partidas
+                            </MudChip>
+                        }
                     </div>
                     
-                    <MudTable Items="_detalles" Hover="true" Dense="true" Elevation="0" Outlined="true" Class="rounded-xl overflow-hidden border-light" Striped="true" Loading="@_loading">
-                        <HeaderContent>
-                            <MudTh Class="bg-surface">Cód. Artículo</MudTh>
-                            <MudTh Class="bg-surface">Descripción</MudTh>
-                            <MudTh Class="bg-surface" Style="text-align: center;">Cantidad</MudTh>
-                            <MudTh Class="bg-surface" Style="text-align: right;">P. Unitario</MudTh>
-                            <MudTh Class="bg-surface" Style="text-align: right;">Subtotal</MudTh>
-                        </HeaderContent>
-                        <RowTemplate>
-                            <MudTd DataLabel="Cód. Artículo">
-                                <MudText Typo="Typo.body2" Class="font-mono">@context.Codigo</MudText>
-                            </MudTd>
-                            <MudTd DataLabel="Descripción">@context.Descripcion</MudTd>
-                            <MudTd DataLabel="Cantidad" Style="text-align: center;">
-                                <MudText Typo="Typo.body2">@context.Cantidad.ToString("N2")</MudText>
-                            </MudTd>
-                            <MudTd DataLabel="P. Unitario" Style="text-align: right;">@context.Precio.ToString("C2")</MudTd>
-                            <MudTd DataLabel="Subtotal" Style="text-align: right;">
-                                <MudText Typo="Typo.body2" Class="font-weight-bold">@context.Subtotal.ToString("C2")</MudText>
-                            </MudTd>
-                        </RowTemplate>
-                        <FooterContent>
-                            <MudTFootRow Class="bg-light">
-                                <MudTd colspan="4" Style="text-align: right;">
-                                    <MudText Typo="Typo.body2" Class="font-weight-bold">SUBTOTAL:</MudText>
+                    @if (_loading)
+                    {
+                        <div class="d-flex justify-center align-center pa-8">
+                            <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Medium" />
+                            <MudText Typo="Typo.body2" Class="ml-3">Cargando partidas de la nota...</MudText>
+                        </div>
+                    }
+                    else if (!_detalles.Any())
+                    {
+                        <MudAlert Severity="Severity.Warning" Class="mt-2">
+                            No se encontraron partidas registradas para este documento en POS10010.
+                        </MudAlert>
+                    }
+                    else
+                    {
+                        <MudTable Items="@_detalles" Hover="true" Dense="true" Elevation="0" Outlined="true" Class="rounded-xl overflow-hidden border-light" Striped="true">
+                            <HeaderContent>
+                                <MudTh Class="bg-surface">Cód. Artículo</MudTh>
+                                <MudTh Class="bg-surface">Descripción</MudTh>
+                                <MudTh Class="bg-surface" Style="text-align: center;">Cantidad</MudTh>
+                                <MudTh Class="bg-surface" Style="text-align: right;">P. Unitario</MudTh>
+                                <MudTh Class="bg-surface" Style="text-align: right;">Subtotal</MudTh>
+                            </HeaderContent>
+                            <RowTemplate>
+                                <MudTd DataLabel="Cód. Artículo">
+                                    <MudText Typo="Typo.body2" Class="font-mono">@context.Codigo</MudText>
                                 </MudTd>
-                                <MudTd Style="text-align: right;">
-                                    <MudText Typo="Typo.body2" Class="font-weight-bold">@Pedido.NetAmount.ToString("C2")</MudText>
+                                <MudTd DataLabel="Descripción">@context.Descripcion</MudTd>
+                                <MudTd DataLabel="Cantidad" Style="text-align: center;">
+                                    <MudText Typo="Typo.body2">@context.Cantidad.ToString("N2")</MudText>
                                 </MudTd>
-                            </MudTFootRow>
-                            <MudTFootRow Class="bg-light">
-                                <MudTd colspan="4" Style="text-align: right;">
-                                    <MudText Typo="Typo.body2" Class="font-weight-bold">IVA:</MudText>
+                                <MudTd DataLabel="P. Unitario" Style="text-align: right;">@context.Precio.ToString("C2")</MudTd>
+                                <MudTd DataLabel="Subtotal" Style="text-align: right;">
+                                    <MudText Typo="Typo.body2" Class="font-weight-bold">@context.Subtotal.ToString("C2")</MudText>
                                 </MudTd>
-                                <MudTd Style="text-align: right;">
-                                    <MudText Typo="Typo.body2" Class="font-weight-bold">@Pedido.TaxAmount.ToString("C2")</MudText>
-                                </MudTd>
-                            </MudTFootRow>
-                            <MudTFootRow Style="background-color: var(--mud-palette-primary-hover)">
-                                <MudTd colspan="4" Style="text-align: right;">
-                                    <MudText Typo="Typo.subtitle1" Class="font-weight-bold" Color="Color.Primary">TOTAL NOTA:</MudText>
-                                </MudTd>
-                                <MudTd Style="text-align: right;">
-                                    <MudText Typo="Typo.subtitle1" Class="font-weight-bold" Color="Color.Primary">@Pedido.Total.ToString("C2")</MudText>
-                                </MudTd>
-                            </MudTFootRow>
-                        </FooterContent>
-                    </MudTable>
+                            </RowTemplate>
+                            <FooterContent>
+                                <MudTFootRow Class="bg-light">
+                                    <MudTd colspan="4" Style="text-align: right;">
+                                        <MudText Typo="Typo.body2" Class="font-weight-bold">SUBTOTAL:</MudText>
+                                    </MudTd>
+                                    <MudTd Style="text-align: right;">
+                                        <MudText Typo="Typo.body2" Class="font-weight-bold">@Pedido.NetAmount.ToString("C2")</MudText>
+                                    </MudTd>
+                                </MudTFootRow>
+                                <MudTFootRow Class="bg-light">
+                                    <MudTd colspan="4" Style="text-align: right;">
+                                        <MudText Typo="Typo.body2" Class="font-weight-bold">IVA:</MudText>
+                                    </MudTd>
+                                    <MudTd Style="text-align: right;">
+                                        <MudText Typo="Typo.body2" Class="font-weight-bold">@Pedido.TaxAmount.ToString("C2")</MudText>
+                                    </MudTd>
+                                </MudTFootRow>
+                                <MudTFootRow Style="background-color: var(--mud-palette-primary-hover)">
+                                    <MudTd colspan="4" Style="text-align: right;">
+                                        <MudText Typo="Typo.subtitle1" Class="font-weight-bold" Color="Color.Primary">TOTAL NOTA:</MudText>
+                                    </MudTd>
+                                    <MudTd Style="text-align: right;">
+                                        <MudText Typo="Typo.subtitle1" Class="font-weight-bold" Color="Color.Primary">@Pedido.Total.ToString("C2")</MudText>
+                                    </MudTd>
+                                </MudTFootRow>
+                            </FooterContent>
+                        </MudTable>
+                    }
                 </MudItem>
                 
                 <MudItem xs="12" Class="mt-2">
@@ -249,7 +273,11 @@
         finally
         {
             if (!token.IsCancellationRequested)
+            {
                 _loading = false;
+                StateHasChanged();
+                MudDialog?.StateHasChanged();
+            }
         }
     }
 

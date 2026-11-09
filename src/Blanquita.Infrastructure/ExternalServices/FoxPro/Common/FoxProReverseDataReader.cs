@@ -8,10 +8,21 @@ namespace Blanquita.Infrastructure.ExternalServices.FoxPro.Common;
 
 public class FoxProReverseDataReader : IFoxProDataReader
 {
+    private const int RecordsPerBlock = 2048;
+
     private readonly DbfTable _table;
     private readonly DbfRecord _record;
-    private long _currentIndex;
+    private readonly IList<IDbfValue> _values;
+    private readonly int[] _parsedGeneration;
+    private readonly int _recordLength;
+    private readonly long _headerLength;
+    private readonly byte[] _blockBuffer;
     private readonly Dictionary<string, int> _columnOrdinals = new(StringComparer.OrdinalIgnoreCase);
+
+    private long _nextBlockEndRecord;
+    private int _blockRecordIndex;
+    private int _currentRecordOffset;
+    private int _currentGeneration;
     private bool _isDisposed;
 
     public FoxProReverseDataReader(string filePath)
@@ -20,7 +31,14 @@ public class FoxProReverseDataReader : IFoxProDataReader
         
         _table = new DbfTable(filePath, encoding);
         _record = new DbfRecord(_table);
-        _currentIndex = _table.Header.RecordCount;
+        _values = _record.Values;
+        _parsedGeneration = new int[_values.Count];
+        _recordLength = _table.Header.RecordLength;
+        _headerLength = _table.Header.HeaderLength;
+        _nextBlockEndRecord = _table.Header.RecordCount;
+
+        var initialBlockRecords = (int)Math.Min(RecordsPerBlock, Math.Max(1L, _nextBlockEndRecord));
+        _blockBuffer = _recordLength > 0 ? new byte[initialBlockRecords * _recordLength] : Array.Empty<byte>();
 
         for (int i = 0; i < _table.Columns.Count; i++)
         {
@@ -30,24 +48,72 @@ public class FoxProReverseDataReader : IFoxProDataReader
 
     public bool Read()
     {
-        while (_currentIndex > 0)
+        if (_recordLength <= 0)
         {
-            _currentIndex--;
+            return false;
+        }
+
+        while (true)
+        {
+            if (_blockRecordIndex <= 0)
+            {
+                if (!ReadPreviousBlock())
+                {
+                    return false;
+                }
+            }
+
+            _blockRecordIndex--;
+            _currentRecordOffset = _blockRecordIndex * _recordLength;
+
+            byte status = _blockBuffer[_currentRecordOffset];
+            // 0x2A ('*') = registro marcado como borrado; 0x1A = marca de fin de archivo
+            if (status == 0x2A || status == 0x1A)
+            {
+                continue;
+            }
+
+            _currentGeneration++;
+            return true;
+        }
+    }
+
+    private bool ReadPreviousBlock()
+    {
+        while (_nextBlockEndRecord > 0)
+        {
+            var recordsToRead = (int)Math.Min(RecordsPerBlock, _nextBlockEndRecord);
+            var blockStartRecord = _nextBlockEndRecord - recordsToRead;
+            _nextBlockEndRecord = blockStartRecord;
+
+            var bytesToRead = recordsToRead * _recordLength;
             try
             {
-                _table.Stream.Seek(_table.Header.HeaderLength + (_currentIndex * _table.Header.RecordLength), SeekOrigin.Begin);
-                _table.Read(_record);
+                _table.Stream.Seek(_headerLength + (blockStartRecord * _recordLength), SeekOrigin.Begin);
 
-                if (!_record.IsDeleted)
+                int totalRead = 0;
+                while (totalRead < bytesToRead)
+                {
+                    int read = _table.Stream.Read(_blockBuffer, totalRead, bytesToRead - totalRead);
+                    if (read <= 0)
+                    {
+                        break;
+                    }
+                    totalRead += read;
+                }
+
+                _blockRecordIndex = totalRead / _recordLength;
+                if (_blockRecordIndex > 0)
                 {
                     return true;
                 }
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Trace.TraceWarning($"FoxProReverseDataReader: Error reading record at index {_currentIndex}: {ex.Message}");
+                System.Diagnostics.Trace.TraceWarning($"FoxProReverseDataReader: Error reading block at record {blockStartRecord}: {ex.Message}");
             }
         }
+
         return false;
     }
 
@@ -62,8 +128,28 @@ public class FoxProReverseDataReader : IFoxProDataReader
 
     public object GetValue(int ordinal)
     {
-        if (ordinal < 0 || ordinal >= _table.Columns.Count) return DBNull.Value;
-        return _record.GetValue(ordinal);
+        if (ordinal < 0 || ordinal >= _values.Count || _currentGeneration == 0)
+        {
+            return DBNull.Value;
+        }
+
+        var dbfValue = _values[ordinal];
+        if (_parsedGeneration[ordinal] != _currentGeneration)
+        {
+            try
+            {
+                var slice = new ReadOnlySpan<byte>(_blockBuffer, _currentRecordOffset + dbfValue.Start, dbfValue.Length);
+                dbfValue.Read(slice);
+                _parsedGeneration[ordinal] = _currentGeneration;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Trace.TraceWarning($"FoxProReverseDataReader: Error parsing column {ordinal}: {ex.Message}");
+                return DBNull.Value;
+            }
+        }
+
+        return dbfValue.GetValue() ?? DBNull.Value;
     }
 
     public string GetString(int ordinal)
