@@ -346,7 +346,14 @@
     {
         try
         {
-            sucursales = await BranchService.GetAllAsync();
+            var rawBranches = await BranchService.GetAllAsync();
+            var list = new List<BranchDto>
+            {
+                new BranchDto { Id = 0, Name = "Todas", Code = "TODAS" }
+            };
+            list.AddRange(rawBranches);
+            sucursales = list;
+
             if (sucursales.Any())
             {
                 sucursalSeleccionada = sucursales.FirstOrDefault(s => s.Name == "Himno") ?? sucursales.First();

@@ -138,6 +138,35 @@ public class FoxProPedidoRepositoryTests : IDisposable
         Assert.Equal(esperado, result.Any());
     }
 
+    [Fact]
+    public async Task GetSalesReportByFiltersAsync_FiltraPorRangoDeFechasYHora()
+    {
+        var rowDentroRango = Row(Hoy, "COH", "10");
+        rowDentroRango["CHORA"] = "14:30:45";
+
+        var rowHoraLimiteMinuto = Row(Hoy, "COH", "11");
+        rowHoraLimiteMinuto["CHORA"] = "18:00:35";
+
+        var rowFueraHora = Row(Hoy, "COH", "12");
+        rowFueraHora["CHORA"] = "19:00:00";
+
+        var rowAntesDeFechaInicio = Row(Hoy.AddDays(-5), "COH", "9");
+        rowAntesDeFechaInicio["CHORA"] = "12:00:00";
+
+        SetupRows(rowFueraHora, rowHoraLimiteMinuto, rowDentroRango, rowAntesDeFechaInicio);
+
+        var result = (await _repository.GetSalesReportByFiltersAsync(
+            Hoy,
+            Hoy,
+            new TimeSpan(10, 0, 0),
+            new TimeSpan(18, 0, 0),
+            new[] { "COH" })).ToList();
+
+        Assert.Equal(2, result.Count);
+        Assert.Contains(result, p => p.Folio == "COH-10");
+        Assert.Contains(result, p => p.Folio == "COH-11");
+    }
+
     /// <summary>
     /// Lector en memoria que expone filas como columnas por nombre.
     /// </summary>

@@ -599,7 +599,7 @@ public class FoxProPedidoRepository : IFoxProPedidoRepository
                         recordCount, skippedCount, cfecha, startDate, $"{reader.GetStringSafe("CSERIEDO01")?.Trim()}-{reader.GetStringSafe("CFOLIO")?.Trim()}");
                     break;
                 }
-                if (cfecha.Date > endDate.Date) continue;
+                if (cfecha.Date < startDate.Date || cfecha.Date > endDate.Date) continue;
 
                 var cseriedo01 = reader.GetStringSafe("CSERIEDO01")?.Trim() ?? string.Empty;
                 if (seriesList.Any() && !seriesList.Contains(cseriedo01.ToUpper())) continue;
@@ -609,7 +609,11 @@ public class FoxProPedidoRepository : IFoxProPedidoRepository
                 {
                     if (TimeSpan.TryParse(chora, out var docTime))
                     {
-                        if (docTime < startTime || docTime > endTime)
+                        var effectiveEndTime = endTime.Seconds == 0 && endTime.Milliseconds == 0
+                            ? endTime.Add(TimeSpan.FromSeconds(59))
+                            : endTime;
+
+                        if (docTime < startTime || docTime > effectiveEndTime)
                         {
                             continue;
                         }
@@ -756,7 +760,7 @@ public class FoxProPedidoRepository : IFoxProPedidoRepository
                         recordCount, skippedCount, cfecha, startDate, $"{headerReader.GetStringSafe("CSERIEDO01")?.Trim()}-{headerReader.GetStringSafe("CFOLIO")?.Trim()}");
                     break;
                 }
-                if (cfecha.Date > endDate.Date) continue;
+                if (cfecha.Date < startDate.Date || cfecha.Date > endDate.Date) continue;
 
                 var cseriedo01 = headerReader.GetStringSafe("CSERIEDO01")?.Trim() ?? string.Empty;
                 if (seriesList.Any() && !seriesList.Contains(cseriedo01.ToUpper())) continue;
