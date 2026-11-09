@@ -26,7 +26,11 @@ public class FoxProPedidoRepositoryTests : IDisposable
 
         _mockConfigService
             .Setup(s => s.ObtenerConfiguracionAsync())
-            .ReturnsAsync(new ConfiguracionDto { Pos10008Path = _tempFilePath });
+            .ReturnsAsync(new ConfiguracionDto
+            {
+                Pos10008Path = _tempFilePath,
+                Pos10010Path = _tempFilePath
+            });
 
         _mockClientRepository
             .Setup(r => r.GetByIdsAsync(It.IsAny<IEnumerable<int>>(), It.IsAny<CancellationToken>()))
@@ -165,6 +169,48 @@ public class FoxProPedidoRepositoryTests : IDisposable
         Assert.Equal(2, result.Count);
         Assert.Contains(result, p => p.Folio == "COH-10");
         Assert.Contains(result, p => p.Folio == "COH-11");
+    }
+
+    [Fact]
+    public async Task GetPedidoItemsAsync_NoCortaPorRegistrosConIdMenorIntercalados()
+    {
+        // Simulamos más de 5,000 registros con CIDDOCUM01 menor intercalados con IDs mayores
+        // antes de llegar a la partida del documento buscado ("10000").
+        var rows = new List<Dictionary<string, object>>();
+        for (int i = 0; i < 6000; i++)
+        {
+            rows.Add(new Dictionary<string, object>
+            {
+                // Cada 100 registros entra uno con ID mayor (como pasa al sincronizar varias cajas/sucursales)
+                ["CIDDOCUM01"] = i % 100 == 0 ? "15000" : "5000",
+                ["CIDPRODU01"] = 1,
+                ["CUNIDADES"] = 1m,
+                ["CPRECIO"] = 10m,
+                ["CNETO"] = 10m
+            });
+        }
+
+        rows.Add(new Dictionary<string, object>
+        {
+            ["CIDDOCUM01"] = "10000",
+            ["CIDPRODU01"] = 42,
+            ["CUNIDADES"] = 3m,
+            ["CPRECIO"] = 25m,
+            ["CNETO"] = 75m
+        });
+
+        _mockProductRepository
+            .Setup(r => r.GetByIdsAsync(It.IsAny<IEnumerable<int>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new[] { new ProductSearchDto { Id = 42, Code = "P42", Name = "Producto 42" } });
+
+        SetupRows(rows.ToArray());
+
+        var items = (await _repository.GetPedidoItemsAsync("10000")).ToList();
+
+        var item = Assert.Single(items);
+        Assert.Equal("P42", item.Codigo);
+        Assert.Equal(3m, item.Cantidad);
+        Assert.Equal(75m, item.Subtotal);
     }
 
     /// <summary>

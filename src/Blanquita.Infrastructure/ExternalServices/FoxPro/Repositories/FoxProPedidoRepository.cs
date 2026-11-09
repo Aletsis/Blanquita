@@ -418,21 +418,26 @@ public class FoxProPedidoRepository : IFoxProPedidoRepository
 
             bool foundBlock = false;
             int nonMatchingRecordsSinceLastMatch = 0;
-            bool hasTargetNumericId = double.TryParse(idDocumento, out var targetDocId);
+            var targetIdTrimmed = idDocumento?.Trim() ?? string.Empty;
+            bool hasTargetNumericId = double.TryParse(targetIdTrimmed, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var targetDocId);
 
             while (reader.Read())
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
                 var currentIdDoc = reader.GetStringSafe("CIDDOCUM01");
-                
-                if (currentIdDoc != idDocumento)
+                bool isSameDoc = string.Equals(currentIdDoc, targetIdTrimmed, StringComparison.OrdinalIgnoreCase) ||
+                    (hasTargetNumericId &&
+                     double.TryParse(currentIdDoc, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var matchedDocId) &&
+                     matchedDocId == targetDocId);
+
+                if (!isSameDoc)
                 {
-                    if (foundBlock || (hasTargetNumericId && double.TryParse(currentIdDoc, out var currentDocId) && currentDocId < targetDocId))
+                    if (foundBlock)
                     {
                         nonMatchingRecordsSinceLastMatch++;
-                        // Si ya pasamos un margen seguro de registros sin encontrar más partidas
-                        // de este documento, podemos dar por terminada la búsqueda.
+                        // Si ya encontramos partidas del documento y pasamos un margen amplio sin ver otra,
+                        // podemos dar por terminada la búsqueda de este documento.
                         if (nonMatchingRecordsSinceLastMatch > 5000)
                         {
                             break;
@@ -816,6 +821,8 @@ public class FoxProPedidoRepository : IFoxProPedidoRepository
         try
         {
             using var moveReader = _readerFactory.CreateReverseReader(movementsFilePath);
+            int consecutiveBelowMinDocId = 0;
+
             while (moveReader.Read())
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -823,12 +830,20 @@ public class FoxProPedidoRepository : IFoxProPedidoRepository
                 var currentIdDoc = moveReader.GetStringSafe("CIDDOCUM01")?.Trim() ?? string.Empty;
                 if (string.IsNullOrEmpty(currentIdDoc)) continue;
 
-                // Optimización: si el ID del documento es menor al ID mínimo filtrado de POS10008, nos detenemos
-                if (double.TryParse(currentIdDoc, out var docIdVal))
+                // Optimización: solo detenernos si vemos muchos documentos consecutivos con ID menor al mínimo filtrado
+                if (double.TryParse(currentIdDoc, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var docIdVal))
                 {
                     if (docIdVal < minDocId)
                     {
-                        break;
+                        consecutiveBelowMinDocId++;
+                        if (consecutiveBelowMinDocId > 50000)
+                        {
+                            break;
+                        }
+                    }
+                    else
+                    {
+                        consecutiveBelowMinDocId = 0;
                     }
                 }
 
