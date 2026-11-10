@@ -1,4 +1,5 @@
 using System;
+using System.ComponentModel.DataAnnotations;
 
 namespace Blanquita.Application.DTOs;
 
@@ -86,6 +87,7 @@ public class CreateCommercialSalidaDto
 {
     public string CodigoConcepto { get; set; } = string.Empty;
     public string ConceptoCodigo { get; set; } = string.Empty; // alias
+    [StringLength(30, ErrorMessage = "La referencia no puede exceder 30 caracteres.")]
     public string? Referencia { get; set; }
     public string? Observaciones { get; set; }
     public List<CreateCommercialSalidaMovimientoDto> Partidas { get; set; } = new();
