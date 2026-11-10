@@ -233,6 +233,36 @@
                         </PagerContent>
                     </MudTable>
                 }
+
+                <!-- Configuración de Monitor y Alertas de Cajas -->
+                <MudCard Outlined="true" Class="mt-2">
+                    <MudCardHeader>
+                        <CardHeaderAvatar>
+                            <MudAvatar Color="Color.Warning" Variant="Variant.Filled">
+                                <MudIcon Icon="@Icons.Material.Filled.Warning" />
+                            </MudAvatar>
+                        </CardHeaderAvatar>
+                        <CardHeaderContent>
+                            <MudText Typo="Typo.h6">Monitor de Cajas - Umbral de Alerta</MudText>
+                            <MudText Typo="Typo.body2" Color="Color.Secondary">Configuración del límite de efectivo para sugerir recolecciones</MudText>
+                        </CardHeaderContent>
+                    </MudCardHeader>
+                    <MudCardContent>
+                        <MudGrid>
+                            <MudItem xs="12" sm="6" md="5">
+                                <MudNumericField @bind-Value="_configuracion.UmbralAlertaEfectivoCaja"
+                                                 Label="Monto Límite en Efectivo ($)"
+                                                 HelperText="A partir de este monto en caja, el monitor mostrará el aviso para sugerir recolección"
+                                                 Variant="Variant.Outlined"
+                                                 Format="N2"
+                                                 Adornment="Adornment.Start"
+                                                 AdornmentText="$"
+                                                 HideSpinButtons="true"
+                                                 Min="0m" />
+                            </MudItem>
+                        </MudGrid>
+                    </MudCardContent>
+                </MudCard>
             </MudStack>
         </MudTabPanel>
 

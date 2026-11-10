@@ -1,0 +1,973 @@
+@page "/monitor-cajas"
+@using Blanquita.Application.DTOs
+@using Blanquita.Application.Interfaces
+@using Blanquita.Application.Queries.Cajas
+@using MediatR
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using System.Globalization
+@using System.Threading
+@implements IAsyncDisposable
+@attribute [Authorize(Roles = "Admin,Supervisor")]
+@inject IMediator Mediator
+@inject IBranchService BranchService
+@inject AuthenticationStateProvider AuthStateProvider
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+@inject NavigationManager NavigationManager
+@inject IConfiguracionService ConfigService
+@inject ILogger<MonitorCajas> Logger
+
+<PageTitle>Monitor de Cajas</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-6 animate-fade-in mb-8">
+    <!-- Encabezado de Página -->
+    <div class="d-flex flex-column flex-sm-row justify-space-between align-start align-sm-center mb-6 gap-3">
+        <div>
+            <MudText Typo="Typo.h4" Class="font-weight-bold" Style="background: linear-gradient(135deg, #4f46e5, #06b6d4); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+                <MudIcon Icon="@Icons.Material.Filled.Tv" Class="mr-2 vertical-align-middle" Size="Size.Large" Color="Color.Primary" />
+                Monitor de Cajas
+            </MudText>
+            <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mt-1">
+                Monitoreo en tiempo real de cajas con apertura, cobros por forma de pago y recolecciones de efectivo.
+            </MudText>
+        </div>
+
+        <div class="d-flex align-center flex-wrap gap-2">
+            <MudChip T="string" Color="Color.Info" Variant="Variant.Text" Icon="@Icons.Material.Filled.Store">
+                Sucursal: @(_isAdmin && _supervisorBranchId <= 0 ? (_selectedBranchId == 0 ? "Todas las sucursales" : _selectedBranchName) : _supervisorBranchName)
+            </MudChip>
+            <MudChip T="string" Color="@(_isAdmin ? Color.Success : Color.Primary)" Variant="Variant.Filled" Icon="@(_isAdmin ? Icons.Material.Filled.AdminPanelSettings : Icons.Material.Filled.Person)">
+                @_supervisorName
+            </MudChip>
+            @if (_lastRefreshTime.HasValue)
+            {
+                <MudChip T="string" Color="Color.Default" Variant="Variant.Outlined" Size="Size.Small" Icon="@Icons.Material.Filled.AccessTime">
+                    Última act.: @_lastRefreshTime.Value.ToString("HH:mm:ss")
+                </MudChip>
+            }
+        </div>
+    </div>
+
+    <!-- Barra de Filtros y Controles -->
+    <MudPaper Elevation="3" Class="pa-4 rounded-xl mb-6 bg-light border-light shadow-sm">
+        <MudGrid Class="align-center">
+            <!-- Selector de Fecha -->
+            <MudItem xs="12" sm="6" md="3">
+                <MudDatePicker Label="Fecha de Turnos"
+                               Date="_selectedDate"
+                               DateChanged="OnDateChanged"
+                               Variant="Variant.Outlined"
+                               Adornment="Adornment.Start"
+                               AdornmentIcon="@Icons.Material.Filled.CalendarMonth"
+                               Margin="Margin.Dense"
+                               MaxDate="DateTime.Today" />
+            </MudItem>
+
+            <!-- Selector de Sucursal (Solo para Administradores) -->
+            <MudItem xs="12" sm="6" md="3">
+                @if (_isAdmin && _supervisorBranchId <= 0)
+                {
+                    <MudSelect T="int"
+                               Label="Sucursal"
+                               Value="_selectedBranchId"
+                               ValueChanged="OnBranchChanged"
+                               Variant="Variant.Outlined"
+                               Adornment="Adornment.Start"
+                               AdornmentIcon="@Icons.Material.Filled.Store"
+                               Margin="Margin.Dense">
+                        <MudSelectItem T="int" Value="0">Todas las sucursales</MudSelectItem>
+                        @foreach (var branch in _branches)
+                        {
+                            <MudSelectItem T="int" Value="@branch.Id">@branch.Name</MudSelectItem>
+                        }
+                    </MudSelect>
+                }
+                else
+                {
+                    <MudTextField Label="Sucursal"
+                                  Value="_supervisorBranchName"
+                                  Variant="Variant.Outlined"
+                                  Adornment="Adornment.Start"
+                                  AdornmentIcon="@Icons.Material.Filled.Store"
+                                  Margin="Margin.Dense"
+                                  ReadOnly="true" />
+                }
+            </MudItem>
+
+            <!-- Buscador rápido -->
+            <MudItem xs="12" sm="6" md="3">
+                <MudTextField @bind-Value="_searchQuery"
+                              Placeholder="Buscar por caja o cajera..."
+                              Adornment="Adornment.Start"
+                              AdornmentIcon="@Icons.Material.Filled.Search"
+                              Variant="Variant.Outlined"
+                              Margin="Margin.Dense"
+                              Clearable="true"
+                              Immediate="true" />
+            </MudItem>
+
+            <!-- Auto-refresco y Botón Actualizar -->
+            <MudItem xs="12" sm="6" md="3" Class="d-flex align-center gap-2">
+                <MudSelect T="int"
+                           Label="Auto-actualizar"
+                           Value="_refreshIntervalSeconds"
+                           ValueChanged="OnRefreshIntervalChanged"
+                           Variant="Variant.Outlined"
+                           Margin="Margin.Dense"
+                           Dense="true"
+                           Class="flex-grow-1">
+                    <MudSelectItem T="int" Value="0">Desactivado</MudSelectItem>
+                    <MudSelectItem T="int" Value="30">Cada 30 seg</MudSelectItem>
+                    <MudSelectItem T="int" Value="60">Cada 1 min</MudSelectItem>
+                    <MudSelectItem T="int" Value="120">Cada 2 min</MudSelectItem>
+                </MudSelect>
+
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           StartIcon="@Icons.Material.Filled.Refresh"
+                           OnClick="@(() => CargarDatos(false))"
+                           Disabled="_isLoading"
+                           Class="rounded-lg text-none"
+                           Style="height: 40px;">
+                    @if (_isLoading)
+                    {
+                        <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-1" />
+                        <span>Cargando...</span>
+                    }
+                    else
+                    {
+                        <span>Refrescar</span>
+                    }
+                </MudButton>
+            </MudItem>
+        </MudGrid>
+
+        <!-- Filtros Rápidos de Estado (Chips) y Configuración de Umbral -->
+        <MudDivider Class="my-3" />
+        <div class="d-flex justify-space-between align-center flex-wrap gap-3">
+            <div class="d-flex align-center flex-wrap gap-2">
+                <MudText Typo="Typo.caption" Class="font-weight-bold text-muted mr-2">FILTRAR POR ESTADO:</MudText>
+                <MudChip T="string"
+                         Color="@(_selectedStatusFilter == null ? Color.Primary : Color.Default)"
+                         Variant="@(_selectedStatusFilter == null ? Variant.Filled : Variant.Outlined)"
+                         Size="Size.Small"
+                         OnClick="@(() => _selectedStatusFilter = null)">
+                    Todas (@_cajas.Count)
+                </MudChip>
+                <MudChip T="string"
+                         Color="@(_selectedStatusFilter == 0 ? Color.Success : Color.Default)"
+                         Variant="@(_selectedStatusFilter == 0 ? Variant.Filled : Variant.Outlined)"
+                         Size="Size.Small"
+                         Icon="@Icons.Material.Filled.PlayCircleOutline"
+                         OnClick="@(() => _selectedStatusFilter = 0)">
+                    En Operación (@_cajas.Count(c => !c.IsClosed))
+                </MudChip>
+                <MudChip T="string"
+                         Color="@(_selectedStatusFilter == 1 ? Color.Dark : Color.Default)"
+                         Variant="@(_selectedStatusFilter == 1 ? Variant.Filled : Variant.Outlined)"
+                         Size="Size.Small"
+                         Icon="@Icons.Material.Filled.CheckCircleOutline"
+                         OnClick="@(() => _selectedStatusFilter = 1)">
+                    Cerradas con Corte (@_cajas.Count(c => c.IsClosed))
+                </MudChip>
+                <MudChip T="string"
+                         Color="@(_selectedStatusFilter == 2 ? Color.Info : Color.Default)"
+                         Variant="@(_selectedStatusFilter == 2 ? Variant.Filled : Variant.Outlined)"
+                         Size="Size.Small"
+                         Icon="@Icons.Material.Filled.Balance"
+                         OnClick="@(() => _selectedStatusFilter = 2)">
+                    Conciliadas (@_cajas.Count(c => c.IsConciliated))
+                </MudChip>
+            </div>
+
+            <!-- Selector del Umbral de Alerta de Recolección -->
+            <div class="d-flex align-center gap-2">
+                <MudTooltip Text="Monto en efectivo a partir del cual se muestra el aviso de recolección recomendada">
+                    <MudText Typo="Typo.caption" Class="font-weight-bold text-muted d-flex align-center gap-1">
+                        <MudIcon Icon="@Icons.Material.Filled.Warning" Size="Size.Small" Color="Color.Warning" />
+                        UMBRAL ALERTA:
+                    </MudText>
+                </MudTooltip>
+                <MudNumericField T="decimal"
+                                 @bind-Value="_limiteEfectivoAlerta"
+                                 Variant="Variant.Outlined"
+                                 Margin="Margin.Dense"
+                                 Format="N0"
+                                 Culture="@_mexicoCulture"
+                                 Adornment="Adornment.Start"
+                                 AdornmentText="$"
+                                 HideSpinButtons="true"
+                                 Immediate="true"
+                                 Style="width: 120px;" />
+            </div>
+        </div>
+    </MudPaper>
+
+    <!-- Barra de Métricas Globales (KPIs) -->
+    <MudGrid Class="mb-6">
+        <!-- KPI 1: Cajas Activas -->
+        <MudItem xs="12" sm="6" md="4" lg="2">
+            <MudPaper Elevation="2" Class="pa-4 rounded-xl d-flex flex-column h-100 border-kpi">
+                <div class="d-flex justify-space-between align-center mb-1">
+                    <MudText Typo="Typo.caption" Class="text-muted font-weight-bold text-uppercase">Cajas Activas</MudText>
+                    <MudAvatar Color="Color.Success" Variant="Variant.Filled" Size="Size.Small">
+                        <MudIcon Icon="@Icons.Material.Filled.PointOfSale" Size="Size.Small" />
+                    </MudAvatar>
+                </div>
+                <MudText Typo="Typo.h5" Class="font-weight-bold text-success">
+                    @_cajas.Count(c => !c.IsClosed) <span class="text-muted" style="font-size: 0.9rem;">/ @_cajas.Count</span>
+                </MudText>
+                <MudText Typo="Typo.caption" Color="Color.Secondary">con apertura en el día</MudText>
+            </MudPaper>
+        </MudItem>
+
+        <!-- KPI 2: Total Vendido / Cobrado -->
+        <MudItem xs="12" sm="6" md="4" lg="2">
+            <MudPaper Elevation="2" Class="pa-4 rounded-xl d-flex flex-column h-100 border-kpi">
+                <div class="d-flex justify-space-between align-center mb-1">
+                    <MudText Typo="Typo.caption" Class="text-muted font-weight-bold text-uppercase">Total Cobrado</MudText>
+                    <MudAvatar Color="Color.Primary" Variant="Variant.Filled" Size="Size.Small">
+                        <MudIcon Icon="@Icons.Material.Filled.MonetizationOn" Size="Size.Small" />
+                    </MudAvatar>
+                </div>
+                <MudText Typo="Typo.h5" Class="font-weight-bold text-primary">
+                    @TotalCobradoGlobal.ToString("C2", _mexicoCulture)
+                </MudText>
+                <MudText Typo="Typo.caption" Color="Color.Secondary">Efectivo + Tarjetas</MudText>
+            </MudPaper>
+        </MudItem>
+
+        <!-- KPI 3: Efectivo Cobrado -->
+        <MudItem xs="12" sm="6" md="4" lg="2">
+            <MudPaper Elevation="2" Class="pa-4 rounded-xl d-flex flex-column h-100 border-kpi">
+                <div class="d-flex justify-space-between align-center mb-1">
+                    <MudText Typo="Typo.caption" Class="text-muted font-weight-bold text-uppercase">En Efectivo</MudText>
+                    <MudAvatar Color="Color.Tertiary" Variant="Variant.Filled" Size="Size.Small">
+                        <MudIcon Icon="@Icons.Material.Filled.Payments" Size="Size.Small" />
+                    </MudAvatar>
+                </div>
+                <MudText Typo="Typo.h5" Class="font-weight-bold text-tertiary">
+                    @TotalEfectivoGlobal.ToString("C2", _mexicoCulture)
+                </MudText>
+                <MudText Typo="Typo.caption" Color="Color.Secondary">Cobro en cajas</MudText>
+            </MudPaper>
+        </MudItem>
+
+        <!-- KPI 4: Tarjetas Cobradas -->
+        <MudItem xs="12" sm="6" md="4" lg="2">
+            <MudPaper Elevation="2" Class="pa-4 rounded-xl d-flex flex-column h-100 border-kpi">
+                <div class="d-flex justify-space-between align-center mb-1">
+                    <MudText Typo="Typo.caption" Class="text-muted font-weight-bold text-uppercase">En Tarjetas</MudText>
+                    <MudAvatar Color="Color.Info" Variant="Variant.Filled" Size="Size.Small">
+                        <MudIcon Icon="@Icons.Material.Filled.CreditCard" Size="Size.Small" />
+                    </MudAvatar>
+                </div>
+                <MudText Typo="Typo.h5" Class="font-weight-bold text-info">
+                    @TotalTarjetasGlobal.ToString("C2", _mexicoCulture)
+                </MudText>
+                <MudText Typo="Typo.caption" Color="Color.Secondary">Terminales bancarias</MudText>
+            </MudPaper>
+        </MudItem>
+
+        <!-- KPI 5: Recolecciones Realizadas -->
+        <MudItem xs="12" sm="6" md="4" lg="2">
+            <MudPaper Elevation="2" Class="pa-4 rounded-xl d-flex flex-column h-100 border-kpi">
+                <div class="d-flex justify-space-between align-center mb-1">
+                    <MudText Typo="Typo.caption" Class="text-muted font-weight-bold text-uppercase">Recolectado</MudText>
+                    <MudAvatar Color="Color.Warning" Variant="Variant.Filled" Size="Size.Small">
+                        <MudIcon Icon="@Icons.Material.Filled.MoveToInbox" Size="Size.Small" />
+                    </MudAvatar>
+                </div>
+                <MudText Typo="Typo.h5" Class="font-weight-bold text-warning">
+                    @TotalRecolectadoGlobal.ToString("C2", _mexicoCulture)
+                </MudText>
+                <MudText Typo="Typo.caption" Color="Color.Secondary">@TotalRecoleccionesCountGlobal recolecciones</MudText>
+            </MudPaper>
+        </MudItem>
+
+        <!-- KPI 6: Efectivo Estimado en Cajas -->
+        <MudItem xs="12" sm="6" md="4" lg="2">
+            <MudPaper Elevation="2" Class="pa-4 rounded-xl d-flex flex-column h-100 border-kpi">
+                <div class="d-flex justify-space-between align-center mb-1">
+                    <MudText Typo="Typo.caption" Class="text-muted font-weight-bold text-uppercase">Efectivo en Cajas</MudText>
+                    <MudAvatar Color="Color.Dark" Variant="Variant.Filled" Size="Size.Small">
+                        <MudIcon Icon="@Icons.Material.Filled.AccountBalanceWallet" Size="Size.Small" />
+                    </MudAvatar>
+                </div>
+                <MudText Typo="Typo.h5" Class="font-weight-bold">
+                    @EfectivoEstimadoGlobal.ToString("C2", _mexicoCulture)
+                </MudText>
+                <MudText Typo="Typo.caption" Color="Color.Secondary">Efectivo - Recolectado</MudText>
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+
+    <!-- Lista de Tarjetas de Cajas con Apertura -->
+    @if (_isLoading && !_cajas.Any())
+    {
+        <div class="d-flex flex-column justify-center align-center py-12">
+            <MudProgressCircular Size="Size.Large" Color="Color.Primary" Indeterminate="true" Class="mb-4" />
+            <MudText Typo="Typo.h6" Color="Color.Secondary">Consultando aperturas y movimientos de cajas...</MudText>
+        </div>
+    }
+    else if (!CajasFiltradas.Any())
+    {
+        <MudPaper Elevation="2" Class="pa-8 text-center rounded-xl bg-light">
+            <MudIcon Icon="@Icons.Material.Filled.ReceiptLong" Size="Size.Large" Color="Color.Default" Class="mb-3" Style="font-size: 3.5rem;" />
+            <MudText Typo="Typo.h6" Class="font-weight-bold mb-1">No se encontraron cajas con apertura</MudText>
+            <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
+                No hay turnos registrados en FoxPro / Contpaqi para la fecha y sucursal seleccionadas con los filtros aplicados.
+            </MudText>
+            <MudButton Variant="Variant.Outlined"
+                       Color="Color.Primary"
+                       StartIcon="@Icons.Material.Filled.Refresh"
+                       OnClick="@(() => CargarDatos(false))">
+                Volver a consultar
+            </MudButton>
+        </MudPaper>
+    }
+    else
+    {
+        <MudGrid>
+            @foreach (var caja in CajasFiltradas)
+            {
+                <MudItem xs="12" sm="6" lg="4">
+                    <MudCard Elevation="4" Class="@GetCardClass(caja)">
+                        <!-- Encabezado de la Tarjeta con Gradiente según Estado -->
+                        <div class="@GetCardHeaderClass(caja)">
+                            <div class="d-flex justify-space-between align-center">
+                                <div class="d-flex align-center gap-2">
+                                    <MudAvatar Color="@(caja.IsClosed ? Color.Dark : Color.Success)" Size="Size.Medium" Variant="Variant.Filled">
+                                        <MudIcon Icon="@Icons.Material.Filled.PointOfSale" />
+                                    </MudAvatar>
+                                    <div>
+                                        <MudText Typo="Typo.h6" Class="font-weight-bold text-white mb-0 lh-1">
+                                            @caja.CashRegisterName
+                                        </MudText>
+                                        <MudText Typo="Typo.caption" Class="text-white-70">
+                                            @caja.BranchName • Turno #@caja.ShiftId
+                                        </MudText>
+                                    </div>
+                                </div>
+
+                                <div class="d-flex flex-column align-end gap-1">
+                                    @if (!caja.IsClosed)
+                                    {
+                                        <MudChip T="string" Color="Color.Success" Variant="Variant.Filled" Size="Size.Small" Class="font-weight-bold shadow-sm">
+                                            🟢 En Operación
+                                        </MudChip>
+                                    }
+                                    else
+                                    {
+                                        <MudChip T="string" Color="Color.Dark" Variant="Variant.Filled" Size="Size.Small" Class="font-weight-bold">
+                                            🔴 Corte Realizado
+                                        </MudChip>
+                                    }
+
+                                    @if (caja.IsConciliated)
+                                    {
+                                        <MudChip T="string" Color="Color.Info" Variant="Variant.Filled" Size="Size.Small" Icon="@Icons.Material.Filled.DoneAll">
+                                            Conciliada
+                                        </MudChip>
+                                    }
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Información de Cajera y Horarios -->
+                        <div class="pa-3 px-4 bg-surface border-bottom d-flex justify-space-between align-center flex-wrap gap-2">
+                            <div class="d-flex align-center gap-2">
+                                <MudIcon Icon="@Icons.Material.Filled.Person" Size="Size.Small" Color="Color.Primary" />
+                                <div>
+                                    <MudText Typo="Typo.body2" Class="font-weight-bold">@caja.CashierName</MudText>
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">Cajera en turno</MudText>
+                                </div>
+                            </div>
+
+                            <div class="text-right">
+                                <MudText Typo="Typo.caption" Class="d-block">
+                                    <strong>Apertura:</strong> @caja.OpeningTime.ToString("hh:mm tt")
+                                </MudText>
+                                @if (caja.IsClosed && caja.ClosingTime.HasValue)
+                                {
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary" Class="d-block">
+                                        <strong>Cierre:</strong> @caja.ClosingTime.Value.ToString("hh:mm tt")
+                                    </MudText>
+                                }
+                                else
+                                {
+                                    <MudText Typo="Typo.caption" Color="Color.Success" Class="d-block">
+                                        Tiempo act.: @FormatearTiempoTranscurrido(caja.OpeningTime)
+                                    </MudText>
+                                }
+                            </div>
+                        </div>
+
+                        <MudCardContent Class="pa-4">
+                            <!-- Sección: Lo Cobrado por Forma de Pago -->
+                            <div class="mb-4">
+                                <div class="d-flex justify-space-between align-center mb-2">
+                                    <MudText Typo="Typo.caption" Class="font-weight-bold text-muted text-uppercase tracking-wider">
+                                        Cobrado por Forma de Pago
+                                    </MudText>
+                                    <MudTooltip Text="Valores registrados en el sistema de ventas">
+                                        <MudIcon Icon="@Icons.Material.Filled.Info" Size="Size.Small" Color="Color.Default" />
+                                    </MudTooltip>
+                                </div>
+
+                                <div class="pa-3 rounded-lg bg-light-soft border-soft">
+                                    <!-- Efectivo -->
+                                    <div class="d-flex justify-space-between align-center py-1">
+                                        <div class="d-flex align-center gap-2">
+                                            <MudIcon Icon="@Icons.Material.Filled.Payments" Size="Size.Small" Color="Color.Tertiary" />
+                                            <MudText Typo="Typo.body2">Efectivo:</MudText>
+                                        </div>
+                                        <MudText Typo="Typo.body1" Class="font-weight-bold text-tertiary">
+                                            @caja.CashCollected.ToString("C2", _mexicoCulture)
+                                        </MudText>
+                                    </div>
+
+                                    <!-- Tarjetas -->
+                                    <div class="d-flex justify-space-between align-center py-1">
+                                        <div class="d-flex align-center gap-2">
+                                            <MudIcon Icon="@Icons.Material.Filled.CreditCard" Size="Size.Small" Color="Color.Info" />
+                                            <MudText Typo="Typo.body2">Tarjetas:</MudText>
+                                        </div>
+                                        <MudText Typo="Typo.body1" Class="font-weight-bold text-info">
+                                            @caja.CardCollected.ToString("C2", _mexicoCulture)
+                                        </MudText>
+                                    </div>
+
+                                    <!-- Devoluciones si existen -->
+                                    @if (caja.ReturnsTotal != 0)
+                                    {
+                                        <div class="d-flex justify-space-between align-center py-1">
+                                            <div class="d-flex align-center gap-2">
+                                                <MudIcon Icon="@Icons.Material.Filled.AssignmentReturn" Size="Size.Small" Color="Color.Error" />
+                                                <MudText Typo="Typo.body2" Color="Color.Error">Devoluciones:</MudText>
+                                            </div>
+                                            <MudText Typo="Typo.body2" Color="Color.Error" Class="font-weight-bold">
+                                                -@Math.Abs(caja.ReturnsTotal).ToString("C2", _mexicoCulture)
+                                            </MudText>
+                                        </div>
+                                    }
+
+                                    <MudDivider Class="my-2" />
+
+                                    <!-- Total Cobrado / Vendido -->
+                                    <div class="d-flex justify-space-between align-center">
+                                        <MudText Typo="Typo.subtitle2" Class="font-weight-bold">Total Vendido:</MudText>
+                                        <MudText Typo="Typo.h6" Class="font-weight-bold text-primary">
+                                            @caja.TotalSold.ToString("C2", _mexicoCulture)
+                                        </MudText>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Sección: Recolecciones de Efectivo Realizadas -->
+                            <div class="mb-4">
+                                <div class="d-flex justify-space-between align-center mb-2">
+                                    <MudText Typo="Typo.caption" Class="font-weight-bold text-muted text-uppercase tracking-wider">
+                                        Recolecciones Realizadas
+                                    </MudText>
+                                    <MudChip T="string" Size="Size.Small" Color="Color.Warning" Variant="Variant.Text" Class="font-weight-bold">
+                                        @caja.TotalRecoleccionesCount @(caja.TotalRecoleccionesCount == 1 ? "recolección" : "recolecciones")
+                                    </MudChip>
+                                </div>
+
+                                <div class="pa-3 rounded-lg bg-light-soft border-soft">
+                                    <div class="d-flex justify-space-between align-center">
+                                        <div class="d-flex align-center gap-2">
+                                            <MudIcon Icon="@Icons.Material.Filled.MoveToInbox" Size="Size.Small" Color="Color.Warning" />
+                                            <MudText Typo="Typo.body2">Total Recolectado:</MudText>
+                                        </div>
+                                        <MudText Typo="Typo.body1" Class="font-weight-bold text-warning">
+                                            @caja.TotalRecolectado.ToString("C2", _mexicoCulture)
+                                        </MudText>
+                                    </div>
+
+                                    @if (caja.Recolecciones.Any())
+                                    {
+                                        <div class="mt-2 pt-2 border-top-subtle d-flex justify-space-between align-center">
+                                            <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                                Último folio: <strong>#@caja.Recolecciones.First().Folio</strong> (@caja.Recolecciones.First().CollectionDateTime.ToString("HH:mm"))
+                                            </MudText>
+                                            <MudButton Variant="Variant.Text"
+                                                       Color="Color.Warning"
+                                                       Size="Size.Small"
+                                                       EndIcon="@(_expandedRecos.Contains(caja.ShiftId) ? Icons.Material.Filled.ExpandLess : Icons.Material.Filled.ExpandMore)"
+                                                       OnClick="@(() => ToggleRecos(caja.ShiftId))"
+                                                       Class="text-none py-0">
+                                                @(_expandedRecos.Contains(caja.ShiftId) ? "Ocultar" : "Ver lista")
+                                            </MudButton>
+                                        </div>
+
+                                        <!-- Desplegable con la lista de recolecciones individuales -->
+                                        <MudCollapse Expanded="_expandedRecos.Contains(caja.ShiftId)">
+                                            <div class="mt-2 pt-2 border-top-subtle">
+                                                <MudText Typo="Typo.caption" Class="font-weight-bold text-muted mb-1 d-block">
+                                                    HISTORIAL DE RECOLECCIONES:
+                                                </MudText>
+                                                <div class="d-flex flex-column gap-1">
+                                                    @foreach (var reco in caja.Recolecciones)
+                                                    {
+                                                        <div class="d-flex justify-space-between align-center pa-2 rounded bg-surface border-subtle">
+                                                            <div>
+                                                                <MudText Typo="Typo.body2" Class="font-weight-bold">
+                                                                    Folio #@reco.Folio
+                                                                </MudText>
+                                                                <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                                                    @reco.CollectionDateTime.ToString("hh:mm tt") • @reco.SupervisorName
+                                                                </MudText>
+                                                            </div>
+                                                            <div class="d-flex align-center gap-1">
+                                                                <MudText Typo="Typo.body2" Class="font-weight-bold text-warning mr-1">
+                                                                    @reco.TotalAmount.ToString("C2", _mexicoCulture)
+                                                                </MudText>
+                                                                <MudTooltip Text="Ver desglose de billetes">
+                                                                    <MudIconButton Icon="@Icons.Material.Filled.Visibility"
+                                                                                   Size="Size.Small"
+                                                                                   Color="Color.Primary"
+                                                                                   OnClick="@(() => VerDesgloseRecoleccion(reco))" />
+                                                                </MudTooltip>
+                                                            </div>
+                                                        </div>
+                                                    }
+                                                </div>
+                                            </div>
+                                        </MudCollapse>
+                                    }
+                                    else
+                                    {
+                                        <div class="mt-1">
+                                            <MudText Typo="Typo.caption" Color="Color.Secondary" Class="font-italic">
+                                                Sin recolecciones registradas en este turno.
+                                            </MudText>
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+
+                            <!-- Sección: Efectivo Estimado en Caja Actual -->
+                            <div class="pa-3 rounded-lg @(caja.EfectivoEstimadoEnCaja >= _limiteEfectivoAlerta ? "bg-alert-elevated border-alert" : "bg-neutral-balance border-soft")">
+                                <div class="d-flex justify-space-between align-center">
+                                    <div class="d-flex align-center gap-2">
+                                        <MudIcon Icon="@Icons.Material.Filled.AccountBalanceWallet"
+                                                 Size="Size.Small"
+                                                 Color="@(caja.EfectivoEstimadoEnCaja >= _limiteEfectivoAlerta ? Color.Error : Color.Dark)" />
+                                        <div>
+                                            <MudText Typo="Typo.body2" Class="font-weight-bold">Efectivo en Caja (Estimado):</MudText>
+                                            <MudText Typo="Typo.caption" Color="Color.Secondary">Cobrado - Recolectado</MudText>
+                                        </div>
+                                    </div>
+                                    <MudText Typo="Typo.h6" Class="@(caja.EfectivoEstimadoEnCaja >= _limiteEfectivoAlerta ? "font-weight-bold text-error" : "font-weight-bold")">
+                                        @caja.EfectivoEstimadoEnCaja.ToString("C2", _mexicoCulture)
+                                    </MudText>
+                                </div>
+
+                                @if (caja.EfectivoEstimadoEnCaja >= _limiteEfectivoAlerta && !caja.IsClosed)
+                                {
+                                    <div class="mt-2 pt-2 border-top-subtle d-flex align-center gap-1 text-error">
+                                        <MudIcon Icon="@Icons.Material.Filled.Warning" Size="Size.Small" Color="Color.Error" />
+                                        <MudText Typo="Typo.caption" Class="font-weight-bold">
+                                            Monto elevado en caja. Se recomienda realizar una recolección.
+                                        </MudText>
+                                    </div>
+                                }
+                            </div>
+                        </MudCardContent>
+
+                        <!-- Acciones Rápidas -->
+                        <MudCardActions Class="pa-3 px-4 bg-light d-flex justify-space-between align-center border-top">
+                            <MudButton Variant="Variant.Outlined"
+                                       Color="Color.Warning"
+                                       Size="Size.Small"
+                                       StartIcon="@Icons.Material.Filled.AttachMoney"
+                                       OnClick="@(() => IrARecoleccion(caja.CashRegisterId))"
+                                       Class="rounded-lg text-none">
+                                Recolección
+                            </MudButton>
+
+                            <div class="d-flex gap-1">
+                                <MudButton Variant="Variant.Text"
+                                           Color="Color.Primary"
+                                           Size="Size.Small"
+                                           StartIcon="@Icons.Material.Filled.Balance"
+                                           OnClick="@(() => IrAConciliacion(caja.ShiftId))"
+                                           Class="text-none">
+                                    Conciliación
+                                </MudButton>
+                                <MudButton Variant="Variant.Text"
+                                           Color="Color.Error"
+                                           Size="Size.Small"
+                                           StartIcon="@Icons.Material.Filled.MoneyOff"
+                                           OnClick="@(() => IrACorte(caja.CashRegisterId))"
+                                           Class="text-none">
+                                    Corte
+                                </MudButton>
+                            </div>
+                        </MudCardActions>
+                    </MudCard>
+                </MudItem>
+            }
+        </MudGrid>
+    }
+</MudContainer>
+
+<style>
+    .border-kpi {
+        border-left: 4px solid var(--mud-palette-primary) !important;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .border-kpi:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.08) !important;
+    }
+    .border-soft {
+        border: 1px solid rgba(0, 0, 0, 0.06);
+    }
+    .bg-light-soft {
+        background-color: rgba(248, 250, 252, 0.9);
+    }
+    .border-top-subtle {
+        border-top: 1px dashed rgba(0, 0, 0, 0.1);
+    }
+    .border-bottom-subtle {
+        border-bottom: 1px dashed rgba(0, 0, 0, 0.08);
+    }
+    .border-subtle {
+        border: 1px solid rgba(0, 0, 0, 0.06);
+    }
+    .text-white-70 {
+        color: rgba(255, 255, 255, 0.85);
+    }
+    .card-header-active {
+        background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+        padding: 16px;
+    }
+    .card-header-closed {
+        background: linear-gradient(135deg, #475569 0%, #64748b 100%);
+        padding: 16px;
+    }
+    .card-monitor {
+        border-radius: 16px !important;
+        overflow: hidden;
+        transition: all 0.25s ease-in-out;
+        border: 1px solid rgba(226, 232, 240, 0.9);
+    }
+    .card-monitor:hover {
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.05) !important;
+        transform: translateY(-3px);
+    }
+    .bg-alert-elevated {
+        background-color: #fff1f2 !important;
+    }
+    .border-alert {
+        border: 1px solid #fecdd3 !important;
+    }
+    .bg-neutral-balance {
+        background-color: #f1f5f9 !important;
+    }
+    .tracking-wider {
+        letter-spacing: 0.05em;
+    }
+</style>
+
+@code {
+    private readonly CultureInfo _mexicoCulture = new("es-MX");
+    private decimal _limiteEfectivoAlerta = 8000m; // Umbral configurable para la alerta de recolección (por defecto $8,000)
+
+    private int _supervisorBranchId;
+    private string _supervisorBranchName = string.Empty;
+    private string _supervisorName = string.Empty;
+    private bool _isAdmin;
+
+    private DateTime? _selectedDate = DateTime.Today;
+    private int _selectedBranchId = 0;
+    private string _selectedBranchName = string.Empty;
+    private List<BranchDto> _branches = new();
+    private List<CajaMonitorDto> _cajas = new();
+
+    private string _searchQuery = string.Empty;
+    private int? _selectedStatusFilter = null; // null = Todas, 0 = Abiertas, 1 = Cerradas, 2 = Conciliadas
+    private HashSet<int> _expandedRecos = new();
+
+    private bool _isLoading = false;
+    private DateTime? _lastRefreshTime;
+    private int _refreshIntervalSeconds = 60; // 1 minuto por defecto
+    private CancellationTokenSource? _timerCts;
+
+    // Métricas calculadas globales
+    private decimal TotalCobradoGlobal => _cajas.Sum(c => c.TotalSold);
+    private decimal TotalEfectivoGlobal => _cajas.Sum(c => c.CashCollected);
+    private decimal TotalTarjetasGlobal => _cajas.Sum(c => c.CardCollected);
+    private decimal TotalRecolectadoGlobal => _cajas.Sum(c => c.TotalRecolectado);
+    private int TotalRecoleccionesCountGlobal => _cajas.Sum(c => c.TotalRecoleccionesCount);
+    private decimal EfectivoEstimadoGlobal => _cajas.Sum(c => c.EfectivoEstimadoEnCaja);
+
+    // Filtrado de cajas en vista
+    private IEnumerable<CajaMonitorDto> CajasFiltradas
+    {
+        get
+        {
+            var query = _cajas.AsEnumerable();
+
+            // Filtro por estado
+            if (_selectedStatusFilter == 0)
+                query = query.Where(c => !c.IsClosed);
+            else if (_selectedStatusFilter == 1)
+                query = query.Where(c => c.IsClosed);
+            else if (_selectedStatusFilter == 2)
+                query = query.Where(c => c.IsConciliated);
+
+            // Filtro por texto de búsqueda
+            if (!string.IsNullOrWhiteSpace(_searchQuery))
+            {
+                var term = _searchQuery.Trim().ToLowerInvariant();
+                query = query.Where(c =>
+                    c.CashRegisterName.ToLowerInvariant().Contains(term) ||
+                    c.CashierName.ToLowerInvariant().Contains(term) ||
+                    c.BranchName.ToLowerInvariant().Contains(term) ||
+                    c.ShiftId.ToString().Contains(term));
+            }
+
+            return query;
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadUserSessionAsync();
+        StartAutoRefreshTimer();
+    }
+
+    private async Task LoadUserSessionAsync()
+    {
+        try
+        {
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            var user = authState.User;
+            _isAdmin = user.IsInRole("Admin");
+
+            var fullNameClaim = user.FindFirst("FullName")?.Value;
+            var branchIdClaim = user.FindFirst("BranchId")?.Value;
+            var username = user.Identity?.Name ?? string.Empty;
+
+            _supervisorName = !string.IsNullOrWhiteSpace(fullNameClaim) ? fullNameClaim : username;
+
+            if (int.TryParse(branchIdClaim, out int branchId) && branchId > 0)
+            {
+                _supervisorBranchId = branchId;
+                var branch = await BranchService.GetByIdAsync(branchId);
+                _supervisorBranchName = branch?.Name ?? "Desconocida";
+                _selectedBranchId = branchId;
+                _selectedBranchName = _supervisorBranchName;
+            }
+            else
+            {
+                _supervisorBranchId = 0;
+                _supervisorBranchName = _isAdmin ? "Todas las sucursales" : string.Empty;
+                _selectedBranchId = 0;
+                _selectedBranchName = "Todas las sucursales";
+            }
+
+            if (!_isAdmin && _supervisorBranchId <= 0)
+            {
+                Snackbar.Add("⚠️ Su usuario no tiene una sucursal asignada. Pida a un administrador que se la asigne.", Severity.Warning);
+            }
+
+            if (_isAdmin)
+            {
+                var allBranches = await BranchService.GetAllAsync();
+                _branches = allBranches.ToList();
+            }
+
+            // Cargar umbral de alerta configurado de forma permanente en el sistema
+            try
+            {
+                var sysConfig = await ConfigService.ObtenerConfiguracionAsync();
+                if (sysConfig.UmbralAlertaEfectivoCaja > 0)
+                {
+                    _limiteEfectivoAlerta = sysConfig.UmbralAlertaEfectivoCaja;
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.LogWarning(ex, "No se pudo cargar el umbral de alerta desde la configuración; se usará el valor por defecto.");
+            }
+
+            await CargarDatos(false);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error al inicializar sesión en Monitor de Cajas");
+            Snackbar.Add("Error al cargar la información del usuario", Severity.Error);
+        }
+    }
+
+    private async Task CargarDatos(bool silent = false)
+    {
+        if (_isLoading) return;
+
+        if (!silent)
+        {
+            _isLoading = true;
+            StateHasChanged();
+        }
+
+        try
+        {
+            var targetDate = _selectedDate ?? DateTime.Today;
+            int? branchFilter = _selectedBranchId > 0 ? _selectedBranchId : (_supervisorBranchId > 0 ? _supervisorBranchId : (int?)null);
+
+            var query = new GetMonitorCajasQuery(targetDate, branchFilter);
+            var result = await Mediator.Send(query);
+            _cajas = result.ToList();
+            _lastRefreshTime = DateTime.Now;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error al cargar datos en Monitor de Cajas");
+            if (!silent)
+            {
+                Snackbar.Add($"Error al cargar monitor de cajas: {ex.Message}", Severity.Error);
+            }
+        }
+        finally
+        {
+            _isLoading = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private async Task OnDateChanged(DateTime? newDate)
+    {
+        _selectedDate = newDate;
+        await CargarDatos(false);
+    }
+
+    private async Task OnBranchChanged(int branchId)
+    {
+        _selectedBranchId = branchId;
+        var found = _branches.FirstOrDefault(b => b.Id == branchId);
+        _selectedBranchName = found?.Name ?? (branchId == 0 ? "Todas las sucursales" : string.Empty);
+        await CargarDatos(false);
+    }
+
+    private void OnRefreshIntervalChanged(int intervalSeconds)
+    {
+        _refreshIntervalSeconds = intervalSeconds;
+        StartAutoRefreshTimer();
+        Snackbar.Add(_refreshIntervalSeconds > 0 
+            ? $"Auto-actualización configurada cada {_refreshIntervalSeconds} segundos" 
+            : "Auto-actualización desactivada", Severity.Info);
+    }
+
+    private void StartAutoRefreshTimer()
+    {
+        _timerCts?.Cancel();
+        _timerCts?.Dispose();
+        _timerCts = null;
+
+        if (_refreshIntervalSeconds <= 0) return;
+
+        _timerCts = new CancellationTokenSource();
+        var token = _timerCts.Token;
+
+        _ = Task.Run(async () =>
+        {
+            using var periodicTimer = new PeriodicTimer(TimeSpan.FromSeconds(_refreshIntervalSeconds));
+            while (!token.IsCancellationRequested)
+            {
+                try
+                {
+                    if (await periodicTimer.WaitForNextTickAsync(token))
+                    {
+                        await InvokeAsync(async () =>
+                        {
+                            await CargarDatos(silent: true);
+                        });
+                    }
+                }
+                catch (OperationCanceledException)
+                {
+                    break;
+                }
+                catch (Exception ex)
+                {
+                    Logger.LogWarning(ex, "Error en ciclo de auto-refresco del Monitor de Cajas");
+                }
+            }
+        }, token);
+    }
+
+    private void ToggleRecos(int shiftId)
+    {
+        if (_expandedRecos.Contains(shiftId))
+            _expandedRecos.Remove(shiftId);
+        else
+            _expandedRecos.Add(shiftId);
+    }
+
+    private async Task VerDesgloseRecoleccion(CashCollectionDto item)
+    {
+        var parameters = new DialogParameters<DialogoDetalleRecoleccion>
+        {
+            { x => x.Recoleccion, item }
+        };
+
+        await DialogService.ShowAsync<DialogoDetalleRecoleccion>(
+            $"Desglose de Recolección - Folio #{item.Folio}",
+            parameters,
+            new DialogOptions
+            {
+                MaxWidth = MaxWidth.Small,
+                FullWidth = true,
+                CloseButton = true
+            });
+    }
+
+    private void IrARecoleccion(int cashRegisterId)
+    {
+        NavigationManager.NavigateTo($"/recoleccion?cashRegisterId={cashRegisterId}");
+    }
+
+    private void IrACorte(int cashRegisterId)
+    {
+        NavigationManager.NavigateTo($"/corte-caja?cashRegisterId={cashRegisterId}");
+    }
+
+    private void IrAConciliacion(int shiftId)
+    {
+        NavigationManager.NavigateTo($"/conciliacion-corte?shiftId={shiftId}");
+    }
+
+    private string GetCardClass(CajaMonitorDto caja)
+    {
+        return "card-monitor h-100";
+    }
+
+    private string GetCardHeaderClass(CajaMonitorDto caja)
+    {
+        return caja.IsClosed ? "card-header-closed" : "card-header-active";
+    }
+
+    private string FormatearTiempoTranscurrido(DateTime horaApertura)
+    {
+        var diff = DateTime.Now - horaApertura;
+        if (diff.TotalMinutes < 1) return "recién abierta";
+        if (diff.TotalHours < 1) return $"{(int)diff.TotalMinutes}m";
+        return $"{(int)diff.TotalHours}h {diff.Minutes}m";
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_timerCts != null)
+        {
+            _timerCts.Cancel();
+            _timerCts.Dispose();
+            _timerCts = null;
+        }
+    }
+}

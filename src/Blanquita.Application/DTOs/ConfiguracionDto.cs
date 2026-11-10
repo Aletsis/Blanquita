@@ -159,6 +159,11 @@ public class ConfiguracionDto
     public bool IsWhatsAppEnabled { get; set; }
 
     /// <summary>
+    /// Monto umbral a partir del cual el monitor de cajas muestra la alerta de recolección recomendada
+    /// </summary>
+    public decimal UmbralAlertaEfectivoCaja { get; set; } = 8000m;
+
+    /// <summary>
     /// Crea una copia independiente. Todas las propiedades son escalares, por lo que basta una copia superficial.
     /// </summary>
     public ConfiguracionDto Clone() => (ConfiguracionDto)MemberwiseClone();

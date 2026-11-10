@@ -933,6 +933,11 @@ namespace Blanquita.Infrastructure.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
 
+                    b.Property<decimal>("UmbralAlertaEfectivoCaja")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("decimal(18,2)")
+                        .HasDefaultValue(8000m);
+
                     b.Property<string>("WhatsAppApiKey")
                         .IsRequired()
                         .HasMaxLength(500)

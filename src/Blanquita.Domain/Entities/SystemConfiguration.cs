@@ -82,4 +82,9 @@ public class SystemConfiguration : BaseEntity
     public string WhatsAppApiKey { get; set; } = string.Empty;
 
     public bool IsWhatsAppEnabled { get; set; } = false;
+
+    /// <summary>
+    /// Monto umbral a partir del cual el monitor de cajas muestra la alerta de recolección recomendada
+    /// </summary>
+    public decimal UmbralAlertaEfectivoCaja { get; set; } = 8000m;
 }

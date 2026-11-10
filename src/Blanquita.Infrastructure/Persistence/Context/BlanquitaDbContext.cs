@@ -267,6 +267,7 @@ public class BlanquitaDbContext : IdentityDbContext<ApplicationUser>
             entity.Property(e => e.WhatsAppServiceUrl).HasMaxLength(500);
             entity.Property(e => e.WhatsAppApiKey).HasMaxLength(500);
             entity.Property(e => e.IsWhatsAppEnabled).HasDefaultValue(false);
+            entity.Property(e => e.UmbralAlertaEfectivoCaja).HasColumnType("decimal(18,2)").HasDefaultValue(8000m);
         });
 
         // Configure LabelDesign

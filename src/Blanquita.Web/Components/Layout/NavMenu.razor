@@ -116,6 +116,9 @@
         </MudNavLink>
         <AuthorizeView Roles="Admin,Supervisor" Context="cajasContext">
             <Authorized>
+                <MudNavLink Href="/monitor-cajas" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Tv" Class="nav-item-pill sub-item">
+                    Monitor de cajas
+                </MudNavLink>
                 <MudNavLink Href="/conciliacion-corte" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Balance" Class="nav-item-pill sub-item">
                     Conciliación de corte
                 </MudNavLink>

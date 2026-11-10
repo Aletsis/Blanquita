@@ -425,7 +425,8 @@ public class ConfiguracionService : IConfiguracionService
             CommercialApiKey = DescifrarApiKey(entity.CommercialApiKey),
             WhatsAppServiceUrl = entity.WhatsAppServiceUrl,
             WhatsAppApiKey = DescifrarApiKey(entity.WhatsAppApiKey),
-            IsWhatsAppEnabled = entity.IsWhatsAppEnabled
+            IsWhatsAppEnabled = entity.IsWhatsAppEnabled,
+            UmbralAlertaEfectivoCaja = entity.UmbralAlertaEfectivoCaja
         };
     }
  
@@ -509,5 +510,6 @@ public class ConfiguracionService : IConfiguracionService
         entity.WhatsAppServiceUrl = dto.WhatsAppServiceUrl;
         entity.WhatsAppApiKey = _encryptionService.Encrypt(dto.WhatsAppApiKey);
         entity.IsWhatsAppEnabled = dto.IsWhatsAppEnabled;
+        entity.UmbralAlertaEfectivoCaja = dto.UmbralAlertaEfectivoCaja;
     }
 }
