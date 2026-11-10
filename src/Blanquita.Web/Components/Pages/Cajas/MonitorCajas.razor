@@ -143,64 +143,41 @@
             </MudItem>
         </MudGrid>
 
-        <!-- Filtros Rápidos de Estado (Chips) y Configuración de Umbral -->
+        <!-- Filtros Rápidos de Estado (Chips) -->
         <MudDivider Class="my-3" />
-        <div class="d-flex justify-space-between align-center flex-wrap gap-3">
-            <div class="d-flex align-center flex-wrap gap-2">
-                <MudText Typo="Typo.caption" Class="font-weight-bold text-muted mr-2">FILTRAR POR ESTADO:</MudText>
-                <MudChip T="string"
-                         Color="@(_selectedStatusFilter == null ? Color.Primary : Color.Default)"
-                         Variant="@(_selectedStatusFilter == null ? Variant.Filled : Variant.Outlined)"
-                         Size="Size.Small"
-                         OnClick="@(() => _selectedStatusFilter = null)">
-                    Todas (@_cajas.Count)
-                </MudChip>
-                <MudChip T="string"
-                         Color="@(_selectedStatusFilter == 0 ? Color.Success : Color.Default)"
-                         Variant="@(_selectedStatusFilter == 0 ? Variant.Filled : Variant.Outlined)"
-                         Size="Size.Small"
-                         Icon="@Icons.Material.Filled.PlayCircleOutline"
-                         OnClick="@(() => _selectedStatusFilter = 0)">
-                    En Operación (@_cajas.Count(c => !c.IsClosed))
-                </MudChip>
-                <MudChip T="string"
-                         Color="@(_selectedStatusFilter == 1 ? Color.Dark : Color.Default)"
-                         Variant="@(_selectedStatusFilter == 1 ? Variant.Filled : Variant.Outlined)"
-                         Size="Size.Small"
-                         Icon="@Icons.Material.Filled.CheckCircleOutline"
-                         OnClick="@(() => _selectedStatusFilter = 1)">
-                    Cerradas con Corte (@_cajas.Count(c => c.IsClosed))
-                </MudChip>
-                <MudChip T="string"
-                         Color="@(_selectedStatusFilter == 2 ? Color.Info : Color.Default)"
-                         Variant="@(_selectedStatusFilter == 2 ? Variant.Filled : Variant.Outlined)"
-                         Size="Size.Small"
-                         Icon="@Icons.Material.Filled.Balance"
-                         OnClick="@(() => _selectedStatusFilter = 2)">
-                    Conciliadas (@_cajas.Count(c => c.IsConciliated))
-                </MudChip>
-            </div>
-
-            <!-- Selector del Umbral de Alerta de Recolección -->
-            <div class="d-flex align-center gap-2">
-                <MudTooltip Text="Monto en efectivo a partir del cual se muestra el aviso de recolección recomendada">
-                    <MudText Typo="Typo.caption" Class="font-weight-bold text-muted d-flex align-center gap-1">
-                        <MudIcon Icon="@Icons.Material.Filled.Warning" Size="Size.Small" Color="Color.Warning" />
-                        UMBRAL ALERTA:
-                    </MudText>
-                </MudTooltip>
-                <MudNumericField T="decimal"
-                                 @bind-Value="_limiteEfectivoAlerta"
-                                 Variant="Variant.Outlined"
-                                 Margin="Margin.Dense"
-                                 Format="N0"
-                                 Culture="@_mexicoCulture"
-                                 Adornment="Adornment.Start"
-                                 AdornmentText="$"
-                                 HideSpinButtons="true"
-                                 Immediate="true"
-                                 Style="width: 120px;" />
-            </div>
+        <div class="d-flex align-center flex-wrap gap-2">
+            <MudText Typo="Typo.caption" Class="font-weight-bold text-muted mr-2">FILTRAR POR ESTADO:</MudText>
+            <MudChip T="string"
+                     Color="@(_selectedStatusFilter == null ? Color.Primary : Color.Default)"
+                     Variant="@(_selectedStatusFilter == null ? Variant.Filled : Variant.Outlined)"
+                     Size="Size.Small"
+                     OnClick="@(() => _selectedStatusFilter = null)">
+                Todas (@_cajas.Count)
+            </MudChip>
+            <MudChip T="string"
+                     Color="@(_selectedStatusFilter == 0 ? Color.Success : Color.Default)"
+                     Variant="@(_selectedStatusFilter == 0 ? Variant.Filled : Variant.Outlined)"
+                     Size="Size.Small"
+                     Icon="@Icons.Material.Filled.PlayCircleOutline"
+                     OnClick="@(() => _selectedStatusFilter = 0)">
+                En Operación (@_cajas.Count(c => !c.IsClosed))
+            </MudChip>
+            <MudChip T="string"
+                     Color="@(_selectedStatusFilter == 1 ? Color.Dark : Color.Default)"
+                     Variant="@(_selectedStatusFilter == 1 ? Variant.Filled : Variant.Outlined)"
+                     Size="Size.Small"
+                     Icon="@Icons.Material.Filled.CheckCircleOutline"
+                     OnClick="@(() => _selectedStatusFilter = 1)">
+                Cerradas con Corte (@_cajas.Count(c => c.IsClosed))
+            </MudChip>
+            <MudChip T="string"
+                     Color="@(_selectedStatusFilter == 2 ? Color.Info : Color.Default)"
+                     Variant="@(_selectedStatusFilter == 2 ? Variant.Filled : Variant.Outlined)"
+                     Size="Size.Small"
+                     Icon="@Icons.Material.Filled.Balance"
+                     OnClick="@(() => _selectedStatusFilter = 2)">
+                Conciliadas (@_cajas.Count(c => c.IsConciliated))
+            </MudChip>
         </div>
     </MudPaper>
 
@@ -818,6 +795,19 @@
 
         try
         {
+            try
+            {
+                var sysConfig = await ConfigService.ObtenerConfiguracionAsync();
+                if (sysConfig.UmbralAlertaEfectivoCaja > 0)
+                {
+                    _limiteEfectivoAlerta = sysConfig.UmbralAlertaEfectivoCaja;
+                }
+            }
+            catch
+            {
+                // Silencioso al recargar configuración
+            }
+
             var targetDate = _selectedDate ?? DateTime.Today;
             int? branchFilter = _selectedBranchId > 0 ? _selectedBranchId : (_supervisorBranchId > 0 ? _supervisorBranchId : (int?)null);
 
