@@ -61,34 +61,14 @@ public class GetMonitorCajasQueryHandler : IRequestHandler<GetMonitorCajasQuery,
                 return Enumerable.Empty<CajaMonitorDto>();
             }
 
-            // 2. Determinar sucursal objetivo si no fue especificada directamente
-            int? targetBranchId = request.BranchId;
+            // 2. Determinar sucursal objetivo si fue especificada
+            int? targetBranchId = (request.BranchId.HasValue && request.BranchId.Value > 0) ? request.BranchId.Value : null;
             var branches = (await _branchRepository.GetAllAsync(cancellationToken)).ToList();
             var branchDict = branches.ToDictionary(b => b.Id, b => b.Name);
 
-            if (!targetBranchId.HasValue || targetBranchId.Value <= 0)
-            {
-                var config = await _configuracionService.ObtenerConfiguracionAsync();
-                var path = config.Pos10042Path;
-                if (!string.IsNullOrEmpty(path))
-                {
-                    string pathLower = path.ToLowerInvariant();
-                    var matchedBranch = branches.FirstOrDefault(b =>
-                        (!string.IsNullOrEmpty(b.Code) && pathLower.Contains(b.Code.ToLowerInvariant())) ||
-                        (!string.IsNullOrEmpty(b.Name) && pathLower.Contains(b.Name.Replace(" ", "").ToLowerInvariant())) ||
-                        (!string.IsNullOrEmpty(b.Name) && pathLower.Contains(b.Name.Replace(" ", "_").ToLowerInvariant()))
-                    );
-                    if (matchedBranch != null)
-                    {
-                        targetBranchId = matchedBranch.Id;
-                        _logger.LogInformation("Sucursal detectada automáticamente a partir del path DBF: {BranchName} (ID: {BranchId})", matchedBranch.Name, matchedBranch.Id);
-                    }
-                }
-            }
-
-            // 3. Obtener cajas registradoras configuradas
+            // 3. Obtener cajas registradoras configuradas (filtradas por sucursal si corresponde)
             IEnumerable<Domain.Entities.CashRegister> allBoxes;
-            if (targetBranchId.HasValue && targetBranchId.Value > 0)
+            if (targetBranchId.HasValue)
             {
                 allBoxes = await _cashRegisterRepository.GetByBranchAsync(targetBranchId.Value, cancellationToken);
             }

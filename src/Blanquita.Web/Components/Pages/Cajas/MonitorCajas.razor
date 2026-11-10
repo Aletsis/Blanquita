@@ -35,7 +35,7 @@
 
         <div class="d-flex align-center flex-wrap gap-2">
             <MudChip T="string" Color="Color.Info" Variant="Variant.Text" Icon="@Icons.Material.Filled.Store">
-                Sucursal: @(_isAdmin && _supervisorBranchId <= 0 ? (_selectedBranchId == 0 ? "Todas las sucursales" : _selectedBranchName) : _supervisorBranchName)
+                Sucursal: @(_isAdmin ? (_selectedBranchId == 0 ? "Todas las sucursales" : _selectedBranchName) : (SinSucursalAsignada ? "Sin sucursal asignada" : _supervisorBranchName))
             </MudChip>
             <MudChip T="string" Color="@(_isAdmin ? Color.Success : Color.Primary)" Variant="Variant.Filled" Icon="@(_isAdmin ? Icons.Material.Filled.AdminPanelSettings : Icons.Material.Filled.Person)">
                 @_supervisorName
@@ -48,6 +48,13 @@
             }
         </div>
     </div>
+
+    @if (SinSucursalAsignada)
+    {
+        <MudAlert Severity="Severity.Warning" Class="mb-4 rounded-xl" Elevation="2">
+            ⚠️ Su usuario no tiene una sucursal asignada. Como supervisor solo puede monitorear las cajas de su propia sucursal. Contacte a un administrador para que le asigne su sucursal.
+        </MudAlert>
+    }
 
     <!-- Barra de Filtros y Controles -->
     <MudPaper Elevation="3" Class="pa-4 rounded-xl mb-6 bg-light border-light shadow-sm">
@@ -66,7 +73,7 @@
 
             <!-- Selector de Sucursal (Solo para Administradores) -->
             <MudItem xs="12" sm="6" md="3">
-                @if (_isAdmin && _supervisorBranchId <= 0)
+                @if (_isAdmin)
                 {
                     <MudSelect T="int"
                                Label="Sucursal"
@@ -86,7 +93,7 @@
                 else
                 {
                     <MudTextField Label="Sucursal"
-                                  Value="_supervisorBranchName"
+                                  Value="@(SinSucursalAsignada ? "Sin sucursal asignada" : _supervisorBranchName)"
                                   Variant="Variant.Outlined"
                                   Adornment="Adornment.Start"
                                   AdornmentIcon="@Icons.Material.Filled.Store"
@@ -660,6 +667,9 @@
     private string _supervisorName = string.Empty;
     private bool _isAdmin;
 
+    // Quien no es administrador solo monitorea las cajas de su propia sucursal
+    private bool SinSucursalAsignada => !_isAdmin && _supervisorBranchId <= 0;
+
     private DateTime? _selectedDate = DateTime.Today;
     private int _selectedBranchId = 0;
     private string _selectedBranchName = string.Empty;
@@ -785,6 +795,15 @@
 
     private async Task CargarDatos(bool silent = false)
     {
+        if (SinSucursalAsignada)
+        {
+            _cajas = new();
+            _lastRefreshTime = DateTime.Now;
+            _isLoading = false;
+            await InvokeAsync(StateHasChanged);
+            return;
+        }
+
         if (_isLoading) return;
 
         if (!silent)
@@ -809,7 +828,9 @@
             }
 
             var targetDate = _selectedDate ?? DateTime.Today;
-            int? branchFilter = _selectedBranchId > 0 ? _selectedBranchId : (_supervisorBranchId > 0 ? _supervisorBranchId : (int?)null);
+            int? branchFilter = _isAdmin
+                ? (_selectedBranchId > 0 ? _selectedBranchId : (int?)null)
+                : _supervisorBranchId;
 
             var query = new GetMonitorCajasQuery(targetDate, branchFilter);
             var result = await Mediator.Send(query);
@@ -839,6 +860,8 @@
 
     private async Task OnBranchChanged(int branchId)
     {
+        if (!_isAdmin) return;
+
         _selectedBranchId = branchId;
         var found = _branches.FirstOrDefault(b => b.Id == branchId);
         _selectedBranchName = found?.Name ?? (branchId == 0 ? "Todas las sucursales" : string.Empty);

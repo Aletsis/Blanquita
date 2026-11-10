@@ -225,4 +225,71 @@ public class GetMonitorCajasQueryHandlerTests
         Assert.Equal(500m, dto.SalidasEfectivo);
         Assert.Equal(9500m, dto.EfectivoEstimadoEnCaja); // 10000 - 0 (recos) - 500 (salidas)
     }
+
+    [Fact]
+    public async Task Handle_WhenFilteredByBranch_ExcludesShiftsFromOtherBranches()
+    {
+        // Arrange
+        var date = DateTime.Today;
+        var shifts = new List<ShiftConciliationDataDto>
+        {
+            new()
+            {
+                InternalId = 1,
+                IdContpaqi = 1,
+                CashierId = 10,
+                OpeningTime = date.AddHours(8),
+                CashCollected = 5000m
+            },
+            new()
+            {
+                InternalId = 2,
+                IdContpaqi = 2,
+                CashierId = 20,
+                OpeningTime = date.AddHours(8),
+                CashCollected = 8000m
+            }
+        };
+
+        var branch1 = SetId(Branch.Create("Sucursal Centro", "SC", "A", "B", "DEV", "Calle 1", null), 1);
+        var branch2 = SetId(Branch.Create("Sucursal Norte", "SN", "A", "B", "DEV", "Calle 2", null), 2);
+
+        var boxBranch1 = SetId(CashRegister.Create("Caja 1", "A", 1, "192.168.1.101", 9100, branch1.Id, false, TipoTerminal.PisoVentas), 10);
+        var boxBranch2 = SetId(CashRegister.Create("Caja 2", "B", 2, "192.168.1.102", 9100, branch2.Id, false, TipoTerminal.PisoVentas), 20);
+
+        _mockFoxProShiftRepo
+            .Setup(r => r.GetTodayShiftsAsync(date, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(shifts);
+
+        _mockBranchRepo
+            .Setup(r => r.GetAllAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<Branch> { branch1, branch2 });
+
+        _mockCashRegisterRepo
+            .Setup(r => r.GetByBranchAsync(branch1.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<CashRegister> { boxBranch1 });
+
+        _mockCashierRepo
+            .Setup(r => r.GetAllAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Enumerable.Empty<Cashier>());
+
+        _mockConciliacionRepo
+            .Setup(r => r.GetAlreadyConciliatedShiftIdsAsync(date, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Enumerable.Empty<int>());
+
+        _mockCashCollectionRepo
+            .Setup(r => r.GetCollectionsByRegisterAndTimeAsync(It.IsAny<string>(), It.IsAny<DateTime>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Enumerable.Empty<CashCollection>());
+
+        var query = new GetMonitorCajasQuery(date, branch1.Id);
+
+        // Act
+        var result = (await _handler.Handle(query, CancellationToken.None)).ToList();
+
+        // Assert: Solo debe retornar la caja perteneciente a la sucursal 1
+        Assert.Single(result);
+        Assert.Equal("Caja 1", result[0].CashRegisterName);
+        Assert.Equal("Sucursal Centro", result[0].BranchName);
+        Assert.Equal(1, result[0].BranchId);
+    }
 }
