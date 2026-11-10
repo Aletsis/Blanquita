@@ -93,21 +93,54 @@ public class CommercialApiService : ICommercialApiService
             var client = _httpClientFactory.CreateClient();
             client.BaseAddress = new Uri(baseUrl);
 
+            // La API Comercial puede requerir X-Api-Key para el endpoint de login si está configurado RequireApiKeyForLogin
+            var config = await _configuracionService.ObtenerConfiguracionAsync();
+            if (!string.IsNullOrWhiteSpace(config.CommercialApiKey))
+            {
+                client.DefaultRequestHeaders.Add("X-Api-Key", config.CommercialApiKey.Trim());
+            }
+
             _logger.LogInformation("Autenticando usuario '{Username}' en la API Comercial ({BaseUrl})", username, baseUrl);
 
             // La API Comercial autentica por usuario y API Key; no recibe contraseña
-            var loginPayload = new { username = username, password = "" };
+            var loginPayload = new { username = username?.Trim() ?? string.Empty, password = "" };
             var response = await client.PostAsJsonAsync("api/auth/login", loginPayload);
 
             if (!response.IsSuccessStatusCode)
             {
                 var errorContent = await response.Content.ReadAsStringAsync();
                 _logger.LogError("Fallo al autenticar en la API Comercial para '{Username}': {Status} - {Error}", username, response.StatusCode, errorContent);
-                throw new InvalidOperationException($"Error al autenticar en la API Comercial: {response.ReasonPhrase}");
+
+                var errorMessage = response.ReasonPhrase ?? response.StatusCode.ToString();
+                try
+                {
+                    using var doc = JsonDocument.Parse(errorContent);
+                    if (doc.RootElement.TryGetProperty("error", out var errProp) && !string.IsNullOrWhiteSpace(errProp.GetString()))
+                    {
+                        errorMessage = errProp.GetString()!;
+                    }
+                    else if (doc.RootElement.TryGetProperty("message", out var msgProp) && !string.IsNullOrWhiteSpace(msgProp.GetString()))
+                    {
+                        errorMessage = msgProp.GetString()!;
+                    }
+                }
+                catch
+                {
+                    if (!string.IsNullOrWhiteSpace(errorContent) && errorContent.Length < 300)
+                    {
+                        errorMessage = errorContent;
+                    }
+                }
+
+                throw new InvalidOperationException($"Error al autenticar en la API Comercial ({response.StatusCode}): {errorMessage}");
             }
 
             var result = await response.Content.ReadFromJsonAsync<JsonElement>();
-            var token = result.TryGetProperty("token", out var tokenProperty) ? tokenProperty.GetString() : null;
+            string? token = null;
+            if (result.TryGetProperty("token", out var tokenProperty) || result.TryGetProperty("Token", out tokenProperty))
+            {
+                token = tokenProperty.GetString();
+            }
 
             if (string.IsNullOrEmpty(token))
             {

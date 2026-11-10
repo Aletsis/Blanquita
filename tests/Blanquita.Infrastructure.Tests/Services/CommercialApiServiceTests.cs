@@ -16,16 +16,21 @@ public class CommercialApiServiceTests
     /// </summary>
     private sealed class FakeCommercialApiHandler : HttpMessageHandler
     {
-        private readonly Func<HttpRequestMessage, HttpResponseMessage> _onApiRequest;
+        private readonly Func<HttpRequestMessage, HttpResponseMessage>? _onApiRequest;
+        private readonly Func<HttpRequestMessage, HttpResponseMessage>? _onLoginRequest;
         private int _loginCount;
 
-        public FakeCommercialApiHandler(Func<HttpRequestMessage, HttpResponseMessage> onApiRequest)
+        public FakeCommercialApiHandler(
+            Func<HttpRequestMessage, HttpResponseMessage>? onApiRequest = null,
+            Func<HttpRequestMessage, HttpResponseMessage>? onLoginRequest = null)
         {
             _onApiRequest = onApiRequest;
+            _onLoginRequest = onLoginRequest;
         }
 
         public int LoginCount => _loginCount;
         public List<string> RequestUris { get; } = new();
+        public List<HttpRequestMessage> LoginRequests { get; } = new();
 
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
@@ -33,11 +38,16 @@ public class CommercialApiServiceTests
 
             if (request.RequestUri!.AbsolutePath.EndsWith("/api/auth/login"))
             {
+                LoginRequests.Add(request);
+                if (_onLoginRequest != null)
+                {
+                    return Task.FromResult(_onLoginRequest(request));
+                }
                 var token = $"token-{Interlocked.Increment(ref _loginCount)}";
                 return Task.FromResult(Json($"{{\"token\":\"{token}\"}}"));
             }
 
-            return Task.FromResult(_onApiRequest(request));
+            return Task.FromResult(_onApiRequest != null ? _onApiRequest(request) : Json("[]"));
         }
     }
 
@@ -178,5 +188,69 @@ public class CommercialApiServiceTests
         // Sin descargar el catálogo y sin repetir el ID duplicado
         Assert.Equal(3, handler.RequestUris.Count(u => u.Contains("api/productos/")));
         Assert.DoesNotContain(handler.RequestUris, u => u.Contains("api/productos?"));
+    }
+
+    [Fact]
+    public async Task Login_ShouldSendXApiKeyHeader_WhenApiKeyIsConfigured()
+    {
+        var handler = new FakeCommercialApiHandler(_ => Json("[]"));
+        var service = CreateService(handler, $"http://api-{Guid.NewGuid():N}");
+        var user = UniqueUser();
+
+        await service.GetComprasAsync(null, null, null, null, null, user);
+
+        Assert.NotEmpty(handler.LoginRequests);
+        var loginRequest = handler.LoginRequests.First();
+        Assert.True(loginRequest.Headers.Contains("X-Api-Key"));
+        Assert.Equal("api-key", loginRequest.Headers.GetValues("X-Api-Key").First());
+    }
+
+    [Fact]
+    public async Task Login_ShouldAcceptPascalCaseTokenProperty()
+    {
+        var handler = new FakeCommercialApiHandler(
+            onApiRequest: request =>
+            {
+                Assert.Equal("Bearer token-pascal-case", request.Headers.Authorization?.ToString());
+                return Json("[]");
+            },
+            onLoginRequest: _ => Json("{\"Token\":\"token-pascal-case\"}"));
+
+        var service = CreateService(handler, $"http://api-{Guid.NewGuid():N}");
+        var user = UniqueUser();
+
+        var result = await service.GetComprasAsync(null, null, null, null, null, user);
+
+        Assert.Empty(result);
+    }
+
+    [Fact]
+    public async Task Login_ShouldIncludeErrorMessageFromApiResponse_WhenUserNotFound()
+    {
+        var handler = new FakeCommercialApiHandler(
+            onLoginRequest: _ => Json("{\"error\":\"El usuario 'INEXISTENTE' no existe en la base de datos del sistema.\"}", HttpStatusCode.NotFound));
+
+        var service = CreateService(handler, $"http://api-{Guid.NewGuid():N}");
+        var user = UniqueUser();
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            service.GetComprasAsync(null, null, null, null, null, user));
+
+        Assert.Contains("El usuario 'INEXISTENTE' no existe en la base de datos del sistema", ex.Message);
+    }
+
+    [Fact]
+    public async Task Login_ShouldIncludeErrorMessageFromApiResponse_WhenApiKeyMissingOrInvalid()
+    {
+        var handler = new FakeCommercialApiHandler(
+            onLoginRequest: _ => Json("{\"error\":\"Se requiere el encabezado 'X-Api-Key' para iniciar sesión.\"}", HttpStatusCode.Unauthorized));
+
+        var service = CreateService(handler, $"http://api-{Guid.NewGuid():N}");
+        var user = UniqueUser();
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            service.GetComprasAsync(null, null, null, null, null, user));
+
+        Assert.Contains("Se requiere el encabezado 'X-Api-Key' para iniciar sesión", ex.Message);
     }
 }

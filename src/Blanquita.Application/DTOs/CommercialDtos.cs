@@ -110,6 +110,15 @@ public class CreateCommercialSalidaResponseDto
     public string Folio { get; set; } = string.Empty;
 }
 
+public class CommercialLoginResponseDto
+{
+    public string Token { get; set; } = string.Empty;
+    public string Username { get; set; } = string.Empty;
+    public string Nombre { get; set; } = string.Empty;
+    public int? Nivel { get; set; }
+}
+
+
 
 
 
