@@ -9,5 +9,7 @@ public record GetCancellationReportQuery(
     DateTime? StartDate = null,
     DateTime? EndDate = null,
     string? Serie = null,
-    string? Tipo = null
+    string? Tipo = null,
+    int? BranchId = null,
+    IEnumerable<string>? Series = null
 ) : IRequest<IEnumerable<CancellationReportItemDto>>;

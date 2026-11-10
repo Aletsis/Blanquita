@@ -716,7 +716,8 @@ public class FoxProDocumentRepository : IFoxProDocumentRepository
         DateTime? endDate = null,
         string? serie = null,
         string? tipo = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        IEnumerable<string>? series = null)
     {
         var config = await _configService.ObtenerConfiguracionAsync();
         var pos10008Path = config.Pos10008Path;
@@ -731,10 +732,34 @@ public class FoxProDocumentRepository : IFoxProDocumentRepository
 
         try
         {
+            var targetSeries = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            if (series != null)
+            {
+                foreach (var s in series)
+                {
+                    if (string.IsNullOrWhiteSpace(s)) continue;
+                    foreach (var sub in s.Split(',', StringSplitOptions.RemoveEmptyEntries))
+                    {
+                        var trimmed = sub.Trim();
+                        if (!string.IsNullOrEmpty(trimmed)) targetSeries.Add(trimmed);
+                    }
+                }
+            }
+            if (!string.IsNullOrWhiteSpace(serie))
+            {
+                foreach (var sub in serie.Split(',', StringSplitOptions.RemoveEmptyEntries))
+                {
+                    var trimmed = sub.Trim();
+                    if (!string.IsNullOrEmpty(trimmed)) targetSeries.Add(trimmed);
+                }
+            }
+
             // 1. Leer POS10008 buscando documentos cancelados (CCANCELADO = 1) y documentos activos para verificar partidas canceladas
             var completeCancelledDocs = new List<CancellationReportItemDto>();
             var activeDocDict = new Dictionary<string, (DateTime Fecha, string Serie, string Folio, string Cliente, int DocType, decimal Neto, decimal Impuesto, decimal Total)>();
-            var allTargetDocIds = new HashSet<string>();
+            var allTargetDocIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var normalizedTargetDocIds = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            var normalizedActiveDocDict = new Dictionary<string, (DateTime Fecha, string Serie, string Folio, string Cliente, int DocType, decimal Neto, decimal Impuesto, decimal Total)>(StringComparer.OrdinalIgnoreCase);
 
             using (var reader08 = _readerFactory.CreateReader(pos10008Path))
             {
@@ -756,14 +781,15 @@ public class FoxProDocumentRepository : IFoxProDocumentRepository
 
                         var docSerie = reader08.GetStringSafe("CSERIEDO01")?.Trim() ?? string.Empty;
 
-                        // Filtro de serie
-                        if (!string.IsNullOrWhiteSpace(serie) && !docSerie.Equals(serie.Trim(), StringComparison.OrdinalIgnoreCase))
+                        // Filtro de serie(s)
+                        if (targetSeries.Count > 0 && !targetSeries.Contains(docSerie))
                         {
                             continue;
                         }
 
                         var docId = reader08.GetStringSafe("CIDDOCUM01")?.Trim() ?? string.Empty;
                         if (string.IsNullOrEmpty(docId)) continue;
+                        var normDocId = NormalizeDocId(docId);
 
                         var docType = reader08.GetInt32Safe("CIDDOCUM02");
                         var cancelado = reader08.GetInt32Safe("CCANCELADO");
@@ -771,6 +797,15 @@ public class FoxProDocumentRepository : IFoxProDocumentRepository
                         var neto = reader08.GetDecimalSafe("CNETO");
                         var impuesto = reader08.GetDecimalSafe("CIMPUESTO1");
                         var total = reader08.GetDecimalSafe("CTOTAL");
+
+                        // En CONTPAQi POS, un documento cancelado suele tener CTOTAL = 0. Verificamos campos de respaldo.
+                        if (total == 0)
+                        {
+                            var imp03 = reader08.GetDecimalSafe("CIMPORTE03");
+                            var imp01 = reader08.GetDecimalSafe("CIMPORTE01");
+                            var pend = reader08.GetDecimalSafe("CPENDIENTE");
+                            total = imp03 != 0 ? imp03 : (imp01 != 0 ? imp01 : pend);
+                        }
 
                         string docTypeName = docType switch
                         {
@@ -797,11 +832,20 @@ public class FoxProDocumentRepository : IFoxProDocumentRepository
                                 Total = total
                             });
                             allTargetDocIds.Add(docId);
+                            if (!string.IsNullOrEmpty(normDocId))
+                            {
+                                normalizedTargetDocIds[normDocId] = docId;
+                            }
                         }
                         else
                         {
                             // Documento activo guardado para cruzar si tiene partidas canceladas
-                            activeDocDict[docId] = (docDate, docSerie, folio, "PUBLICO GENERAL", docType, neto, impuesto, total);
+                            var tuple = (docDate, docSerie, folio, "PUBLICO GENERAL", docType, neto, impuesto, total);
+                            activeDocDict[docId] = tuple;
+                            if (!string.IsNullOrEmpty(normDocId))
+                            {
+                                normalizedActiveDocDict[normDocId] = tuple;
+                            }
                         }
                     }
                     catch (Exception ex)
@@ -829,20 +873,73 @@ public class FoxProDocumentRepository : IFoxProDocumentRepository
 
                         try
                         {
-                            var docId = reader10.GetStringSafe("CIDDOCUM01")?.Trim() ?? string.Empty;
-                            if (string.IsNullOrEmpty(docId)) continue;
+                            var rawDocId = reader10.GetStringSafe("CIDDOCUM01")?.Trim() ?? string.Empty;
+                            if (string.IsNullOrEmpty(rawDocId)) continue;
+                            var normDocId = NormalizeDocId(rawDocId);
 
-                            var prodId = reader10.GetStringSafe("CIDPRODU01")?.Trim() ?? string.Empty;
-                            if (string.IsNullOrEmpty(prodId) || prodId == "0")
+                            string? matchedCancelledDocId = null;
+                            if (allTargetDocIds.Contains(rawDocId))
                             {
-                                prodId = reader10.GetStringSafe("CIDPRODU02")?.Trim() ?? string.Empty;
+                                matchedCancelledDocId = rawDocId;
                             }
+                            else if (!string.IsNullOrEmpty(normDocId) && normalizedTargetDocIds.TryGetValue(normDocId, out var mappedId))
+                            {
+                                matchedCancelledDocId = mappedId;
+                            }
+
+                            string? matchedActiveDocId = null;
+                            if (activeDocDict.ContainsKey(rawDocId))
+                            {
+                                matchedActiveDocId = rawDocId;
+                            }
+                            else if (!string.IsNullOrEmpty(normDocId) && normalizedActiveDocDict.ContainsKey(normDocId))
+                            {
+                                matchedActiveDocId = rawDocId;
+                            }
+
+                            if (matchedCancelledDocId == null && matchedActiveDocId == null)
+                            {
+                                continue;
+                            }
+
+                            // En AdminPAQ POS10010, CIDPRODU02 suele ser el Id del producto y CIDPRODU01 el Id del movimiento
+                            var prodId02 = reader10.GetInt32Safe("CIDPRODU02");
+                            var prodId01 = reader10.GetInt32Safe("CIDPRODU01");
+                            var prodIdS = reader10.GetInt32Safe("CIDPRODU");
+                            var finalProdIdInt = prodId02 != 0 ? prodId02 : (prodId01 != 0 ? prodId01 : prodIdS);
+                            var prodId = finalProdIdInt != 0
+                                ? finalProdIdInt.ToString()
+                                : (reader10.GetStringSafe("CIDPRODU02")?.Trim() is { Length: > 0 } p2 && p2 != "0"
+                                    ? p2
+                                    : reader10.GetStringSafe("CIDPRODU01")?.Trim() ?? string.Empty);
 
                             var movCancelado = reader10.GetInt32Safe("CCANCELADO");
                             var units = (double)reader10.GetDecimalSafe("CUNIDADES");
-                            var price = reader10.GetDecimalSafe("CPRECIO");
-                            var movTotal = reader10.GetDecimalSafe("CTOTAL");
+                            var absUnits = Math.Abs(units);
+
+                            // El precio unitario puede estar en CPRECIOC01 o CPRECIO01
+                            var precioC0 = reader10.GetDecimalSafe("CPRECIOC01");
+                            var precioStd = reader10.GetDecimalSafe("CPRECIO");
+                            var precio01 = reader10.GetDecimalSafe("CPRECIO01");
+                            var price = precioC0 != 0 ? precioC0 : (precioStd != 0 ? precioStd : precio01);
+
                             var movNeto = reader10.GetDecimalSafe("CNETO");
+                            var movTotal = reader10.GetDecimalSafe("CTOTAL");
+
+                            if (movNeto == 0 && price != 0 && absUnits > 0)
+                            {
+                                movNeto = (decimal)absUnits * price;
+                            }
+                            if (movTotal == 0)
+                            {
+                                movTotal = movNeto != 0 ? movNeto : (price != 0 ? (decimal)absUnits * price : 0);
+                            }
+                            if (price == 0 && absUnits > 0 && movTotal != 0)
+                            {
+                                price = Math.Abs(movTotal / (decimal)absUnits);
+                            }
+
+                            var calcTotal = Math.Abs(movTotal != 0 ? movTotal : (decimal)absUnits * price);
 
                             if (!string.IsNullOrEmpty(prodId))
                             {
@@ -850,25 +947,25 @@ public class FoxProDocumentRepository : IFoxProDocumentRepository
                             }
 
                             // Si pertenece a documento con cancelación completa
-                            if (allTargetDocIds.Contains(docId))
+                            if (matchedCancelledDocId != null)
                             {
                                 var detail = new CancellationDetailDto
                                 {
                                     ProductId = prodId,
-                                    Units = Math.Abs(units),
-                                    Price = price != 0 ? price : (units != 0 ? Math.Abs(movTotal / (decimal)units) : 0),
-                                    Total = Math.Abs(movTotal != 0 ? movTotal : (decimal)units * price)
+                                    Units = absUnits,
+                                    Price = price,
+                                    Total = calcTotal
                                 };
 
-                                if (!docDetails.TryGetValue(docId, out var list))
+                                if (!docDetails.TryGetValue(matchedCancelledDocId, out var list))
                                 {
                                     list = new List<CancellationDetailDto>();
-                                    docDetails[docId] = list;
+                                    docDetails[matchedCancelledDocId] = list;
                                 }
                                 list.Add(detail);
                             }
                             // Si pertenece a documento activo pero la partida es una cancelación parcial (marcada o que resta)
-                            else if (activeDocDict.ContainsKey(docId))
+                            else if (matchedActiveDocId != null)
                             {
                                 bool isPartialCancellation = movCancelado == 1 || units < 0 || movTotal < 0 || movNeto < 0;
                                 if (isPartialCancellation)
@@ -876,15 +973,16 @@ public class FoxProDocumentRepository : IFoxProDocumentRepository
                                     var detail = new CancellationDetailDto
                                     {
                                         ProductId = prodId,
-                                        Units = Math.Abs(units),
-                                        Price = price != 0 ? price : (units != 0 ? Math.Abs(movTotal / (decimal)units) : 0),
-                                        Total = Math.Abs(movTotal != 0 ? movTotal : (decimal)units * price)
+                                        Units = absUnits,
+                                        Price = price,
+                                        Total = calcTotal
                                     };
 
-                                    if (!partialCancelledDocDetails.TryGetValue(docId, out var pList))
+                                    var targetKey = activeDocDict.ContainsKey(matchedActiveDocId) ? matchedActiveDocId : normDocId;
+                                    if (!partialCancelledDocDetails.TryGetValue(targetKey, out var pList))
                                     {
                                         pList = new List<CancellationDetailDto>();
-                                        partialCancelledDocDetails[docId] = pList;
+                                        partialCancelledDocDetails[targetKey] = pList;
                                     }
                                     pList.Add(detail);
                                 }
@@ -945,8 +1043,16 @@ public class FoxProDocumentRepository : IFoxProDocumentRepository
                     }
                 }
 
+                var detailsTotal = details.Sum(d => d.Total);
+                var finalTotal = doc.Total != 0 ? doc.Total : detailsTotal;
+                var finalNeto = doc.Neto != 0 ? doc.Neto : (detailsTotal > 0 ? (detailsTotal / 1.16m) : (finalTotal > 0 ? finalTotal / 1.16m : 0));
+                var finalImpuesto = doc.Impuesto != 0 ? doc.Impuesto : (finalTotal - finalNeto);
+
                 cancellations.Add(doc with
                 {
+                    Neto = finalNeto,
+                    Impuesto = finalImpuesto,
+                    Total = finalTotal,
                     PartidasCanceladasCount = details.Count,
                     Detalles = details
                 });
@@ -955,9 +1061,13 @@ public class FoxProDocumentRepository : IFoxProDocumentRepository
             // 4b. Cancelaciones parciales
             foreach (var kvp in partialCancelledDocDetails)
             {
-                var docId = kvp.Key;
+                var docKey = kvp.Key;
                 var pDetails = kvp.Value;
-                var parentDoc = activeDocDict[docId];
+                if (!activeDocDict.TryGetValue(docKey, out var parentDoc) &&
+                    !normalizedActiveDocDict.TryGetValue(docKey, out parentDoc))
+                {
+                    continue;
+                }
 
                 foreach (var d in pDetails)
                 {
@@ -976,17 +1086,18 @@ public class FoxProDocumentRepository : IFoxProDocumentRepository
                     _ => "Documento POS"
                 };
 
+                var netoCancelado = totalCancelado / 1.16m;
                 cancellations.Add(new CancellationReportItemDto
                 {
-                    IdDocumento = docId,
+                    IdDocumento = docKey,
                     Fecha = parentDoc.Fecha,
                     Serie = parentDoc.Serie,
                     Folio = parentDoc.Folio,
                     TipoCancelacion = "Parcial",
                     TipoDocumento = docTypeName,
                     Cliente = parentDoc.Cliente,
-                    Neto = totalCancelado / 1.16m, // Estimación base para la partida cancelada
-                    Impuesto = totalCancelado - (totalCancelado / 1.16m),
+                    Neto = netoCancelado,
+                    Impuesto = totalCancelado - netoCancelado,
                     Total = totalCancelado,
                     PartidasCanceladasCount = pDetails.Count,
                     Detalles = pDetails
@@ -1006,6 +1117,17 @@ public class FoxProDocumentRepository : IFoxProDocumentRepository
             _logger.LogError(ex, "Error al obtener reporte de cancelaciones desde POS10008");
             throw;
         }
+    }
+
+    private static string NormalizeDocId(string? id)
+    {
+        if (string.IsNullOrWhiteSpace(id)) return string.Empty;
+        var trimmed = id.Trim();
+        if (double.TryParse(trimmed, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var num))
+        {
+            return ((long)Math.Round(num)).ToString(System.Globalization.CultureInfo.InvariantCulture);
+        }
+        return trimmed;
     }
 
     private void ValidateColumns(IFoxProDataReader reader, string fileName, params string[] columns)

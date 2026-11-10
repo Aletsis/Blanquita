@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Blanquita.Application.DTOs;
 using Blanquita.Application.Interfaces.Repositories;
 using Blanquita.Application.Queries.FoxPro.GetCancellationReport;
+using Blanquita.Domain.Repositories;
 using Moq;
 using Xunit;
 
@@ -127,6 +128,69 @@ public class GetCancellationReportQueryHandlerTests
         Assert.Single(list[0].Detalles);
         Assert.Equal(58m, list[0].Total);
 
-        _mockRepository.Verify(r => r.GetCancellationsReportAsync(startDate, endDate, "A", "Parcial", It.IsAny<CancellationToken>()), Times.Once);
+        _mockRepository.Verify(r => r.GetCancellationsReportAsync(startDate, endDate, "A", "Parcial", It.IsAny<CancellationToken>(), null), Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_WithBranchId_ResolvesAllBranchSeries()
+    {
+        // Arrange
+        var mockBranchRepo = new Mock<Blanquita.Domain.Repositories.IBranchRepository>();
+        var mockCashRegisterRepo = new Mock<ICashRegisterRepository>();
+        var mockFoxProCashRegisterRepo = new Mock<IFoxProCashRegisterRepository>();
+
+        var branch = Blanquita.Domain.Entities.Branch.Create(
+            "Himno", "H01", "FGIH", "DFCH", "DEVH", "Av Himno", null);
+
+        mockBranchRepo
+            .Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(branch);
+
+        mockFoxProCashRegisterRepo
+            .Setup(r => r.GetSeriesByBranchCodeAsync("H01", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new[] { "COH", "CAJA1" });
+
+        var register = Blanquita.Domain.Entities.CashRegister.Create("Caja 2", "CAJA2", 2, "192.168.1.10", 9100, 1);
+        mockCashRegisterRepo
+            .Setup(r => r.GetByBranchAsync(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new[] { register });
+
+        IEnumerable<string>? capturedSeries = null;
+        _mockRepository
+            .Setup(r => r.GetCancellationsReportAsync(
+                It.IsAny<DateTime?>(),
+                It.IsAny<DateTime?>(),
+                null,
+                "Todas",
+                It.IsAny<CancellationToken>(),
+                It.IsAny<IEnumerable<string>>()))
+            .Callback<DateTime?, DateTime?, string?, string?, CancellationToken, IEnumerable<string>?>((_, _, _, _, _, s) => capturedSeries = s)
+            .ReturnsAsync(new List<CancellationReportItemDto>());
+
+        var handler = new GetCancellationReportQueryHandler(
+            _mockRepository.Object,
+            mockBranchRepo.Object,
+            mockCashRegisterRepo.Object,
+            mockFoxProCashRegisterRepo.Object);
+
+        var query = new GetCancellationReportQuery(
+            new DateTime(2026, 11, 1),
+            new DateTime(2026, 11, 10),
+            Tipo: "Todas",
+            BranchId: 1);
+
+        // Act
+        var result = await handler.Handle(query, CancellationToken.None);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.NotNull(capturedSeries);
+        var seriesList = capturedSeries.ToList();
+        Assert.Contains("COH", seriesList);
+        Assert.Contains("CAJA1", seriesList);
+        Assert.Contains("CAJA2", seriesList);
+        Assert.Contains("FGIH", seriesList);
+        Assert.Contains("DFCH", seriesList);
+        Assert.Contains("DEVH", seriesList);
     }
 }

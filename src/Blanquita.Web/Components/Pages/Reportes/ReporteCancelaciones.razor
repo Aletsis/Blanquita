@@ -36,7 +36,8 @@
                                Variant="Variant.Outlined"
                                Margin="Margin.Dense"
                                Class="mb-3"
-                               ToStringFunc="@(b => b?.Name)"
+                               ToStringFunc="@(b => b?.Name ?? "Todas las sucursales")"
+                               Clearable="true"
                                AnchorOrigin="Origin.BottomCenter">
                         @if (sucursales != null)
                         {
@@ -290,7 +291,7 @@
             var query = new GetCancellationReportQuery(
                 StartDate: _fechaInicio.Value,
                 EndDate: _fechaFin.Value,
-                Serie: sucursalSeleccionada?.SeriesCliente,
+                BranchId: sucursalSeleccionada?.Id,
                 Tipo: _tipoSeleccionado
             );
             

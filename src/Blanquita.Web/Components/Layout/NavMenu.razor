@@ -106,24 +106,25 @@
     </AuthorizeView>
     
     <!-- Cajas -->
-    <AuthorizeView Roles="Admin,Supervisor" Context="cajasContext">
-        <Authorized>
-            <MudNavGroup Title="Cajas" Expanded="false" Icon="@Icons.Material.Filled.Money" Class="nav-group-pill">
-                <MudNavLink Href="/recoleccion" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.AttachMoney" Class="nav-item-pill sub-item">
-                    Recoleccion de efectivo
-                </MudNavLink>
-                <MudNavLink Href="/corte-caja" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.MoneyOff" Class="nav-item-pill sub-item">
-                    Corte de caja
-                </MudNavLink>
+    
+    <MudNavGroup Title="Cajas" Expanded="false" Icon="@Icons.Material.Filled.Money" Class="nav-group-pill">
+        <MudNavLink Href="/recoleccion" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.AttachMoney" Class="nav-item-pill sub-item">
+            Recoleccion de efectivo
+        </MudNavLink>
+        <MudNavLink Href="/corte-caja" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.MoneyOff" Class="nav-item-pill sub-item">
+            Corte de caja
+        </MudNavLink>
+        <AuthorizeView Roles="Admin,Supervisor" Context="cajasContext">
+            <Authorized>
                 <MudNavLink Href="/conciliacion-corte" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Balance" Class="nav-item-pill sub-item">
                     Conciliación de corte
                 </MudNavLink>
                 <MudNavLink Href="/consulta-conciliaciones" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.ListAlt" Class="nav-item-pill sub-item">
                     Consulta de conciliaciones
                 </MudNavLink>
-            </MudNavGroup>
-        </Authorized>
-    </AuthorizeView>
+            </Authorized>
+        </AuthorizeView>
+    </MudNavGroup>
     
     <!-- Pedidos -->
     <AuthorizeView Roles="Admin,Security" Context="pedidosContext">

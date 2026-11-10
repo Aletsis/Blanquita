@@ -58,6 +58,7 @@ public interface IFoxProDocumentRepository
         DateTime? endDate = null,
         string? serie = null,
         string? tipo = null,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default,
+        IEnumerable<string>? series = null);
 }
 
