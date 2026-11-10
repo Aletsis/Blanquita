@@ -11,5 +11,7 @@ public record GetReturnReportQuery(
     string? Serie = null, 
     DateTime? StartDate = null, 
     DateTime? EndDate = null, 
-    string? Tipo = null
+    string? Tipo = null,
+    int? BranchId = null,
+    IEnumerable<string>? Series = null
 ) : IRequest<IEnumerable<ReturnReportItemDto>>;

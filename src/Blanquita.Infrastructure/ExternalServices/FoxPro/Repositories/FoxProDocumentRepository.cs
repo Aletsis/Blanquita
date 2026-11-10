@@ -437,7 +437,8 @@ public class FoxProDocumentRepository : IFoxProDocumentRepository
         DateTime? startDate = null, 
         DateTime? endDate = null, 
         string? tipo = null, 
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        IEnumerable<string>? series = null)
     {
         var config = await _configService.ObtenerConfiguracionAsync();
         var pos10008Path = config.Pos10008Path;
@@ -451,13 +452,37 @@ public class FoxProDocumentRepository : IFoxProDocumentRepository
 
         try
         {
+            var targetSeries = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            if (series != null)
+            {
+                foreach (var s in series)
+                {
+                    if (string.IsNullOrWhiteSpace(s)) continue;
+                    foreach (var sub in s.Split(',', StringSplitOptions.RemoveEmptyEntries))
+                    {
+                        var trimmed = sub.Trim();
+                        if (!string.IsNullOrEmpty(trimmed)) targetSeries.Add(trimmed);
+                    }
+                }
+            }
+            if (!string.IsNullOrWhiteSpace(serie))
+            {
+                foreach (var sub in serie.Split(',', StringSplitOptions.RemoveEmptyEntries))
+                {
+                    var trimmed = sub.Trim();
+                    if (!string.IsNullOrEmpty(trimmed)) targetSeries.Add(trimmed);
+                }
+            }
+
             // 1. Leer devoluciones directamente desde POS10008 (CIDDOCUM02 = 36)
-            var returnDocIds = new HashSet<string>();
-            var docToApertura = new Dictionary<string, int>();
+            var allTargetDocIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var normalizedTargetDocIds = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            var docToApertura = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            var docToTextoRef = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
             using (var reader = _readerFactory.CreateReader(pos10008Path))
             {
-                ValidateColumns(reader, "POS10008", "CIDDOCUM01", "CIDDOCUM02", "CSERIEDO01", "CFOLIO", "CFECHA", "CNETO", "CIMPUESTO1", "CTOTAL", "CIDAPERTUR");
+                ValidateColumns(reader, "POS10008", "CIDDOCUM01", "CIDDOCUM02", "CSERIEDO01", "CFOLIO", "CFECHA", "CNETO", "CTOTAL");
 
                 while (reader.Read())
                 {
@@ -481,23 +506,44 @@ public class FoxProDocumentRepository : IFoxProDocumentRepository
                             if (docDate.Year != year.Value || docDate.Month != month.Value) continue;
                         }
 
-                        // Filtro de serie
-                        if (!string.IsNullOrWhiteSpace(serie) && !docSerie.Equals(serie.Trim(), StringComparison.OrdinalIgnoreCase))
+                        // Filtro de serie(s)
+                        if (targetSeries.Count > 0 && !targetSeries.Contains(docSerie))
                         {
                             continue;
                         }
 
                         var docId = reader.GetStringSafe("CIDDOCUM01")?.Trim() ?? string.Empty;
+                        if (string.IsNullOrEmpty(docId)) continue;
+                        var normDocId = NormalizeDocId(docId);
+
                         var folio = reader.GetDecimalSafe("CFOLIO");
                         var neto = reader.GetDecimalSafe("CNETO");
-                        var impuesto = reader.GetDecimalSafe("CIMPUESTO1");
+                        var impuesto = reader.HasColumn("CIMPUESTO1") 
+                            ? reader.GetDecimalSafe("CIMPUESTO1") 
+                            : (reader.HasColumn("CIMPUESTO") ? reader.GetDecimalSafe("CIMPUESTO") : 0m);
                         var total = reader.GetDecimalSafe("CTOTAL");
-                        var cidApertur = reader.GetInt32Safe("CIDAPERTUR");
+                        var cidApertur = reader.HasColumn("CIDAPERTUR") 
+                            ? reader.GetInt32Safe("CIDAPERTUR") 
+                            : (reader.HasColumn("CIDPOS01") ? reader.GetInt32Safe("CIDPOS01") : 0);
 
-                        if (!string.IsNullOrEmpty(docId))
+                        var textoRef = reader.HasColumn("CTEXTOEX01") 
+                            ? reader.GetStringSafe("CTEXTOEX01")?.Trim() 
+                            : (reader.HasColumn("CREFEREN01") ? reader.GetStringSafe("CREFEREN01")?.Trim() : string.Empty);
+
+                        allTargetDocIds.Add(docId);
+                        if (!string.IsNullOrEmpty(normDocId))
                         {
-                            returnDocIds.Add(docId);
+                            normalizedTargetDocIds[normDocId] = docId;
+                        }
+                        if (cidApertur > 0)
+                        {
                             docToApertura[docId] = cidApertur;
+                            if (!string.IsNullOrEmpty(normDocId)) docToApertura[normDocId] = cidApertur;
+                        }
+                        if (!string.IsNullOrEmpty(textoRef))
+                        {
+                            docToTextoRef[docId] = textoRef;
+                            if (!string.IsNullOrEmpty(normDocId)) docToTextoRef[normDocId] = textoRef;
                         }
 
                         returns.Add(new ReturnReportItemDto
@@ -509,7 +555,7 @@ public class FoxProDocumentRepository : IFoxProDocumentRepository
                             Neto = neto,
                             Impuesto = impuesto,
                             Total = total,
-                            Tipo = "Completa" // Por defecto, se recalculará al cruzar con partidas y venta original
+                            Tipo = "Completa"
                         });
                     }
                     catch (Exception ex)
@@ -526,15 +572,15 @@ public class FoxProDocumentRepository : IFoxProDocumentRepository
 
             // 2. Leer partidas de POS10010 para cada devolución encontrada
             var pos10010Path = config.Pos10010Path;
-            var docDetails = new Dictionary<string, List<ReturnDetailDto>>();
-            var productIds = new HashSet<string>();
+            var docDetails = new Dictionary<string, List<ReturnDetailDto>>(StringComparer.OrdinalIgnoreCase);
+            var productIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-            if (!string.IsNullOrEmpty(pos10010Path) && File.Exists(pos10010Path) && returnDocIds.Any())
+            if (!string.IsNullOrEmpty(pos10010Path) && File.Exists(pos10010Path) && allTargetDocIds.Any())
             {
                 try
                 {
                     using var detailReader = _readerFactory.CreateReader(pos10010Path);
-                    ValidateColumns(detailReader, "POS10010", "CIDDOCUM01", "CIDPRODU01", "CUNIDADES", "CPRECIO", "CNETO", "CIMPUESTO1", "CTOTAL");
+                    ValidateColumns(detailReader, "POS10010", "CIDDOCUM01", "CIDPRODU01", "CUNIDADES", "CPRECIO", "CNETO", "CTOTAL");
 
                     while (detailReader.Read())
                     {
@@ -543,7 +589,24 @@ public class FoxProDocumentRepository : IFoxProDocumentRepository
                         try
                         {
                             var detailDocId = detailReader.GetStringSafe("CIDDOCUM01")?.Trim() ?? string.Empty;
-                            if (!returnDocIds.Contains(detailDocId)) continue;
+                            if (string.IsNullOrEmpty(detailDocId)) continue;
+                            var normDetailDocId = NormalizeDocId(detailDocId);
+
+                            string? matchedDocId = null;
+                            if (allTargetDocIds.Contains(detailDocId))
+                            {
+                                matchedDocId = detailDocId;
+                            }
+                            else if (!string.IsNullOrEmpty(normDetailDocId) && normalizedTargetDocIds.TryGetValue(normDetailDocId, out var mappedId))
+                            {
+                                matchedDocId = mappedId;
+                            }
+                            else if (allTargetDocIds.Contains(normDetailDocId))
+                            {
+                                matchedDocId = normDetailDocId;
+                            }
+
+                            if (matchedDocId == null) continue;
 
                             var prodId = detailReader.GetStringSafe("CIDPRODU01")?.Trim() ?? string.Empty;
                             if (!string.IsNullOrEmpty(prodId))
@@ -551,20 +614,24 @@ public class FoxProDocumentRepository : IFoxProDocumentRepository
                                 productIds.Add(prodId);
                             }
 
+                            var detailImpuesto = detailReader.HasColumn("CIMPUESTO1") 
+                                ? detailReader.GetDecimalSafe("CIMPUESTO1") 
+                                : (detailReader.HasColumn("CIMPUESTO") ? detailReader.GetDecimalSafe("CIMPUESTO") : 0m);
+
                             var detailDto = new ReturnDetailDto
                             {
                                 ProductId = prodId,
                                 Units = (double)detailReader.GetDecimalSafe("CUNIDADES"),
                                 Price = detailReader.GetDecimalSafe("CPRECIO"),
                                 Net = detailReader.GetDecimalSafe("CNETO"),
-                                Tax = detailReader.GetDecimalSafe("CIMPUESTO1"),
+                                Tax = detailImpuesto,
                                 Total = detailReader.GetDecimalSafe("CTOTAL")
                             };
 
-                            if (!docDetails.TryGetValue(detailDocId, out var dList))
+                            if (!docDetails.TryGetValue(matchedDocId, out var dList))
                             {
                                 dList = new List<ReturnDetailDto>();
-                                docDetails[detailDocId] = dList;
+                                docDetails[matchedDocId] = dList;
                             }
                             dList.Add(detailDto);
                         }
@@ -582,7 +649,7 @@ public class FoxProDocumentRepository : IFoxProDocumentRepository
 
             // 3. Obtener nombres de productos desde MGW10005
             var productsFilePath = config.Mgw10005Path;
-            var productNames = new Dictionary<string, string>();
+            var productNames = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             if (productIds.Any() && !string.IsNullOrEmpty(productsFilePath) && File.Exists(productsFilePath))
             {
                 try
@@ -610,7 +677,7 @@ public class FoxProDocumentRepository : IFoxProDocumentRepository
                 }
             }
 
-            // 4. Cruzar con POS10042 para obtener referencia de ticket/venta original y calcular si es Completa o Parcial
+            // 4. Cruzar con POS10042 para obtener referencia de ticket/venta original
             var pos10042Path = config.Pos10042Path;
             var aperturaToVentaRef = new Dictionary<int, (string Referencia, decimal? TotalVenta)>();
 
@@ -619,25 +686,29 @@ public class FoxProDocumentRepository : IFoxProDocumentRepository
                 try
                 {
                     using var reader42 = _readerFactory.CreateReader(pos10042Path);
-                    ValidateColumns(reader42, "POS10042", "CDEVOLUCIO", "CIDAPERTUR");
+                    var hasDevolucio = reader42.HasColumn("CDEVOLUCIO");
+                    var apCol = reader42.HasColumn("CIDAPERTUR") ? "CIDAPERTUR" : (reader42.HasColumn("CIDPOS01") ? "CIDPOS01" : null);
 
-                    while (reader42.Read())
+                    if (hasDevolucio && apCol != null)
                     {
-                        cancellationToken.ThrowIfCancellationRequested();
-
-                        try
+                        while (reader42.Read())
                         {
-                            var rawDevolucio = reader42.GetStringSafe("CDEVOLUCIO");
-                            if (string.IsNullOrWhiteSpace(rawDevolucio)) continue;
+                            cancellationToken.ThrowIfCancellationRequested();
 
-                            var cidApertur = reader42.GetInt32Safe("CIDAPERTUR");
-                            if (cidApertur <= 0) continue;
+                            try
+                            {
+                                var rawDevolucio = reader42.GetStringSafe("CDEVOLUCIO");
+                                if (string.IsNullOrWhiteSpace(rawDevolucio)) continue;
 
-                            aperturaToVentaRef[cidApertur] = (rawDevolucio.Trim(), null);
-                        }
-                        catch (Exception ex)
-                        {
-                            _logger.LogDebug(ex, "Error al procesar registro en POS10042");
+                                var cidApertur = reader42.GetInt32Safe(apCol);
+                                if (cidApertur <= 0) continue;
+
+                                aperturaToVentaRef[cidApertur] = (rawDevolucio.Trim(), null);
+                            }
+                            catch (Exception ex)
+                            {
+                                _logger.LogDebug(ex, "Error al procesar registro en POS10042");
+                            }
                         }
                     }
                 }
@@ -651,7 +722,14 @@ public class FoxProDocumentRepository : IFoxProDocumentRepository
             var result = new List<ReturnReportItemDto>();
             foreach (var item in returns)
             {
-                var details = docDetails.TryGetValue(item.IdDocumento, out var dList) ? dList : new List<ReturnDetailDto>();
+                var normId = NormalizeDocId(item.IdDocumento);
+                List<ReturnDetailDto>? details = null;
+                if (!docDetails.TryGetValue(item.IdDocumento, out details) && !string.IsNullOrEmpty(normId))
+                {
+                    docDetails.TryGetValue(normId, out details);
+                }
+                details ??= new List<ReturnDetailDto>();
+
                 foreach (var d in details)
                 {
                     if (productNames.TryGetValue(d.ProductId, out var pName))
@@ -662,27 +740,33 @@ public class FoxProDocumentRepository : IFoxProDocumentRepository
 
                 string referencia = string.Empty;
                 decimal? ventaOriginal = null;
-                if (docToApertura.TryGetValue(item.IdDocumento, out var apId) && aperturaToVentaRef.TryGetValue(apId, out var vRef))
+                if ((docToApertura.TryGetValue(item.IdDocumento, out var apId) || (!string.IsNullOrEmpty(normId) && docToApertura.TryGetValue(normId, out apId))) 
+                    && aperturaToVentaRef.TryGetValue(apId, out var vRef))
                 {
                     referencia = vRef.Referencia;
                     ventaOriginal = vRef.TotalVenta;
                 }
+                else if (docToTextoRef.TryGetValue(item.IdDocumento, out var tRef) || (!string.IsNullOrEmpty(normId) && docToTextoRef.TryGetValue(normId, out tRef)))
+                {
+                    referencia = tRef;
+                }
 
                 // Determinación Completa vs Parcial:
-                // Si la venta original existe y difiere del total devuelto, o si tiene 1 partida de N, se clasifica
                 string tipoDevolucion = "Completa";
                 if (ventaOriginal.HasValue && ventaOriginal.Value > 0)
                 {
                     tipoDevolucion = Math.Abs(item.Total - ventaOriginal.Value) < 0.05m ? "Completa" : "Parcial";
                 }
-                else if (details.Count > 0 && details.Count < 2 && item.Total < 200m)
-                {
-                    // Heurística en devoluciones de mostrador con pocas piezas
-                    tipoDevolucion = "Parcial";
-                }
+
+                var finalTotal = item.Total != 0 ? item.Total : details.Sum(d => d.Total);
+                var finalNeto = item.Neto != 0 ? item.Neto : (finalTotal > 0 ? (finalTotal / 1.16m) : 0);
+                var finalImpuesto = item.Impuesto != 0 ? item.Impuesto : (finalTotal - finalNeto);
 
                 var finalItem = item with
                 {
+                    Neto = finalNeto,
+                    Impuesto = finalImpuesto,
+                    Total = finalTotal,
                     Referencia = referencia,
                     Tipo = tipoDevolucion,
                     VentaOriginalTotal = ventaOriginal,

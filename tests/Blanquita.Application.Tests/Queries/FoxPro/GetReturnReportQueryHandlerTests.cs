@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Blanquita.Application.DTOs;
 using Blanquita.Application.Interfaces.Repositories;
 using Blanquita.Application.Queries.FoxPro.GetReturnReport;
+using Blanquita.Domain.Repositories;
 using Moq;
 using Xunit;
 
@@ -54,7 +55,7 @@ public class GetReturnReportQueryHandlerTests
         };
 
         _mockRepository
-            .Setup(r => r.GetReturnsReportAsync(year, month, serie, It.IsAny<DateTime?>(), It.IsAny<DateTime?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetReturnsReportAsync(year, month, serie, It.IsAny<DateTime?>(), It.IsAny<DateTime?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>(), It.IsAny<IEnumerable<string>?>()))
             .ReturnsAsync(expectedItems);
 
         var query = new GetReturnReportQuery(year, month, serie);
@@ -73,7 +74,7 @@ public class GetReturnReportQueryHandlerTests
 
         Assert.Equal("DEV-503", resultList[1].Referencia);
 
-        _mockRepository.Verify(r => r.GetReturnsReportAsync(year, month, serie, It.IsAny<DateTime?>(), It.IsAny<DateTime?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()), Times.Once);
+        _mockRepository.Verify(r => r.GetReturnsReportAsync(year, month, serie, It.IsAny<DateTime?>(), It.IsAny<DateTime?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>(), It.IsAny<IEnumerable<string>?>()), Times.Once);
     }
 
     [Fact]
@@ -85,7 +86,7 @@ public class GetReturnReportQueryHandlerTests
         var serie = "DFCH";
 
         _mockRepository
-            .Setup(r => r.GetReturnsReportAsync(year, month, serie, It.IsAny<DateTime?>(), It.IsAny<DateTime?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetReturnsReportAsync(year, month, serie, It.IsAny<DateTime?>(), It.IsAny<DateTime?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>(), It.IsAny<IEnumerable<string>?>()))
             .ReturnsAsync(new List<ReturnReportItemDto>());
 
         var query = new GetReturnReportQuery(year, month, serie);
@@ -97,6 +98,71 @@ public class GetReturnReportQueryHandlerTests
         Assert.NotNull(result);
         Assert.Empty(result);
 
-        _mockRepository.Verify(r => r.GetReturnsReportAsync(year, month, serie, It.IsAny<DateTime?>(), It.IsAny<DateTime?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()), Times.Once);
+        _mockRepository.Verify(r => r.GetReturnsReportAsync(year, month, serie, It.IsAny<DateTime?>(), It.IsAny<DateTime?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>(), It.IsAny<IEnumerable<string>?>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_WithBranchId_ResolvesAllBranchSeries()
+    {
+        // Arrange
+        var mockBranchRepo = new Mock<IBranchRepository>();
+        var mockCashRegisterRepo = new Mock<ICashRegisterRepository>();
+        var mockFoxProCashRegisterRepo = new Mock<IFoxProCashRegisterRepository>();
+
+        var branch = Blanquita.Domain.Entities.Branch.Create(
+            "Himno", "H01", "FGIH", "DFCH", "DEVH", "Av Himno", null);
+
+        mockBranchRepo
+            .Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(branch);
+
+        mockFoxProCashRegisterRepo
+            .Setup(r => r.GetSeriesByBranchCodeAsync("H01", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new[] { "COH", "CAJA1" });
+
+        var register = Blanquita.Domain.Entities.CashRegister.Create("Caja 2", "CAJA2", 2, "192.168.1.10", 9100, 1);
+        mockCashRegisterRepo
+            .Setup(r => r.GetByBranchAsync(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new[] { register });
+
+        IEnumerable<string>? capturedSeries = null;
+        _mockRepository
+            .Setup(r => r.GetReturnsReportAsync(
+                It.IsAny<int?>(),
+                It.IsAny<int?>(),
+                null,
+                It.IsAny<DateTime?>(),
+                It.IsAny<DateTime?>(),
+                "Todas",
+                It.IsAny<CancellationToken>(),
+                It.IsAny<IEnumerable<string>?>()))
+            .Callback<int?, int?, string?, DateTime?, DateTime?, string?, CancellationToken, IEnumerable<string>?>((_, _, _, _, _, _, _, s) => capturedSeries = s)
+            .ReturnsAsync(new List<ReturnReportItemDto>());
+
+        var handler = new GetReturnReportQueryHandler(
+            _mockRepository.Object,
+            mockBranchRepo.Object,
+            mockCashRegisterRepo.Object,
+            mockFoxProCashRegisterRepo.Object);
+
+        var query = new GetReturnReportQuery(
+            StartDate: new DateTime(2026, 11, 1),
+            EndDate: new DateTime(2026, 11, 10),
+            Tipo: "Todas",
+            BranchId: 1);
+
+        // Act
+        var result = await handler.Handle(query, CancellationToken.None);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.NotNull(capturedSeries);
+        var seriesList = capturedSeries.ToList();
+        Assert.Contains("COH", seriesList);
+        Assert.Contains("CAJA1", seriesList);
+        Assert.Contains("CAJA2", seriesList);
+        Assert.Contains("FGIH", seriesList);
+        Assert.Contains("DFCH", seriesList);
+        Assert.Contains("DEVH", seriesList);
     }
 }

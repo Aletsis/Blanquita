@@ -33,10 +33,10 @@
                     <MudSelect T="BranchDto" @bind-Value="sucursalSeleccionada"
                                Label="Sucursal"
                                Variant="Variant.Outlined"
-                               Required="true"
                                Margin="Margin.Dense"
                                Class="mb-3"
-                               ToStringFunc="@(b => b?.Name)"
+                               ToStringFunc="@(b => b?.Name ?? "Todas las sucursales")"
+                               Clearable="true"
                                AnchorOrigin="Origin.BottomCenter">
                         @if (sucursales != null)
                         {
@@ -77,7 +77,13 @@
                     @if (sucursalSeleccionada != null)
                     {
                          <MudText Typo="Typo.caption" Class="mb-2 d-block" Color="Color.Secondary">
-                            Serie Devolución: <strong>@(string.IsNullOrEmpty(sucursalSeleccionada.SeriesDevolucion) ? "(Todas / POS)" : sucursalSeleccionada.SeriesDevolucion)</strong>
+                            Sucursal: <strong>@sucursalSeleccionada.Name</strong> @(string.IsNullOrEmpty(sucursalSeleccionada.SeriesDevolucion) ? "" : $"(Serie: {sucursalSeleccionada.SeriesDevolucion})")
+                        </MudText>
+                    }
+                    else
+                    {
+                         <MudText Typo="Typo.caption" Class="mb-2 d-block" Color="Color.Secondary">
+                            Sucursal: <strong>Todas las sucursales</strong>
                         </MudText>
                     }
 
@@ -88,7 +94,7 @@
                                FullWidth="true"
                                StartIcon="@Icons.Material.Filled.Search"
                                OnClick="GenerarReporte"
-                               Disabled="@(generando || sucursalSeleccionada == null || _fechaInicio == null || _fechaFin == null)"
+                               Disabled="@(generando || _fechaInicio == null || _fechaFin == null)"
                                Size="Size.Large"
                                Class="py-2 rounded-lg shadow-sm">
                         @if (generando)
@@ -267,10 +273,6 @@
         try
         {
             sucursales = await BranchService.GetAllAsync();
-            if (sucursales.Any())
-            {
-                sucursalSeleccionada = sucursales.First();
-            }
         }
         catch (Exception ex)
         {
@@ -281,7 +283,7 @@
 
     private async Task GenerarReporte()
     {
-        if (sucursalSeleccionada == null || _fechaInicio == null || _fechaFin == null)
+        if (_fechaInicio == null || _fechaFin == null)
             return;
 
         generando = true;
@@ -293,7 +295,7 @@
             var query = new GetReturnReportQuery(
                 StartDate: _fechaInicio.Value,
                 EndDate: _fechaFin.Value,
-                Serie: sucursalSeleccionada.SeriesDevolucion,
+                BranchId: sucursalSeleccionada?.Id,
                 Tipo: _tipoSeleccionado
             );
             
@@ -323,8 +325,9 @@
 
         try
         {
+            var branchName = sucursalSeleccionada?.Name ?? "Todas";
             var contenido = await ExportService.ExportToExcelAsync(datosReporte, "Devoluciones");
-            var nombreArchivo = $"Devoluciones_{sucursalSeleccionada?.Name}_{_fechaInicio:yyyyMMdd}_{_fechaFin:yyyyMMdd}.xlsx";
+            var nombreArchivo = $"Devoluciones_{branchName.Replace(" ", "_")}_{_fechaInicio:yyyyMMdd}_{_fechaFin:yyyyMMdd}.xlsx";
             await DescargarArchivo(contenido, nombreArchivo, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
             Snackbar.Add("Reporte exportado exitosamente a Excel", Severity.Success);
         }
@@ -340,8 +343,9 @@
 
         try
         {
-            var contenido = await ExportService.ExportToPdfAsync(datosReporte, $"Reporte de Devoluciones POS - {sucursalSeleccionada?.Name}");
-            var nombreArchivo = $"Devoluciones_{sucursalSeleccionada?.Name}_{_fechaInicio:yyyyMMdd}_{_fechaFin:yyyyMMdd}.pdf";
+            var branchName = sucursalSeleccionada?.Name ?? "Todas las sucursales";
+            var contenido = await ExportService.ExportToPdfAsync(datosReporte, $"Reporte de Devoluciones POS - {branchName}");
+            var nombreArchivo = $"Devoluciones_{branchName.Replace(" ", "_")}_{_fechaInicio:yyyyMMdd}_{_fechaFin:yyyyMMdd}.pdf";
             await DescargarArchivo(contenido, nombreArchivo, "application/pdf");
             Snackbar.Add("Reporte exportado exitosamente a PDF", Severity.Success);
         }

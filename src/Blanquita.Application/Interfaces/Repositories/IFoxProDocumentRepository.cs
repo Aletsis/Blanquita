@@ -48,7 +48,8 @@ public interface IFoxProDocumentRepository
         DateTime? startDate = null,
         DateTime? endDate = null,
         string? tipo = null,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default,
+        IEnumerable<string>? series = null);
 
     /// <summary>
     /// Obtiene el reporte de cancelaciones completas y parciales exclusivamente desde POS10008 cruzando con POS10010.
