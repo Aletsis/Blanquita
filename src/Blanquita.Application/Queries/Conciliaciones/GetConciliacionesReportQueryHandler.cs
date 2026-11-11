@@ -38,7 +38,9 @@ public class GetConciliacionesReportQueryHandler : IRequestHandler<GetConciliaci
         try
         {
             var result = await _conciliacionService.GetConciliacionesByBranchAndDateAsync(request.BranchName, request.Date, cancellationToken);
-            var conciliacionesList = result.ToList();
+            var conciliacionesList = result
+                .Where(c => c.TieneMovimientos())
+                .ToList();
 
             int pendingBoxesCount = 0;
             List<ConciliacionCorteDto> sortedConciliaciones = conciliacionesList;

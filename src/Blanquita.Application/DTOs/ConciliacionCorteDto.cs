@@ -36,6 +36,24 @@ public class ConciliacionCorteDto
 
     public List<ConciliacionSalidaEfectivoDto> Salidas { get; set; } = new();
     public List<TerminalDetalleDto> Terminales { get; set; } = new();
+
+    /// <summary>
+    /// Indica si la conciliación registra algún importe o detalle distinto de cero.
+    /// </summary>
+    public bool TieneMovimientos() =>
+        TotalRecolecciones != 0m ||
+        EfectivoEntregado != 0m ||
+        SalidasEfectivo != 0m ||
+        TotalEfectivo != 0m ||
+        Banregio != 0m ||
+        Banbajio != 0m ||
+        TotalTarjetas != 0m ||
+        Devoluciones != 0m ||
+        TotalEntregado != 0m ||
+        TotalEsperado != 0m ||
+        Diferencia != 0m ||
+        (Salidas != null && Salidas.Any(s => s.Monto != 0m)) ||
+        (Terminales != null && Terminales.Any(t => t.Monto != 0m));
 }
 
 public class ConciliacionSalidaEfectivoDto
