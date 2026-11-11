@@ -48,6 +48,11 @@ namespace Blanquita.Infrastructure.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
 
+                    b.Property<bool>("PermiteSalidasEfectivo")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
+
                     b.Property<string>("SeriesCliente")
                         .IsRequired()
                         .HasMaxLength(50)
@@ -209,6 +214,11 @@ namespace Blanquita.Infrastructure.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)")
                         .HasColumnName("Nombre");
+
+                    b.Property<bool>("PermiteSalidasEfectivo")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
 
                     b.Property<string>("Serie")
                         .IsRequired()

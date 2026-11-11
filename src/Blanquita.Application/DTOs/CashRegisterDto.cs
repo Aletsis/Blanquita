@@ -13,6 +13,7 @@ public record CashRegisterDto
     public int BranchId { get; init; }
     public TipoTerminal Tipo { get; init; } = TipoTerminal.PisoVentas;
     public bool IsLastRegister { get; init; }
+    public bool PermiteSalidasEfectivo { get; init; }
 }
 
 public record CreateCashRegisterDto
@@ -25,6 +26,7 @@ public record CreateCashRegisterDto
     public int BranchId { get; init; }
     public TipoTerminal Tipo { get; init; } = TipoTerminal.PisoVentas;
     public bool IsLastRegister { get; init; }
+    public bool PermiteSalidasEfectivo { get; init; }
 }
 
 public record UpdateCashRegisterDto
@@ -38,5 +40,6 @@ public record UpdateCashRegisterDto
     public int BranchId { get; init; }
     public TipoTerminal Tipo { get; init; } = TipoTerminal.PisoVentas;
     public bool IsLastRegister { get; init; }
+    public bool PermiteSalidasEfectivo { get; init; }
 }
 

@@ -10,7 +10,7 @@ public class CashRegisterMapperTests
     [Fact]
     public void ToDto_ShouldMapCorrectly()
     {
-        var entity = CashRegister.Create("Caja 1", "S1", 101, "127.0.0.1", 9100, 1, true);
+        var entity = CashRegister.Create("Caja 1", "S1", 101, "127.0.0.1", 9100, 1, true, Blanquita.Domain.Enums.TipoTerminal.PisoVentas, true);
         var dto = entity.ToDto();
 
         Assert.Equal(entity.Name, dto.Name);
@@ -19,6 +19,7 @@ public class CashRegisterMapperTests
         Assert.Equal(entity.PrinterConfig.IpAddress, dto.PrinterIp);
         Assert.Equal(entity.BranchId.Value, dto.BranchId);
         Assert.Equal(entity.IsLastRegister, dto.IsLastRegister);
+        Assert.True(dto.PermiteSalidasEfectivo);
     }
 
     [Fact]
@@ -32,7 +33,8 @@ public class CashRegisterMapperTests
             PrinterIp = "10.0.0.1",
             PrinterPort = 8080,
             BranchId = 2,
-            IsLastRegister = false
+            IsLastRegister = false,
+            PermiteSalidasEfectivo = true
         };
 
         var entity = CashRegisterMapper.ToEntity(dto);
@@ -42,6 +44,7 @@ public class CashRegisterMapperTests
         Assert.Equal(dto.IdContpaqi, entity.IdContpaqi);
         Assert.Equal(dto.PrinterIp, entity.PrinterConfig.IpAddress);
         Assert.Equal(dto.BranchId, entity.BranchId.Value);
+        Assert.True(entity.PermiteSalidasEfectivo);
     }
 
     [Fact]
@@ -56,7 +59,8 @@ public class CashRegisterMapperTests
             PrinterIp = "1.1.1.1",
             PrinterPort = 9999,
             BranchId = 5,
-            IsLastRegister = true
+            IsLastRegister = true,
+            PermiteSalidasEfectivo = true
         };
 
         dto.UpdateEntity(entity);
@@ -68,5 +72,6 @@ public class CashRegisterMapperTests
         Assert.Equal(9999, entity.PrinterConfig.Port);
         Assert.Equal(5, entity.BranchId.Value);
         Assert.True(entity.IsLastRegister);
+        Assert.True(entity.PermiteSalidasEfectivo);
     }
 }

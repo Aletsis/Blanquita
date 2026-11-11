@@ -74,7 +74,8 @@ public class ConciliacionService : IConciliacionService
             ReturnsTotal = shiftData?.ReturnsTotal ?? 0,
             TotalRecolectado = totalRecolectado,
             Status = shiftData?.Status ?? 0,
-            Fecha = shiftData?.OpeningTime ?? date
+            Fecha = shiftData?.OpeningTime ?? date,
+            PermiteSalidasEfectivo = IsSalidasEfectivoPermitidas(cashRegister, branch)
         };
     }
 
@@ -204,8 +205,24 @@ public class ConciliacionService : IConciliacionService
         var c = await _conciliacionCorteRepository.GetByIdAsync(id, cancellationToken);
         if (c == null) return null;
 
-        return MapToDto(c);
+        var dto = MapToDto(c);
+        dto.PermiteSalidasEfectivo = await PermiteSalidasEfectivoAsync(c.Caja, cancellationToken);
+        return dto;
     }
+
+    public async Task<bool> PermiteSalidasEfectivoAsync(string cashRegisterName, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(cashRegisterName)) return false;
+
+        var cashRegister = await _cashRegisterRepository.GetByNameAsync(cashRegisterName, cancellationToken);
+        if (cashRegister is not { PermiteSalidasEfectivo: true }) return false;
+
+        var branch = await _branchRepository.GetByIdAsync(cashRegister.BranchId.Value, cancellationToken);
+        return IsSalidasEfectivoPermitidas(cashRegister, branch);
+    }
+
+    private static bool IsSalidasEfectivoPermitidas(Domain.Entities.CashRegister? cashRegister, Domain.Entities.Branch? branch) =>
+        cashRegister is { PermiteSalidasEfectivo: true } && branch is { PermiteSalidasEfectivo: true };
 
     public async Task<IEnumerable<ConciliacionCorteDto>> GetConciliacionesByBranchAndDateAsync(string branchName, DateTime date, CancellationToken cancellationToken = default)
     {

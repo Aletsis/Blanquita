@@ -129,13 +129,16 @@
                         <!-- Salidas de Efectivo -->
                         <div class="d-flex justify-space-between align-center mb-2">
                             <MudText Typo="Typo.caption" Class="font-weight-bold text-muted">Salidas / Gastos de Efectivo:</MudText>
-                            <MudButton Variant="Variant.Text" 
-                                       Color="Color.Error" 
-                                       StartIcon="@Icons.Material.Filled.Add" 
-                                       Size="Size.Small" 
-                                       OnClick="AbrirDialogoAgregarSalida">
-                                Agregar Salida
-                            </MudButton>
+                            @if (_conciliacion.PermiteSalidasEfectivo)
+                            {
+                                <MudButton Variant="Variant.Text" 
+                                           Color="Color.Error" 
+                                           StartIcon="@Icons.Material.Filled.Add" 
+                                           Size="Size.Small" 
+                                           OnClick="AbrirDialogoAgregarSalida">
+                                    Agregar Salida
+                                </MudButton>
+                            }
                         </div>
 
                         @if (_salidas.Any())
@@ -163,7 +166,9 @@
                         else
                         {
                             <MudText Typo="Typo.caption" Color="Color.Secondary" Class="d-block mb-3 italic">
-                                No se han registrado salidas de efectivo para este corte.
+                                @(_conciliacion.PermiteSalidasEfectivo
+                                    ? "No se han registrado salidas de efectivo para este corte."
+                                    : "Las salidas de efectivo están deshabilitadas para esta caja/sucursal.")
                             </MudText>
                         }
 
@@ -319,6 +324,12 @@
 
     private async Task AbrirDialogoAgregarSalida()
     {
+        if (_conciliacion == null || !_conciliacion.PermiteSalidasEfectivo)
+        {
+            Snackbar.Add("Esta caja o su sucursal no tiene habilitado el registro de salidas de efectivo.", Severity.Warning);
+            return;
+        }
+
         var parameters = new DialogParameters<DialogoAgregarSalidaEfectivo>
         {
             { x => x.UsuarioActual, UsuarioActual }

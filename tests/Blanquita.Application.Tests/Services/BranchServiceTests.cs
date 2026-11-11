@@ -64,4 +64,48 @@ public class BranchServiceTests
         
         Assert.Null(result);
     }
+
+    [Fact]
+    public async Task CreateAsync_ShouldPersistPermiteSalidasEfectivo()
+    {
+        var dto = new BranchDto
+        {
+            Name = "Sucursal Nueva",
+            Code = "03",
+            PermiteSalidasEfectivo = true
+        };
+
+        var result = await _service.CreateAsync(dto);
+
+        Assert.True(result.PermiteSalidasEfectivo);
+        _repositoryMock.Verify(x => x.AddAsync(
+            It.Is<Branch>(b => b.Name == "Sucursal Nueva" && b.PermiteSalidasEfectivo),
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_ShouldUpdatePermiteSalidasEfectivo()
+    {
+        var branch = Branch.Create("Himno Nacional", "01", "C", "G", "D", "", null, false);
+        typeof(BaseEntity).GetProperty("Id")?.SetValue(branch, 6);
+        _repositoryMock.Setup(x => x.GetByIdAsync(6, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(branch);
+
+        var dto = new BranchDto
+        {
+            Id = 6,
+            Name = "Himno Nacional",
+            Code = "01",
+            SeriesCliente = "C",
+            SeriesGlobal = "G",
+            SeriesDevolucion = "D",
+            Direccion = "",
+            PermiteSalidasEfectivo = true
+        };
+
+        await _service.UpdateAsync(dto);
+
+        Assert.True(branch.PermiteSalidasEfectivo);
+        _repositoryMock.Verify(x => x.UpdateAsync(branch, It.IsAny<CancellationToken>()), Times.Once);
+    }
 }

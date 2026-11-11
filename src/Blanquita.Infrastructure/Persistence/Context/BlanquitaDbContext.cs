@@ -67,6 +67,7 @@ public class BlanquitaDbContext : IdentityDbContext<ApplicationUser>
             entity.Property(e => e.SeriesDevolucion).HasMaxLength(50);
             entity.Property(e => e.Direccion).HasMaxLength(500);
             entity.Property(e => e.ConceptosSalida).HasMaxLength(500);
+            entity.Property(e => e.PermiteSalidasEfectivo).HasDefaultValue(false).IsRequired();
         });
 
         // Value converters for Value Objects
@@ -113,6 +114,7 @@ public class BlanquitaDbContext : IdentityDbContext<ApplicationUser>
             entity.Property(e => e.BranchId).HasColumnName("Sucursal").HasConversion(branchIdConverter).IsRequired();
             entity.Property(e => e.Tipo).HasColumnName("TipoTerminal").HasDefaultValue(TipoTerminal.PisoVentas).IsRequired();
             entity.Property(e => e.IsLastRegister).HasColumnName("Ultima").IsRequired();
+            entity.Property(e => e.PermiteSalidasEfectivo).HasDefaultValue(false).IsRequired();
             
             entity.OwnsOne(e => e.PrinterConfig, printerConfig =>
             {

@@ -31,6 +31,9 @@ public class ConciliacionCorteDto
     /// <summary>Versión de la fila al cargarla; se envía de vuelta al editar para detectar ediciones simultáneas.</summary>
     public uint Version { get; set; }
 
+    /// <summary>Indica si la sucursal y caja de esta conciliación permiten registrar salidas de efectivo.</summary>
+    public bool PermiteSalidasEfectivo { get; set; }
+
     public List<ConciliacionSalidaEfectivoDto> Salidas { get; set; } = new();
     public List<TerminalDetalleDto> Terminales { get; set; } = new();
 }

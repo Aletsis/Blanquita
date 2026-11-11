@@ -17,14 +17,15 @@ public static class CashRegisterMapper
             PrinterPort = cashRegister.PrinterConfig.Port,
             BranchId = cashRegister.BranchId.Value,
             Tipo = cashRegister.Tipo,
-            IsLastRegister = cashRegister.IsLastRegister
+            IsLastRegister = cashRegister.IsLastRegister,
+            PermiteSalidasEfectivo = cashRegister.PermiteSalidasEfectivo
         };
     }
 
     public static CashRegister ToEntity(this CreateCashRegisterDto dto)
     {
         return CashRegister.Create(dto.Name, dto.Serie, dto.IdContpaqi, dto.PrinterIp, dto.PrinterPort, 
-            dto.BranchId, dto.IsLastRegister, dto.Tipo);
+            dto.BranchId, dto.IsLastRegister, dto.Tipo, dto.PermiteSalidasEfectivo);
     }
 
     public static void UpdateEntity(this UpdateCashRegisterDto dto, CashRegister cashRegister)
@@ -35,6 +36,7 @@ public static class CashRegisterMapper
         cashRegister.UpdatePrinterConfiguration(dto.PrinterIp, dto.PrinterPort);
         cashRegister.UpdateBranch(dto.BranchId);
         cashRegister.UpdateTipo(dto.Tipo);
+        cashRegister.UpdatePermiteSalidasEfectivo(dto.PermiteSalidasEfectivo);
 
         if (dto.IsLastRegister)
             cashRegister.SetAsLastRegister();

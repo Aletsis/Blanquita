@@ -2,6 +2,7 @@ using Blanquita.Application.DTOs;
 using Blanquita.Application.Interfaces;
 using Blanquita.Application.Interfaces.Repositories;
 using Blanquita.Application.Services;
+using Blanquita.Domain.Exceptions;
 using MediatR;
 using Microsoft.Extensions.Logging;
 
@@ -66,6 +67,13 @@ public class SaveConciliacionCorteCommandHandler : IRequestHandler<SaveConciliac
 
                 throw new InvalidOperationException(
                     "Los montos del turno cambiaron desde que se consultaron (ventas, devoluciones o recolecciones). Vuelva a consultar el turno y cuadre de nuevo antes de guardar.");
+            }
+
+            if ((salidasEfectivo > 0 || (request.Salidas != null && request.Salidas.Any())) &&
+                !await _conciliacionService.PermiteSalidasEfectivoAsync(request.CashRegisterName, cancellationToken))
+            {
+                throw new BusinessRuleViolationException(
+                    $"La caja '{request.CashRegisterName}' o su sucursal no tienen habilitado el registro de salidas de efectivo.");
             }
 
             // Fórmulas financieras centralizadas

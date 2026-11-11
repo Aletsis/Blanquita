@@ -2,6 +2,7 @@ using Blanquita.Application.Commands.Conciliaciones;
 using Blanquita.Application.DTOs;
 using Blanquita.Application.Interfaces;
 using Blanquita.Application.Interfaces.Repositories;
+using Blanquita.Domain.Exceptions;
 using Microsoft.Extensions.Logging;
 using Moq;
 using Xunit;
@@ -264,5 +265,44 @@ public class SaveConciliacionCorteCommandHandlerTests
         await Assert.ThrowsAsync<InvalidOperationException>(() => _handler.Handle(command, CancellationToken.None));
 
         _mockConciliacionService.Verify(s => s.SaveConciliacionCorteAsync(It.IsAny<ConciliacionCorteDto>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Handle_SalidasNotPermitted_ThrowsBusinessRuleViolationException()
+    {
+        _mockShiftRepository
+            .Setup(s => s.GetShiftDataAsync(123, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(ClosedShift());
+        _mockConciliacionService
+            .Setup(s => s.PermiteSalidasEfectivoAsync("Caja 1", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
+        var salidas = new List<ConciliacionSalidaEfectivoDto> { new() { Monto = 50m, Motivo = "Gas" } };
+        var command = ValidCommand(salidasEfectivo: 50m, salidas: salidas);
+
+        await Assert.ThrowsAsync<BusinessRuleViolationException>(() => _handler.Handle(command, CancellationToken.None));
+
+        _mockConciliacionService.Verify(s => s.SaveConciliacionCorteAsync(It.IsAny<ConciliacionCorteDto>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Handle_SalidasPermitted_SavesConciliationWithSalidas()
+    {
+        _mockShiftRepository
+            .Setup(s => s.GetShiftDataAsync(123, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(ClosedShift());
+        _mockConciliacionService
+            .Setup(s => s.PermiteSalidasEfectivoAsync("Caja 1", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        var salidas = new List<ConciliacionSalidaEfectivoDto> { new() { Monto = 50m, Motivo = "Gas" } };
+        var command = ValidCommand(salidasEfectivo: 50m, salidas: salidas);
+
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        Assert.True(result);
+        _mockConciliacionService.Verify(s => s.SaveConciliacionCorteAsync(
+            It.Is<ConciliacionCorteDto>(dto => dto.SalidasEfectivo == 50m && dto.TotalEfectivo == 2050m),
+            It.IsAny<CancellationToken>()), Times.Once);
     }
 }

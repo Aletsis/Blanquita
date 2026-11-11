@@ -209,6 +209,7 @@
                             <MudTh>Nombre</MudTh>
                             <MudTh>Tipo de Terminal</MudTh>
                             <MudTh>IP Impresora</MudTh>
+                            <MudTh>Salidas de Efectivo</MudTh>
                             <MudTh Style="text-align: center;">Acciones</MudTh>
                         </HeaderContent>
                         <RowTemplate>
@@ -224,6 +225,11 @@
                                 }
                             </MudTd>
                             <MudTd>@context.PrinterIp</MudTd>
+                            <MudTd>
+                                <MudChip T="string" Color="@(context.PermiteSalidasEfectivo ? Color.Success : Color.Default)" Size="Size.Small" Variant="Variant.Outlined">
+                                    @(context.PermiteSalidasEfectivo ? "Permitidas" : "No permitidas")
+                                </MudChip>
+                            </MudTd>
                             <MudTd Style="text-align: center;">
                                 <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary" Size="Size.Small" OnClick="@(() => AbrirDialogoCaja(context))" />
                             </MudTd>
@@ -278,12 +284,18 @@
                     <MudTh>Nombre</MudTh>
                     <MudTh>Código</MudTh>
                     <MudTh>Dirección</MudTh>
+                    <MudTh>Salidas de Efectivo</MudTh>
                     <MudTh Style="text-align: center;">Acciones</MudTh>
                 </HeaderContent>
                 <RowTemplate>
                     <MudTd>@context.Name</MudTd>
                     <MudTd>@context.Code</MudTd>
                     <MudTd>@context.Direccion</MudTd>
+                    <MudTd>
+                        <MudChip T="string" Color="@(context.PermiteSalidasEfectivo ? Color.Success : Color.Default)" Size="Size.Small" Variant="Variant.Outlined">
+                            @(context.PermiteSalidasEfectivo ? "Permitidas" : "No permitidas")
+                        </MudChip>
+                    </MudTd>
                     <MudTd Style="text-align: center;">
                         <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary" Size="Size.Small" OnClick="() => AbrirDialogoSucursal(context)" />
                     </MudTd>
@@ -844,7 +856,8 @@
                 SeriesGlobal = sucursal.SeriesGlobal,
                 SeriesDevolucion = sucursal.SeriesDevolucion,
                 Direccion = sucursal.Direccion,
-                ConceptosSalida = sucursal.ConceptosSalida
+                ConceptosSalida = sucursal.ConceptosSalida,
+                PermiteSalidasEfectivo = sucursal.PermiteSalidasEfectivo
             });
         }
 
@@ -899,7 +912,8 @@
                 PrinterPort = caja.PrinterPort,
                 BranchId = caja.BranchId,
                 Tipo = caja.Tipo,
-                IsLastRegister = caja.IsLastRegister
+                IsLastRegister = caja.IsLastRegister,
+                PermiteSalidasEfectivo = caja.PermiteSalidasEfectivo
             });
         }
 
@@ -923,7 +937,8 @@
                         PrinterPort = cajaResult.PrinterPort,
                         BranchId = cajaResult.BranchId,
                         Tipo = cajaResult.Tipo,
-                        IsLastRegister = cajaResult.IsLastRegister
+                        IsLastRegister = cajaResult.IsLastRegister,
+                        PermiteSalidasEfectivo = cajaResult.PermiteSalidasEfectivo
                     };
                     await CashRegisterService.CreateAsync(createDto);
                     Snackbar.Add("Caja agregada exitosamente", Severity.Success);
@@ -940,7 +955,8 @@
                         PrinterPort = cajaResult.PrinterPort,
                         BranchId = cajaResult.BranchId,
                         Tipo = cajaResult.Tipo,
-                        IsLastRegister = cajaResult.IsLastRegister
+                        IsLastRegister = cajaResult.IsLastRegister,
+                        PermiteSalidasEfectivo = cajaResult.PermiteSalidasEfectivo
                     };
                     await CashRegisterService.UpdateAsync(updateDto);
                     Snackbar.Add("Caja actualizada exitosamente", Severity.Success);

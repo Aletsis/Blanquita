@@ -15,13 +15,14 @@ public class CashRegister : BaseEntity
     public BranchId BranchId { get; private set; } = null!;
     public TipoTerminal Tipo { get; private set; }
     public bool IsLastRegister { get; private set; }
+    public bool PermiteSalidasEfectivo { get; private set; }
 
     // EF Core constructor
 #pragma warning disable CS8618 // EF Core asigna las propiedades al materializar
     private CashRegister() { }
 #pragma warning restore CS8618
 
-    private CashRegister(string name, string serie, int idContpaqi, PrinterConfiguration printerConfig, BranchId branchId, TipoTerminal tipo, bool isLastRegister = false)
+    private CashRegister(string name, string serie, int idContpaqi, PrinterConfiguration printerConfig, BranchId branchId, TipoTerminal tipo, bool isLastRegister = false, bool permiteSalidasEfectivo = false)
     {
         Name = name;
         Serie = serie;
@@ -30,9 +31,10 @@ public class CashRegister : BaseEntity
         BranchId = branchId;
         Tipo = tipo;
         IsLastRegister = isLastRegister;
+        PermiteSalidasEfectivo = permiteSalidasEfectivo;
     }
 
-    public static CashRegister Create(string name, string serie, int idContpaqi, string printerIp, int printerPort, int branchId, bool isLastRegister = false, TipoTerminal tipo = TipoTerminal.PisoVentas)
+    public static CashRegister Create(string name, string serie, int idContpaqi, string printerIp, int printerPort, int branchId, bool isLastRegister = false, TipoTerminal tipo = TipoTerminal.PisoVentas, bool permiteSalidasEfectivo = false)
     {
         if (string.IsNullOrWhiteSpace(name))
             throw new ArgumentException("Name cannot be empty", nameof(name));
@@ -40,7 +42,7 @@ public class CashRegister : BaseEntity
         var printerConfig = PrinterConfiguration.Create(printerIp, printerPort);
         var branch = BranchId.Create(branchId);
 
-        return new CashRegister(name, serie ?? string.Empty, idContpaqi, printerConfig, branch, tipo, isLastRegister);
+        return new CashRegister(name, serie ?? string.Empty, idContpaqi, printerConfig, branch, tipo, isLastRegister, permiteSalidasEfectivo);
     }
 
     public void UpdateName(string name)
@@ -84,6 +86,11 @@ public class CashRegister : BaseEntity
     public void UnsetAsLastRegister()
     {
         IsLastRegister = false;
+    }
+
+    public void UpdatePermiteSalidasEfectivo(bool permiteSalidasEfectivo)
+    {
+        PermiteSalidasEfectivo = permiteSalidasEfectivo;
     }
 }
 

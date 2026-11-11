@@ -50,6 +50,14 @@
                            Lines="2"
                            HelperText="Dirección física de la sucursal" />
 
+            <MudSwitch @bind-Value="Model.PermiteSalidasEfectivo"
+                       Label="Permitir salidas de efectivo en conciliación"
+                       Color="Color.Primary"
+                       Class="mb-1" />
+            <MudText Typo="Typo.caption" Color="Color.Secondary" Class="d-block mb-3">
+                Habilita el registro de salidas de efectivo para las cajas de esta sucursal que también tengan esta opción activa.
+            </MudText>
+
             @if (_cargandoConceptos)
             {
                 <div class="d-flex align-center justify-center pa-4 mb-3 border rounded-lg">

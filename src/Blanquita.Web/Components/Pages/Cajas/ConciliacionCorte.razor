@@ -263,24 +263,37 @@
                                             <MudIcon Icon="@Icons.Material.Filled.LocalAtm" Class="mr-2" />
                                             Efectivo y Salidas
                                         </MudText>
-                                        <MudButton Variant="Variant.Outlined" 
-                                                   Color="Color.Error" 
-                                                   StartIcon="@Icons.Material.Filled.Add" 
-                                                   Size="Size.Small" 
-                                                   OnClick="AbrirDialogoAgregarSalida">
-                                            Salida de Efectivo
-                                        </MudButton>
+                                        @if (_result.PermiteSalidasEfectivo)
+                                        {
+                                            <MudButton Variant="Variant.Outlined" 
+                                                       Color="Color.Error" 
+                                                       StartIcon="@Icons.Material.Filled.Add" 
+                                                       Size="Size.Small" 
+                                                       OnClick="AbrirDialogoAgregarSalida">
+                                                Salida de Efectivo
+                                            </MudButton>
+                                        }
                                     </div>
+
+                                    @if (!_result.PermiteSalidasEfectivo)
+                                    {
+                                        <MudText Typo="Typo.caption" Color="Color.Secondary" Class="d-block mb-2">
+                                            Salidas de efectivo deshabilitadas para esta caja/sucursal.
+                                        </MudText>
+                                    }
 
                                     <div class="d-flex justify-space-between align-center py-1">
                                         <MudText Typo="Typo.body2">Recolecciones (Sis):</MudText>
                                         <MudText Typo="Typo.h6" Class="font-weight-bold">@_result.TotalRecolectado.ToString("C2", _mexicoCulture)</MudText>
                                     </div>
 
-                                    <div class="d-flex justify-space-between align-center py-1">
-                                        <MudText Typo="Typo.body2">Salidas de Efectivo:</MudText>
-                                        <MudText Typo="Typo.h6" Color="Color.Error" Class="font-weight-bold">@TotalSalidasEfectivo.ToString("C2", _mexicoCulture)</MudText>
-                                    </div>
+                                    @if (_result.PermiteSalidasEfectivo || _salidas.Any())
+                                    {
+                                        <div class="d-flex justify-space-between align-center py-1">
+                                            <MudText Typo="Typo.body2">Salidas de Efectivo:</MudText>
+                                            <MudText Typo="Typo.h6" Color="Color.Error" Class="font-weight-bold">@TotalSalidasEfectivo.ToString("C2", _mexicoCulture)</MudText>
+                                        </div>
+                                    }
 
                                     @if (_salidas.Any())
                                     {
@@ -311,7 +324,7 @@
                                         <MudText Typo="Typo.h6" Color="Color.Success" Class="font-weight-bold">@TotalEfectivoEntregado.ToString("C2", _mexicoCulture)</MudText>
                                     </div>
                                     <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mt-1 d-block">
-                                        Total = Recolecciones (@_result.TotalRecolectado.ToString("C2", _mexicoCulture)) + Efectivo Caja (@_efectivoRecibido.ToString("C2", _mexicoCulture)) + Salidas (@TotalSalidasEfectivo.ToString("C2", _mexicoCulture))
+                                        Total = Recolecciones (@_result.TotalRecolectado.ToString("C2", _mexicoCulture)) + Efectivo Caja (@_efectivoRecibido.ToString("C2", _mexicoCulture))@((_result.PermiteSalidasEfectivo || _salidas.Any()) ? $" + Salidas ({TotalSalidasEfectivo.ToString("C2", _mexicoCulture)})" : "")
                                     </MudText>
                                 </MudCard>
                             </MudItem>
@@ -634,6 +647,12 @@
 
     private async Task AbrirDialogoAgregarSalida()
     {
+        if (_result == null || !_result.PermiteSalidasEfectivo)
+        {
+            Snackbar.Add("Esta caja o su sucursal no tiene habilitado el registro de salidas de efectivo.", Severity.Warning);
+            return;
+        }
+
         var parameters = new DialogParameters<DialogoAgregarSalidaEfectivo>
         {
             { x => x.UsuarioActual, _supervisorName }

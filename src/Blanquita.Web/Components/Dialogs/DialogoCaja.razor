@@ -69,9 +69,26 @@
                         Label="Marcar como última caja" 
                         Color="Color.Primary"
                         Class="mb-2" />
-            <MudText Typo="Typo.caption" Color="Color.Secondary" Class="ml-8">
+            <MudText Typo="Typo.caption" Color="Color.Secondary" Class="ml-8 d-block mb-3">
                 La última caja se usa para operaciones especiales del sistema
             </MudText>
+
+            <MudSwitch @bind-Value="Model.PermiteSalidasEfectivo"
+                       Label="Permitir salidas de efectivo en conciliación"
+                       Color="Color.Primary"
+                       Class="mb-1" />
+            @if (Model.BranchId > 0 && !SucursalSeleccionadaPermiteSalidas)
+            {
+                <MudText Typo="Typo.caption" Color="Color.Warning" Class="d-block mb-2">
+                    Nota: la sucursal seleccionada actualmente tiene deshabilitadas las salidas de efectivo. Mientras la sucursal esté deshabilitada, esta caja no podrá registrarlas.
+                </MudText>
+            }
+            else
+            {
+                <MudText Typo="Typo.caption" Color="Color.Secondary" Class="d-block mb-2">
+                    Permite registrar salidas de efectivo en la conciliación de corte cuando la sucursal también lo autorice.
+                </MudText>
+            }
         </MudForm>
     </DialogContent>
     <DialogActions>
@@ -92,6 +109,8 @@
     private MudForm form = null!;
     private bool success;
     private List<BranchDto> _sucursales = new();
+    private bool SucursalSeleccionadaPermiteSalidas =>
+        _sucursales.FirstOrDefault(s => s.Id == Model.BranchId)?.PermiteSalidasEfectivo ?? false;
 
     protected override async Task OnInitializedAsync()
     {
@@ -138,5 +157,7 @@
         public TipoTerminal Tipo { get; set; } = TipoTerminal.PisoVentas;
         
         public bool IsLastRegister { get; set; }
+
+        public bool PermiteSalidasEfectivo { get; set; }
     }
 }

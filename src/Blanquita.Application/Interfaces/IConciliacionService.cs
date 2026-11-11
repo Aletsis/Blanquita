@@ -13,6 +13,8 @@ public interface IConciliacionService
     Task UpdateConciliacionCorteAsync(ConciliacionCorteDto dto, CancellationToken cancellationToken = default);
     Task<ConciliacionCorteDto?> GetConciliacionByIdAsync(int id, CancellationToken cancellationToken = default);
     Task<IEnumerable<ConciliacionCorteDto>> GetConciliacionesByBranchAndDateAsync(string branchName, DateTime date, CancellationToken cancellationToken = default);
+    /// <summary>Determina si tanto la caja como su sucursal permiten registrar salidas de efectivo.</summary>
+    Task<bool> PermiteSalidasEfectivoAsync(string cashRegisterName, CancellationToken cancellationToken = default);
 }
 
 public record AvailableBoxDto
@@ -42,4 +44,5 @@ public record ConciliacionResultDto
     public int Status { get; init; } // From FoxPro Cestadoape
     public bool IsClosed => Status == 1;
     public DateTime Fecha { get; init; }
+    public bool PermiteSalidasEfectivo { get; init; }
 }

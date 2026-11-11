@@ -57,6 +57,9 @@ public class UpdateConciliacionCorteCommandHandlerTests
     public async Task Handle_SameVersion_RecalculatesTotalsFromStoredValuesAndSalidasList()
     {
         SetupExisting(version: 42);
+        _mockConciliacionService
+            .Setup(s => s.PermiteSalidasEfectivoAsync("Caja 1", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
 
         var salidas = new List<ConciliacionSalidaEfectivoDto>
         {
@@ -79,5 +82,49 @@ public class UpdateConciliacionCorteCommandHandlerTests
             dto.TotalEfectivo == 2000m &&
             dto.TotalEntregado == 2500m &&
             dto.Diferencia == 0m), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_NewSalidasWhenNotPermitted_ThrowsBusinessRuleViolationException()
+    {
+        SetupExisting(version: 42);
+        _mockConciliacionService
+            .Setup(s => s.PermiteSalidasEfectivoAsync("Caja 1", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
+        var salidas = new List<ConciliacionSalidaEfectivoDto>
+        {
+            new() { Monto = 30m, Motivo = "Gas" }
+        };
+
+        var command = new UpdateConciliacionCorteCommand(Id: 7, Version: 42,
+            EfectivoEntregado: 470m, SalidasEfectivo: 30m, Banregio: 300m, Banbajio: 200m,
+            ModificadoPor: "admin", Salidas: salidas);
+
+        await Assert.ThrowsAsync<BusinessRuleViolationException>(() => _handler.Handle(command, CancellationToken.None));
+
+        _mockConciliacionService.Verify(s => s.UpdateConciliacionCorteAsync(It.IsAny<ConciliacionCorteDto>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Handle_RemovingSalidasWhenNotPermitted_AllowsUpdate()
+    {
+        var existing = SetupExisting(version: 42);
+        var salidaExistente = new ConciliacionSalidaEfectivo(50m, "Gas", "Admin", "admin");
+        typeof(BaseEntity).GetProperty(nameof(BaseEntity.Id))!.SetValue(salidaExistente, 10);
+        existing.Salidas.Add(salidaExistente);
+
+        _mockConciliacionService
+            .Setup(s => s.PermiteSalidasEfectivoAsync("Caja 1", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
+        var command = new UpdateConciliacionCorteCommand(Id: 7, Version: 42,
+            EfectivoEntregado: 500m, SalidasEfectivo: 0m, Banregio: 300m, Banbajio: 200m,
+            ModificadoPor: "admin", Salidas: new List<ConciliacionSalidaEfectivoDto>());
+
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        Assert.True(result);
+        _mockConciliacionService.Verify(s => s.UpdateConciliacionCorteAsync(It.IsAny<ConciliacionCorteDto>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 }

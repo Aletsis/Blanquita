@@ -46,6 +46,13 @@ public class UpdateConciliacionCorteCommandHandler : IRequestHandler<UpdateConci
         // El total de salidas se calcula de la lista que se guarda, no del monto enviado por la pantalla
         var salidasEfectivo = request.Salidas?.Sum(s => s.Monto) ?? request.SalidasEfectivo;
 
+        if (TieneNuevasSalidas(existing, request.Salidas, salidasEfectivo) &&
+            !await _conciliacionService.PermiteSalidasEfectivoAsync(existing.Caja, cancellationToken))
+        {
+            throw new BusinessRuleViolationException(
+                $"La caja '{existing.Caja}' o su sucursal no tienen habilitado el registro de salidas de efectivo.");
+        }
+
         var totalEfectivo = existing.TotalRecolecciones + request.EfectivoEntregado + salidasEfectivo;
         var totalTarjetas = request.Banregio + request.Banbajio;
         var totalEntregado = totalEfectivo + totalTarjetas;
@@ -79,5 +86,25 @@ public class UpdateConciliacionCorteCommandHandler : IRequestHandler<UpdateConci
         _logger.LogInformation("Conciliación de corte ID {Id} actualizada exitosamente por {User}.", request.Id, request.ModificadoPor);
 
         return true;
+    }
+
+    private static bool TieneNuevasSalidas(
+        Domain.Entities.ConciliacionCorte existing,
+        List<ConciliacionSalidaEfectivoDto>? requestedSalidas,
+        decimal requestedTotal)
+    {
+        if (requestedTotal <= 0 && (requestedSalidas == null || requestedSalidas.Count == 0))
+            return false;
+
+        if (requestedSalidas == null || requestedSalidas.Count == 0)
+            return requestedTotal > existing.SalidasEfectivo;
+
+        var existingById = existing.Salidas.ToDictionary(s => s.Id);
+        return requestedSalidas.Any(s =>
+            s.Id <= 0 ||
+            !existingById.TryGetValue(s.Id, out var prev) ||
+            prev.Monto != s.Monto ||
+            prev.Motivo != s.Motivo ||
+            prev.QuienAutoriza != s.QuienAutoriza);
     }
 }

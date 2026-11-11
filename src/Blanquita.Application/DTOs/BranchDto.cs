@@ -10,4 +10,5 @@ public class BranchDto
     public string SeriesDevolucion { get; set; } = "";
     public string Direccion { get; set; } = string.Empty;
     public string? ConceptosSalida { get; set; }
+    public bool PermiteSalidasEfectivo { get; set; }
 }
