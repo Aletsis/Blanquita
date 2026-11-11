@@ -18,4 +18,13 @@ public interface IFileDownloadService
         string nombreArchivo, 
         string contentType,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Abre el diálogo de impresión del navegador para un PDF sin descargarlo.
+    /// </summary>
+    /// <param name="contenido">Contenido del archivo PDF en bytes</param>
+    /// <param name="cancellationToken">Token de cancelación</param>
+    Task ImprimirPdfAsync(
+        byte[] contenido,
+        CancellationToken cancellationToken = default);
 }

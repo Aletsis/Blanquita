@@ -61,4 +61,35 @@ public class FileDownloadService : IFileDownloadService
             throw;
         }
     }
+
+    public async Task ImprimirPdfAsync(
+        byte[] contenido,
+        CancellationToken cancellationToken = default)
+    {
+        if (contenido == null || contenido.Length == 0)
+            throw new ArgumentException("El contenido del archivo no puede estar vacío", nameof(contenido));
+
+        try
+        {
+            _logger.LogInformation("Iniciando impresión directa de PDF ({Size} bytes)", contenido.Length);
+
+            var base64 = Convert.ToBase64String(contenido);
+            await _js.InvokeVoidAsync(
+                "fileDownloadHelper.printPdf",
+                cancellationToken,
+                base64);
+
+            _logger.LogInformation("Diálogo de impresión de PDF invocado exitosamente");
+        }
+        catch (OperationCanceledException)
+        {
+            _logger.LogWarning("Impresión de PDF cancelada por el usuario");
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error al imprimir PDF directamente");
+            throw;
+        }
+    }
 }

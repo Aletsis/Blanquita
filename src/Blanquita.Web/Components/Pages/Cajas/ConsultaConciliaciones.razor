@@ -115,34 +115,53 @@
                         {
                             <MudText Typo="Typo.body2" Color="Color.Error" Class="d-flex align-center font-weight-bold">
                                 <MudIcon Icon="@Icons.Material.Filled.Warning" Size="Size.Small" Class="mr-2" />
-                                Quedan @_pendingBoxesCount cajas pendientes de conciliación. Descarga de PDF inhabilitada.
+                                Quedan @_pendingBoxesCount cajas pendientes de conciliación. Descarga e impresión de PDF inhabilitadas.
                             </MudText>
                         }
                         else
                         {
                             <MudText Typo="Typo.body2" Color="Color.Success" Class="d-flex align-center">
                                 <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Size="Size.Small" Class="mr-2" />
-                                Todas las cajas de esta fecha están conciliadas. El PDF está listo para descargar.
+                                Todas las cajas de esta fecha están conciliadas. El PDF está listo para descargar o imprimir.
                             </MudText>
                         }
                     </MudStack>
-                    <MudButton Variant="Variant.Filled"
-                               Color="Color.Secondary"
-                               StartIcon="@Icons.Material.Filled.PictureAsPdf"
-                               Size="Size.Large"
-                               OnClick="ExportarAPdf"
-                               Disabled="@(_exporting || _pendingBoxesCount > 0)"
-                               Class="rounded-xl font-weight-bold mt-3 mt-sm-0 px-6 py-2 shadow-sm">
-                        @if (_exporting)
-                        {
-                            <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
-                            <text>Generando...</text>
-                        }
-                        else
-                        {
-                            <text>Descargar PDF</text>
-                        }
-                    </MudButton>
+                    <div class="d-flex flex-wrap gap-2 mt-3 mt-sm-0">
+                        <MudButton Variant="Variant.Outlined"
+                                   Color="Color.Primary"
+                                   StartIcon="@Icons.Material.Filled.Print"
+                                   Size="Size.Large"
+                                   OnClick="ImprimirPdf"
+                                   Disabled="@(_exporting || _printing || _pendingBoxesCount > 0)"
+                                   Class="rounded-xl font-weight-bold px-6 py-2 shadow-sm">
+                            @if (_printing)
+                            {
+                                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                                <text>Preparando...</text>
+                            }
+                            else
+                            {
+                                <text>Imprimir</text>
+                            }
+                        </MudButton>
+                        <MudButton Variant="Variant.Filled"
+                                   Color="Color.Secondary"
+                                   StartIcon="@Icons.Material.Filled.PictureAsPdf"
+                                   Size="Size.Large"
+                                   OnClick="ExportarAPdf"
+                                   Disabled="@(_exporting || _printing || _pendingBoxesCount > 0)"
+                                   Class="rounded-xl font-weight-bold px-6 py-2 shadow-sm">
+                            @if (_exporting)
+                            {
+                                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                                <text>Generando...</text>
+                            }
+                            else
+                            {
+                                <text>Descargar PDF</text>
+                            }
+                        </MudButton>
+                    </div>
                 </MudPaper>
 
                 <MudGrid>
@@ -351,6 +370,7 @@
     // Estado del PDF y Validación de Pendientes
     private int _pendingBoxesCount = 0;
     private bool _exporting = false;
+    private bool _printing = false;
 
     protected override async Task OnInitializedAsync()
     {
@@ -473,37 +493,52 @@
         return Color.Error;
     }
 
-    private async Task ExportarAPdf()
+    private bool PuedeGenerarPdf()
     {
         if (_conciliaciones == null || !_conciliaciones.Any() || _pendingBoxesCount > 0)
         {
-            Snackbar.Add("No se puede descargar el PDF si existen cajas pendientes de conciliación", Severity.Warning);
-            return;
+            Snackbar.Add("No se puede descargar o imprimir el PDF si existen cajas pendientes de conciliación", Severity.Warning);
+            return false;
         }
+
+        return true;
+    }
+
+    private async Task<byte[]?> GenerarPdfConciliacionesAsync()
+    {
+        var branchObj = _branches.FirstOrDefault(b => b.Name == _searchedBranch);
+        if (branchObj == null)
+        {
+            Snackbar.Add("Error al obtener la información de la sucursal", Severity.Error);
+            return null;
+        }
+
+        if (_searchedDate == null)
+        {
+            Snackbar.Add("Fecha de búsqueda no válida", Severity.Error);
+            return null;
+        }
+
+        return await ExportService.ExportConciliacionesPdfAsync(_conciliaciones!, branchObj, _searchedDate.Value);
+    }
+
+    private async Task ExportarAPdf()
+    {
+        if (!PuedeGenerarPdf())
+            return;
 
         _exporting = true;
         StateHasChanged();
 
         try
         {
-            var branchObj = _branches.FirstOrDefault(b => b.Name == _searchedBranch);
-            if (branchObj == null)
-            {
-                Snackbar.Add("Error al obtener la información de la sucursal", Severity.Error);
+            var pdfBytes = await GenerarPdfConciliacionesAsync();
+            if (pdfBytes == null)
                 return;
-            }
 
-            if (_searchedDate == null)
-            {
-                Snackbar.Add("Fecha de búsqueda no válida", Severity.Error);
-                return;
-            }
-
-            var pdfBytes = await ExportService.ExportConciliacionesPdfAsync(_conciliaciones, branchObj, _searchedDate.Value);
-            
-            string nombreArchivo = $"Conciliaciones_{_searchedBranch.Replace(" ", "_")}_{_searchedDate.Value:yyyyMMdd}.pdf";
+            string nombreArchivo = $"Conciliaciones_{_searchedBranch.Replace(" ", "_")}_{_searchedDate!.Value:yyyyMMdd}.pdf";
             await FileDownloadService.DescargarArchivoAsync(pdfBytes, nombreArchivo, "application/pdf");
-            
+
             Snackbar.Add("PDF descargado exitosamente", Severity.Success);
         }
         catch (Exception ex)
@@ -514,6 +549,34 @@
         finally
         {
             _exporting = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task ImprimirPdf()
+    {
+        if (!PuedeGenerarPdf())
+            return;
+
+        _printing = true;
+        StateHasChanged();
+
+        try
+        {
+            var pdfBytes = await GenerarPdfConciliacionesAsync();
+            if (pdfBytes == null)
+                return;
+
+            await FileDownloadService.ImprimirPdfAsync(pdfBytes);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error al imprimir el PDF de conciliaciones");
+            Snackbar.Add(Blanquita.Web.Helpers.ExceptionHelper.GetLocalizedExceptionMessage(ex), Severity.Error);
+        }
+        finally
+        {
+            _printing = false;
             StateHasChanged();
         }
     }
