@@ -931,6 +931,8 @@ public class ExportService : IExportService
                                     });
                                 });
                             });
+
+                            RenderDetalleSalidasEfectivo(column, dataList);
                         });
                         
                         // Footer
@@ -955,5 +957,98 @@ public class ExportService : IExportService
                 throw;
             }
         }, cancellationToken);
+    }
+
+    private void RenderDetalleSalidasEfectivo(ColumnDescriptor column, List<ConciliacionCorteDto> dataList)
+    {
+        var filasSalidas = dataList
+            .SelectMany(card =>
+                card.Salidas.Any()
+                    ? card.Salidas.Select(s => (card.Caja, card.Cajero, s.Motivo, s.QuienAutoriza, s.Monto))
+                    : (card.SalidasEfectivo > 0
+                        ? new[] { (card.Caja, card.Cajero, "Sin desglose registrado", "-", card.SalidasEfectivo) }
+                        : Enumerable.Empty<(string Caja, string Cajero, string Motivo, string QuienAutoriza, decimal Monto)>()))
+            .ToList();
+
+        if (!filasSalidas.Any())
+            return;
+
+        var totalSalidas = filasSalidas.Sum(x => x.Monto);
+
+        column.Item().Table(table =>
+        {
+            table.ColumnsDefinition(columns =>
+            {
+                columns.RelativeColumn(1.2f); // Caja
+                columns.RelativeColumn(1.6f); // Cajero
+                columns.RelativeColumn(2.6f); // Motivo
+                columns.RelativeColumn(1.6f); // Autorizó
+                columns.RelativeColumn(1.1f); // Monto
+            });
+
+            table.Header(header =>
+            {
+                header.Cell().ColumnSpan(5)
+                    .Background(Colors.Red.Darken3)
+                    .PaddingHorizontal(6)
+                    .PaddingVertical(4)
+                    .Text("DETALLE DE SALIDAS DE EFECTIVO")
+                    .Bold()
+                    .FontSize(9.5f)
+                    .FontColor(Colors.White)
+                    .AlignCenter();
+
+                static IContainer HeaderCellStyle(IContainer container) =>
+                    container.Background(Colors.Red.Lighten5)
+                        .Border(0.5f)
+                        .BorderColor(Colors.Grey.Lighten1)
+                        .PaddingHorizontal(5)
+                        .PaddingVertical(3);
+
+                header.Cell().Element(HeaderCellStyle).Text("Caja").Bold().FontSize(8f).FontColor(Colors.Red.Darken4);
+                header.Cell().Element(HeaderCellStyle).Text("Cajero").Bold().FontSize(8f).FontColor(Colors.Red.Darken4);
+                header.Cell().Element(HeaderCellStyle).Text("Motivo").Bold().FontSize(8f).FontColor(Colors.Red.Darken4);
+                header.Cell().Element(HeaderCellStyle).Text("Autorizó").Bold().FontSize(8f).FontColor(Colors.Red.Darken4);
+                header.Cell().Element(HeaderCellStyle).AlignRight().Text("Monto").Bold().FontSize(8f).FontColor(Colors.Red.Darken4);
+            });
+
+            for (int i = 0; i < filasSalidas.Count; i++)
+            {
+                var item = filasSalidas[i];
+                var bg = i % 2 == 0 ? Colors.White : Colors.Grey.Lighten5;
+
+                IContainer RowCellStyle(IContainer container) =>
+                    container.Background(bg)
+                        .Border(0.5f)
+                        .BorderColor(Colors.Grey.Lighten2)
+                        .PaddingHorizontal(5)
+                        .PaddingVertical(3);
+
+                table.Cell().Element(RowCellStyle).Text(item.Caja).FontSize(8f).FontColor(Colors.Grey.Darken4);
+                table.Cell().Element(RowCellStyle).Text(item.Cajero).FontSize(8f).FontColor(Colors.Grey.Darken3);
+                table.Cell().Element(RowCellStyle).Text(item.Motivo).FontSize(8f).FontColor(Colors.Grey.Darken4);
+                table.Cell().Element(RowCellStyle).Text(item.QuienAutoriza).FontSize(8f).FontColor(Colors.Grey.Darken3);
+                table.Cell().Element(RowCellStyle).AlignRight().Text(item.Monto.ToString("C2", _culturaMX)).FontSize(8f).FontColor(Colors.Red.Darken2);
+            }
+
+            static IContainer TotalCellStyle(IContainer container) =>
+                container.Background(Colors.Red.Lighten5)
+                    .Border(0.5f)
+                    .BorderColor(Colors.Red.Darken2)
+                    .PaddingHorizontal(5)
+                    .PaddingVertical(4);
+
+            table.Cell().ColumnSpan(4).Element(TotalCellStyle)
+                .Text("TOTAL SALIDAS DE EFECTIVO")
+                .Bold()
+                .FontSize(8.5f)
+                .FontColor(Colors.Red.Darken4);
+
+            table.Cell().Element(TotalCellStyle).AlignRight()
+                .Text(totalSalidas.ToString("C2", _culturaMX))
+                .Bold()
+                .FontSize(8.5f)
+                .FontColor(Colors.Red.Darken4);
+        });
     }
 }

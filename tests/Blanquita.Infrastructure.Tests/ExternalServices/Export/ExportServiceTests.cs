@@ -1,3 +1,4 @@
+using Blanquita.Application.DTOs;
 using Blanquita.Infrastructure.ExternalServices.Export;
 using Microsoft.Extensions.Logging;
 using Moq;
@@ -119,5 +120,86 @@ public class ExportServiceTests
         Assert.Equal(0x50, result[1]);
         Assert.Equal(0x44, result[2]);
         Assert.Equal(0x46, result[3]);
+    }
+
+    [Fact]
+    public async Task ExportConciliacionesPdfAsync_ShouldGenerateValidPdf_WithoutSalidas()
+    {
+        var branch = new BranchDto { Id = 1, Code = "SUC1", Name = "Matriz", Direccion = "Calle 1" };
+        var data = new List<ConciliacionCorteDto>
+        {
+            new()
+            {
+                Caja = "Caja 1",
+                Cajero = "Ana García",
+                TotalRecolecciones = 1000m,
+                EfectivoEntregado = 500m,
+                SalidasEfectivo = 0m,
+                TotalEfectivo = 1500m,
+                TotalEntregado = 1500m,
+                TotalEsperado = 1500m,
+                Diferencia = 0m
+            }
+        };
+
+        var result = await _service.ExportConciliacionesPdfAsync(data, branch, DateTime.Today);
+
+        Assert.NotEmpty(result);
+        Assert.Equal(0x25, result[0]); // %
+        Assert.Equal(0x50, result[1]); // P
+        Assert.Equal(0x44, result[2]); // D
+        Assert.Equal(0x46, result[3]); // F
+    }
+
+    [Fact]
+    public async Task ExportConciliacionesPdfAsync_ShouldGenerateValidPdf_WithSalidasDetail()
+    {
+        var branch = new BranchDto { Id = 1, Code = "SUC1", Name = "Matriz", Direccion = "Calle 1" };
+        var conciliacionesSinSalidas = new List<ConciliacionCorteDto>
+        {
+            new()
+            {
+                Caja = "Caja 1",
+                Cajero = "Ana García",
+                TotalRecolecciones = 1000m,
+                EfectivoEntregado = 500m,
+                SalidasEfectivo = 0m,
+                TotalEfectivo = 1500m,
+                TotalEntregado = 1500m,
+                TotalEsperado = 1500m,
+                Diferencia = 0m
+            }
+        };
+
+        var conciliacionesConSalidas = new List<ConciliacionCorteDto>
+        {
+            new()
+            {
+                Caja = "Caja 1",
+                Cajero = "Ana García",
+                TotalRecolecciones = 1000m,
+                EfectivoEntregado = 0m,
+                SalidasEfectivo = 500m,
+                TotalEfectivo = 1500m,
+                TotalEntregado = 1500m,
+                TotalEsperado = 1500m,
+                Diferencia = 0m,
+                Salidas = new List<ConciliacionSalidaEfectivoDto>
+                {
+                    new() { Motivo = "Compra de bolsas", QuienAutoriza = "Juan Pérez", Monto = 350m },
+                    new() { Motivo = "Pago de garrafones", QuienAutoriza = "Juan Pérez", Monto = 150m }
+                }
+            }
+        };
+
+        var pdfSinSalidas = await _service.ExportConciliacionesPdfAsync(conciliacionesSinSalidas, branch, DateTime.Today);
+        var pdfConSalidas = await _service.ExportConciliacionesPdfAsync(conciliacionesConSalidas, branch, DateTime.Today);
+
+        Assert.NotEmpty(pdfConSalidas);
+        Assert.Equal(0x25, pdfConSalidas[0]);
+        Assert.Equal(0x50, pdfConSalidas[1]);
+        Assert.Equal(0x44, pdfConSalidas[2]);
+        Assert.Equal(0x46, pdfConSalidas[3]);
+        Assert.True(pdfConSalidas.Length > pdfSinSalidas.Length);
     }
 }
