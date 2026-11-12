@@ -122,6 +122,59 @@ public class CommercialLoginResponseDto
     public int? Nivel { get; set; }
 }
 
+public class CreateCommercialCompraDto
+{
+    [Required(ErrorMessage = "El código del concepto es requerido.")]
+    [StringLength(30, MinimumLength = 1, ErrorMessage = "El código del concepto debe tener entre 1 y 30 caracteres.")]
+    public string CodigoConcepto { get; set; } = string.Empty;
+
+    [StringLength(10, ErrorMessage = "La serie no puede exceder 10 caracteres.")]
+    public string Serie { get; set; } = string.Empty;
+
+    public double Folio { get; set; } = 0;
+
+    [Required(ErrorMessage = "El código del proveedor es requerido.")]
+    [StringLength(30, MinimumLength = 1, ErrorMessage = "El código del proveedor debe tener entre 1 y 30 caracteres.")]
+    public string CodigoProveedor { get; set; } = string.Empty;
+
+    [StringLength(30, ErrorMessage = "La referencia no puede exceder 30 caracteres.")]
+    public string? Referencia { get; set; }
+
+    public string? Observaciones { get; set; }
+
+    [Required(ErrorMessage = "El código del almacén es requerido.")]
+    [StringLength(30, MinimumLength = 1, ErrorMessage = "El código del almacén debe tener entre 1 y 30 caracteres.")]
+    public string CodigoAlmacen { get; set; } = string.Empty;
+
+    public int NumeroMoneda { get; set; } = 1;
+    public double TipoCambio { get; set; } = 1.0;
+
+    [MinLength(1, ErrorMessage = "La compra debe tener al menos una partida.")]
+    public List<CreateCommercialCompraPartidaDto> Partidas { get; set; } = new();
+}
+
+public class CreateCommercialCompraPartidaDto
+{
+    [Required(ErrorMessage = "El código del producto es requerido.")]
+    [StringLength(30, MinimumLength = 1, ErrorMessage = "El código del producto debe tener entre 1 y 30 caracteres.")]
+    public string CodigoProducto { get; set; } = string.Empty;
+
+    [Range(0.0001, double.MaxValue, ErrorMessage = "Las unidades deben ser mayores a 0.")]
+    public double Unidades { get; set; }
+
+    [Range(0, double.MaxValue, ErrorMessage = "El precio o costo unitario debe ser mayor o igual a 0.")]
+    public double PrecioUnitario { get; set; }
+}
+
+public class CreateCommercialCompraResponseDto
+{
+    public int IdDocumento { get; set; }
+    public string CodigoConcepto { get; set; } = string.Empty;
+    public string Serie { get; set; } = string.Empty;
+    public string Folio { get; set; } = string.Empty;
+}
+
+
 
 
 

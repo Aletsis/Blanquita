@@ -34,11 +34,17 @@ public class CommercialApiServiceTests
 
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
-            RequestUris.Add(request.RequestUri!.ToString());
+            lock (RequestUris)
+            {
+                RequestUris.Add(request.RequestUri!.ToString());
+            }
 
             if (request.RequestUri!.AbsolutePath.EndsWith("/api/auth/login"))
             {
-                LoginRequests.Add(request);
+                lock (LoginRequests)
+                {
+                    LoginRequests.Add(request);
+                }
                 if (_onLoginRequest != null)
                 {
                     return Task.FromResult(_onLoginRequest(request));
@@ -314,5 +320,62 @@ public class CommercialApiServiceTests
         Assert.Single(result);
         Assert.Equal("PROD10", result[10].Codigo);
         Assert.Contains(handler.RequestUris, u => u.Contains("api/productos/10"));
+    }
+
+    [Fact]
+    public async Task CreateCompraAsync_ShouldPostDtoAndReturnResult_WhenSuccessful()
+    {
+        var handler = new FakeCommercialApiHandler(onApiRequest: request =>
+        {
+            if (request.RequestUri!.AbsolutePath.Contains("api/compras") && request.Method == HttpMethod.Post)
+            {
+                return Json("{\"idDocumento\":101,\"codigoConcepto\":\"COMP\",\"serie\":\"A\",\"folio\":\"1234\"}");
+            }
+            return new HttpResponseMessage(HttpStatusCode.NotFound);
+        });
+
+        var service = CreateService(handler, $"http://api-{Guid.NewGuid():N}");
+        var dto = new CreateCommercialCompraDto
+        {
+            CodigoConcepto = "COMP",
+            CodigoProveedor = "PROV01",
+            CodigoAlmacen = "ALM01",
+            Partidas = new List<CreateCommercialCompraPartidaDto>
+            {
+                new() { CodigoProducto = "PROD01", Unidades = 5, PrecioUnitario = 100 }
+            }
+        };
+
+        var result = await service.CreateCompraAsync(dto, UniqueUser());
+
+        Assert.NotNull(result);
+        Assert.Equal(101, result.IdDocumento);
+        Assert.Equal("COMP", result.CodigoConcepto);
+        Assert.Equal("A", result.Serie);
+        Assert.Equal("1234", result.Folio);
+        Assert.Contains(handler.RequestUris, u => u.Contains("api/compras"));
+    }
+
+    [Fact]
+    public async Task GetCompraPdfAsync_ShouldReturnBytes_WhenSuccessful()
+    {
+        var expectedBytes = new byte[] { 0x25, 0x50, 0x44, 0x46 }; // %PDF
+        var handler = new FakeCommercialApiHandler(onApiRequest: request =>
+        {
+            if (request.RequestUri!.AbsolutePath.Contains("pdf"))
+            {
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new ByteArrayContent(expectedBytes)
+                };
+            }
+            return new HttpResponseMessage(HttpStatusCode.NotFound);
+        });
+
+        var service = CreateService(handler, $"http://api-{Guid.NewGuid():N}");
+        var bytes = await service.GetCompraPdfAsync("COMP", "A", 1234, UniqueUser());
+
+        Assert.Equal(expectedBytes, bytes);
+        Assert.Contains(handler.RequestUris, u => u.Contains("api/compras/COMP/A/1234/pdf"));
     }
 }

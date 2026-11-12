@@ -1,0 +1,488 @@
+@using Blanquita.Application.DTOs
+@using Blanquita.Application.Interfaces
+@inject ICommercialApiService CommercialApiService
+@inject ISnackbar Snackbar
+@inject ILogger<DialogoNuevaCompra> Logger
+@inject IJSRuntime JS
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h5" Class="font-weight-bold" Style="background: linear-gradient(135deg, #1e88e5, #00c853); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+            <MudIcon Icon="@Icons.Material.Filled.AddShoppingCart" Class="mr-2" Color="Color.Primary" />
+            Nueva Compra (API Comercial)
+        </MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudForm @ref="_form" @bind-IsValid="_isValid">
+            <MudGrid Spacing="2">
+                <!-- Proveedor (Autocomplete) -->
+                <MudItem xs="12" sm="6">
+                    <MudAutocomplete T="CommercialProveedorDto" 
+                                     Label="Proveedor" 
+                                     @bind-Value="_selectedProveedor" 
+                                     SearchFunc="@BuscarProveedores"
+                                     ToStringFunc="@ProveedorToString"
+                                     Required="true"
+                                     RequiredError="El proveedor es requerido."
+                                     Variant="Variant.Outlined" 
+                                     Margin="Margin.Dense"
+                                     Clearable="true"
+                                     Adornment="Adornment.Start"
+                                     AdornmentIcon="@Icons.Material.Filled.People"
+                                     Placeholder="Buscar por código o nombre..."
+                                     DebounceInterval="300"
+                                     MinCharacters="1" />
+                </MudItem>
+
+                <!-- Concepto de Compra -->
+                <MudItem xs="12" sm="6">
+                    <MudSelect T="string" 
+                               Label="Concepto" 
+                               @bind-Value="_selectedConceptoCodigo" 
+                               Required="true"
+                               RequiredError="El concepto es requerido."
+                               Variant="Variant.Outlined" 
+                               Margin="Margin.Dense">
+                        @if (_conceptos != null)
+                        {
+                            @foreach (var c in _conceptos)
+                            {
+                                <MudSelectItem Value="@c.CCODIGOCONCEPTO">@($"{c.CCODIGOCONCEPTO} - {c.CNOMBRECONCEPTO}")</MudSelectItem>
+                            }
+                        }
+                    </MudSelect>
+                </MudItem>
+
+                <!-- Referencia (Factura / Nota de Proveedor) -->
+                <MudItem xs="12" sm="6">
+                    <MudTextField @bind-Value="_referencia" 
+                                  Label="Referencia / Factura Prov." 
+                                  Variant="Variant.Outlined" 
+                                  Margin="Margin.Dense"
+                                  MaxLength="30"
+                                  Placeholder="Ej. FAC-20240315" />
+                </MudItem>
+
+                <!-- Serie opcional -->
+                <MudItem xs="12" sm="3">
+                    <MudTextField @bind-Value="_serie" 
+                                  Label="Serie (Opcional)" 
+                                  Variant="Variant.Outlined" 
+                                  Margin="Margin.Dense"
+                                  MaxLength="10" />
+                </MudItem>
+
+                <!-- Folio opcional -->
+                <MudItem xs="12" sm="3">
+                    <MudNumericField @bind-Value="_folio" 
+                                     Label="Folio (0 = Automático)" 
+                                     Variant="Variant.Outlined" 
+                                     Margin="Margin.Dense"
+                                     Min="0"
+                                     HideSpinButtons="true" />
+                </MudItem>
+
+                <!-- Observaciones -->
+                <MudItem xs="12">
+                    <MudTextField @bind-Value="_observaciones" 
+                                  Label="Observaciones" 
+                                  Variant="Variant.Outlined" 
+                                  Margin="Margin.Dense"
+                                  Lines="2"
+                                  MaxLength="250"
+                                  Placeholder="Comentarios o notas sobre la compra..." />
+                </MudItem>
+            </MudGrid>
+        </MudForm>
+
+        <!-- Sección de Partidas -->
+        <MudText Typo="Typo.subtitle1" Class="font-weight-bold mt-6 mb-2 text-indigo">
+            <MudIcon Icon="@Icons.Material.Filled.List" Class="mr-1" Size="Size.Small" />
+            Partidas de Compra (Productos y Costos)
+        </MudText>
+
+        <MudCard Outlined="true" Class="pa-4 mb-4 rounded-lg bg-light-gradient">
+            <MudGrid Spacing="2">
+                <!-- Buscador de Producto -->
+                <MudItem xs="12" sm="6">
+                    <MudAutocomplete T="CommercialProductoDto" 
+                                     Label="Producto (Código o Nombre)" 
+                                     @bind-Value="_nuevoProducto" 
+                                     SearchFunc="@BuscarProductos"
+                                     ToStringFunc="@ProductToString"
+                                     Variant="Variant.Outlined" 
+                                     Margin="Margin.Dense"
+                                     Clearable="true"
+                                     Placeholder="Escriba para buscar producto..."
+                                     DebounceInterval="300"
+                                     MinCharacters="2" />
+                </MudItem>
+
+                <!-- Cantidad -->
+                <MudItem xs="6" sm="2">
+                    <MudNumericField @bind-Value="_nuevaCantidad" 
+                                     Label="Cantidad" 
+                                     Variant="Variant.Outlined" 
+                                     Margin="Margin.Dense"
+                                     Min="0.001"
+                                     HideSpinButtons="true" />
+                </MudItem>
+
+                <!-- Precio / Costo Unitario -->
+                <MudItem xs="6" sm="2">
+                    <MudNumericField @bind-Value="_nuevoPrecio" 
+                                     Label="Costo Unitario" 
+                                     Variant="Variant.Outlined" 
+                                     Margin="Margin.Dense"
+                                     Min="0.0"
+                                     Format="N2"
+                                     HideSpinButtons="true" />
+                </MudItem>
+
+                <!-- Botón Agregar -->
+                <MudItem xs="12" sm="2" Class="d-flex align-center">
+                    <MudButton Variant="Variant.Filled" 
+                               Color="Color.Primary" 
+                               StartIcon="@Icons.Material.Filled.Add"
+                               OnClick="AgregarPartida"
+                               FullWidth="true"
+                               Class="py-2">
+                        Agregar
+                    </MudButton>
+                </MudItem>
+            </MudGrid>
+        </MudCard>
+
+        <!-- Tabla de Partidas Agregadas -->
+        @if (_partidas.Count == 0)
+        {
+            <MudAlert Severity="Severity.Normal" Class="rounded-lg">
+                No se han agregado partidas. Busque un producto, ingrese la cantidad y el costo unitario para agregarlo.
+            </MudAlert>
+        }
+        else
+        {
+            <MudTable Items="@_partidas" Hover="true" Dense="true" Striped="true" Elevation="0" Outlined="true" Class="rounded-lg max-h-table">
+                <HeaderContent>
+                    <MudTh>Código</MudTh>
+                    <MudTh>Producto</MudTh>
+                    <MudTh Style="text-align: right; width: 100px;">Cantidad</MudTh>
+                    <MudTh Style="text-align: right; width: 120px;">Costo Unit.</MudTh>
+                    <MudTh Style="text-align: right; width: 120px;">Subtotal</MudTh>
+                    <MudTh Style="text-align: center; width: 60px;">Acciones</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="Código">
+                        <MudChip T="string" Color="Color.Info" Size="Size.Small" Variant="Variant.Text" Class="font-weight-bold">
+                            @context.Producto.Codigo
+                        </MudChip>
+                    </MudTd>
+                    <MudTd DataLabel="Producto">@context.Producto.Nombre</MudTd>
+                    <MudTd DataLabel="Cantidad" Style="text-align: right;" Class="font-weight-bold">@context.Cantidad.ToString("N2")</MudTd>
+                    <MudTd DataLabel="Costo Unit." Style="text-align: right;">@context.PrecioUnitario.ToString("C2")</MudTd>
+                    <MudTd DataLabel="Subtotal" Style="text-align: right;" Class="font-weight-bold text-indigo">
+                        @((context.Cantidad * context.PrecioUnitario).ToString("C2"))
+                    </MudTd>
+                    <MudTd DataLabel="Acciones" Style="text-align: center;">
+                        <MudIconButton Icon="@Icons.Material.Filled.Delete" 
+                                       Color="Color.Error" 
+                                       Size="Size.Small"
+                                       OnClick="@(() => EliminarPartida(context))" />
+                    </MudTd>
+                </RowTemplate>
+            </MudTable>
+
+            <!-- Resumen de Totales -->
+            <div class="d-flex justify-space-between align-center mt-3 pa-2 rounded bg-light-gradient border">
+                <MudText Typo="Typo.body2" Class="text-muted">
+                    Partidas: <b>@_partidas.Count</b> | Unidades: <b>@_partidas.Sum(p => p.Cantidad).ToString("N2")</b>
+                </MudText>
+                <MudText Typo="Typo.subtitle1" Class="font-weight-bold text-indigo">
+                    Subtotal Estimado: @_partidas.Sum(p => p.Cantidad * p.PrecioUnitario).ToString("C2")
+                </MudText>
+            </div>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton Color="Color.Secondary" Variant="Variant.Outlined" OnClick="Cancelar" Disabled="_guardando">Cancelar</MudButton>
+        <MudButton Color="Color.Primary" 
+                   Variant="Variant.Filled" 
+                   OnClick="Guardar" 
+                   Disabled="@(_guardando || !_isValid || _selectedProveedor == null || _partidas.Count == 0)"
+                   StartIcon="@Icons.Material.Filled.Save">
+            @if (_guardando)
+            {
+                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                <text>Guardando en Contpaqi...</text>
+            }
+            else
+            {
+                <text>Guardar Compra</text>
+            }
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+<style>
+    .font-weight-bold {
+        font-weight: 700 !important;
+    }
+    .text-indigo {
+        color: #3f51b5 !important;
+    }
+    .rounded-lg {
+        border-radius: 12px !important;
+    }
+    .bg-light-gradient {
+        background: linear-gradient(180deg, #f8fafc 0%, #ffffff 100%) !important;
+    }
+    .max-h-table {
+        max-height: 250px;
+        overflow-y: auto;
+    }
+</style>
+
+@code {
+    [CascadingParameter]
+    IMudDialogInstance MudDialog { get; set; } = null!;
+
+    [Parameter]
+    public string Username { get; set; } = string.Empty;
+
+    private MudForm _form = null!;
+    private bool _isValid;
+    private bool _guardando = false;
+
+    // Campos del formulario
+    private CommercialProveedorDto? _selectedProveedor;
+    private string? _selectedConceptoCodigo;
+    private string? _referencia;
+    private string? _serie = string.Empty;
+    private double _folio = 0;
+    private string? _observaciones;
+
+    // Campos para agregar partida
+    private CommercialProductoDto? _nuevoProducto;
+    private double _nuevaCantidad = 1;
+    private double _nuevoPrecio = 0;
+
+    // Listado de conceptos y partidas
+    private IEnumerable<CommercialConceptoDto>? _conceptos;
+    private List<PartidaCompraModel> _partidas = new();
+
+    private class PartidaCompraModel
+    {
+        public CommercialProductoDto Producto { get; set; } = null!;
+        public double Cantidad { get; set; }
+        public double PrecioUnitario { get; set; }
+    }
+
+    private Func<CommercialProveedorDto, string> ProveedorToString = p => p == null ? "" : $"{p.Codigo} - {p.RazonSocial}";
+    private Func<CommercialProductoDto, string> ProductToString = p => p == null ? "" : $"{p.Codigo} - {p.Nombre}";
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            // TipoDocumento 19 = Compras
+            _conceptos = (await CommercialApiService.GetConceptosAsync(19, Username)).ToList();
+
+            if (_conceptos.Any())
+            {
+                _selectedConceptoCodigo = _conceptos.First().CCODIGOCONCEPTO;
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error al inicializar diálogo de nueva compra");
+            Snackbar.Add("Error al cargar los conceptos de compra desde la API Comercial.", Severity.Error);
+        }
+    }
+
+    private async Task<IEnumerable<CommercialProveedorDto>> BuscarProveedores(string value, CancellationToken token)
+    {
+        try
+        {
+            return await CommercialApiService.SearchProveedoresAsync(value, Username);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error al buscar proveedores");
+            return Enumerable.Empty<CommercialProveedorDto>();
+        }
+    }
+
+    private async Task<IEnumerable<CommercialProductoDto>> BuscarProductos(string value, CancellationToken token)
+    {
+        if (string.IsNullOrEmpty(value) || value.Length < 2)
+        {
+            return Enumerable.Empty<CommercialProductoDto>();
+        }
+
+        try
+        {
+            var productos = await CommercialApiService.GetProductosAsync(value, Username, onlyActive: true);
+            return productos.Take(50);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error al buscar productos con término '{Value}'", value);
+            return Enumerable.Empty<CommercialProductoDto>();
+        }
+    }
+
+    private void AgregarPartida()
+    {
+        if (_nuevoProducto == null)
+        {
+            Snackbar.Add("Debe seleccionar un producto.", Severity.Warning);
+            return;
+        }
+
+        if (_nuevaCantidad <= 0)
+        {
+            Snackbar.Add("La cantidad debe ser mayor a cero.", Severity.Warning);
+            return;
+        }
+
+        if (_nuevoPrecio < 0)
+        {
+            Snackbar.Add("El costo unitario no puede ser negativo.", Severity.Warning);
+            return;
+        }
+
+        var existente = _partidas.FirstOrDefault(p => p.Producto.Codigo == _nuevoProducto.Codigo);
+        if (existente != null)
+        {
+            existente.Cantidad += _nuevaCantidad;
+            existente.PrecioUnitario = _nuevoPrecio; // Actualizar costo más reciente
+            Snackbar.Add($"Se actualizó la partida del producto: {_nuevoProducto.Nombre}", Severity.Info);
+        }
+        else
+        {
+            _partidas.Add(new PartidaCompraModel
+            {
+                Producto = _nuevoProducto,
+                Cantidad = _nuevaCantidad,
+                PrecioUnitario = _nuevoPrecio
+            });
+            Snackbar.Add($"Producto agregado: {_nuevoProducto.Nombre}", Severity.Success);
+        }
+
+        // Limpiar campos de captura de partida
+        _nuevoProducto = null;
+        _nuevaCantidad = 1;
+        _nuevoPrecio = 0;
+    }
+
+    private void EliminarPartida(PartidaCompraModel partida)
+    {
+        _partidas.Remove(partida);
+        Snackbar.Add("Partida eliminada.", Severity.Info);
+    }
+
+    private async Task Guardar()
+    {
+        await _form.ValidateAsync();
+        if (!_isValid) return;
+
+        if (_selectedProveedor == null)
+        {
+            Snackbar.Add("Debe seleccionar un proveedor.", Severity.Warning);
+            return;
+        }
+
+        if (string.IsNullOrEmpty(_selectedConceptoCodigo))
+        {
+            Snackbar.Add("Debe seleccionar un concepto.", Severity.Warning);
+            return;
+        }
+
+        if (_partidas.Count == 0)
+        {
+            Snackbar.Add("Debe agregar al menos una partida para guardar la compra.", Severity.Warning);
+            return;
+        }
+
+        var conceptoSeleccionado = _conceptos?.FirstOrDefault(c => c.CCODIGOCONCEPTO == _selectedConceptoCodigo);
+        var codigoAlmacen = "";
+        if (conceptoSeleccionado != null)
+        {
+            codigoAlmacen = !string.IsNullOrEmpty(conceptoSeleccionado.CCODIGOALMACEN) 
+                ? conceptoSeleccionado.CCODIGOALMACEN 
+                : (!string.IsNullOrEmpty(conceptoSeleccionado.CodigoAlmacen) 
+                    ? conceptoSeleccionado.CodigoAlmacen 
+                    : (conceptoSeleccionado.CIDALMACEN > 0 ? conceptoSeleccionado.CIDALMACEN.ToString() : "1"));
+        }
+        if (string.IsNullOrEmpty(codigoAlmacen)) codigoAlmacen = "1";
+
+        _guardando = true;
+        StateHasChanged();
+
+        try
+        {
+            var dto = new CreateCommercialCompraDto
+            {
+                CodigoConcepto = _selectedConceptoCodigo ?? string.Empty,
+                Serie = _serie ?? string.Empty,
+                Folio = _folio,
+                CodigoProveedor = _selectedProveedor.Codigo,
+                Referencia = _referencia,
+                Observaciones = _observaciones,
+                CodigoAlmacen = codigoAlmacen,
+                NumeroMoneda = 1,
+                TipoCambio = 1.0,
+                Partidas = _partidas.Select(p => new CreateCommercialCompraPartidaDto
+                {
+                    CodigoProducto = p.Producto.Codigo,
+                    Unidades = p.Cantidad,
+                    PrecioUnitario = p.PrecioUnitario
+                }).ToList()
+            };
+
+            var result = await CommercialApiService.CreateCompraAsync(dto, Username);
+
+            if (result != null)
+            {
+                Snackbar.Add($"Compra creada exitosamente. Folio asignado: {(string.IsNullOrEmpty(result.Serie) ? "" : result.Serie + "-")}{result.Folio}", Severity.Success);
+
+                // Intentar descargar PDF si está disponible
+                try
+                {
+                    if (double.TryParse(result.Folio, out var folioDouble))
+                    {
+                        var pdfBytes = await CommercialApiService.GetCompraPdfAsync(result.CodigoConcepto, result.Serie, folioDouble, Username);
+                        if (pdfBytes != null && pdfBytes.Length > 0)
+                        {
+                            var nombreArchivo = $"Compra_{(string.IsNullOrEmpty(result.Serie) ? "" : result.Serie + "_")}{result.Folio}.pdf";
+                            var base64 = Convert.ToBase64String(pdfBytes);
+                            await JS.InvokeVoidAsync("fileDownloadHelper.downloadFile", nombreArchivo, "application/pdf", base64);
+                        }
+                    }
+                }
+                catch (Exception pdfEx)
+                {
+                    Logger.LogWarning(pdfEx, "No se pudo autodescargar el PDF de la compra generada");
+                }
+
+                MudDialog.Close(DialogResult.Ok(result));
+            }
+            else
+            {
+                Snackbar.Add("No se recibió respuesta válida al crear la compra.", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error al guardar compra en API Comercial");
+            Snackbar.Add($"Error al crear la compra: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _guardando = false;
+            StateHasChanged();
+        }
+    }
+
+    private void Cancelar() => MudDialog.Cancel();
+}

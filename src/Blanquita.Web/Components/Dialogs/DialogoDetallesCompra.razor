@@ -63,6 +63,14 @@
         }
     </DialogContent>
     <DialogActions>
+        <MudButton Color="Color.Error" 
+                   Variant="Variant.Outlined" 
+                   StartIcon="@Icons.Material.Filled.PictureAsPdf" 
+                   OnClick="DescargarPdf" 
+                   Disabled="@_loading" 
+                   Class="mr-2">
+            Descargar PDF
+        </MudButton>
         <MudButton Color="Color.Success" 
                    Variant="Variant.Outlined" 
                    StartIcon="@Icons.Material.Filled.Download" 
@@ -105,6 +113,9 @@
 
     [Parameter]
     public double Total { get; set; }
+
+    [Parameter]
+    public string? CodigoConcepto { get; set; }
 
     private bool _loading = true;
     private IEnumerable<CommercialMovimientoDto> _movimientos = Enumerable.Empty<CommercialMovimientoDto>();
@@ -165,6 +176,32 @@
     }
 
     private void Cerrar() => MudDialog.Close();
+
+    private async Task DescargarPdf()
+    {
+        try
+        {
+            Snackbar.Add("Generando PDF de compra...", Severity.Info);
+            var bytes = await CommercialApiService.GetCompraPdfAsync(
+                CodigoConcepto, 
+                Serie, 
+                Folio, 
+                Username);
+
+            if (bytes != null && bytes.Length > 0)
+            {
+                var nombreArchivo = $"Compra_{(string.IsNullOrEmpty(Serie) ? "" : Serie + "_")}{Folio}.pdf";
+                var base64 = Convert.ToBase64String(bytes);
+                await JS.InvokeVoidAsync("fileDownloadHelper.downloadFile", nombreArchivo, "application/pdf", base64);
+                Snackbar.Add("PDF descargado correctamente.", Severity.Success);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error al descargar PDF de compra");
+            Snackbar.Add($"No se pudo descargar el PDF: {ex.Message}", Severity.Error);
+        }
+    }
 
     private async Task ExportarExcel()
     {

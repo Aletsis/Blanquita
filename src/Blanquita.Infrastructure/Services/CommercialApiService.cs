@@ -628,6 +628,109 @@ public class CommercialApiService : ICommercialApiService
             throw;
         }
     }
+
+    public async Task<CreateCommercialCompraResponseDto?> CreateCompraAsync(CreateCommercialCompraDto dto, string username)
+    {
+        try
+        {
+            var url = "api/compras";
+            
+            _logger.LogInformation("Creando nueva compra en API Comercial: {Url} (Concepto: {Concepto}, Prov: {Proveedor})", 
+                url, dto.CodigoConcepto, dto.CodigoProveedor);
+            var response = await SendAsync(username, c => c.PostAsJsonAsync(url, dto));
+
+            if (!response.IsSuccessStatusCode)
+            {
+                var err = await response.Content.ReadAsStringAsync();
+                _logger.LogError("Error al crear compra en la API Comercial: {Error}", err);
+                throw new Exception($"Error en la API Comercial: {response.StatusCode} - {err}");
+            }
+
+            var jsonElement = await response.Content.ReadFromJsonAsync<JsonElement>();
+            var resDto = new CreateCommercialCompraResponseDto();
+            
+            if (jsonElement.TryGetProperty("idDocumento", out var idProp))
+            {
+                resDto.IdDocumento = idProp.GetInt32();
+            }
+            else if (jsonElement.TryGetProperty("IdDocumento", out var idPropPascal))
+            {
+                resDto.IdDocumento = idPropPascal.GetInt32();
+            }
+
+            if (jsonElement.TryGetProperty("codigoConcepto", out var codProp))
+            {
+                resDto.CodigoConcepto = codProp.GetString() ?? string.Empty;
+            }
+            else if (jsonElement.TryGetProperty("CodigoConcepto", out var codPropPascal))
+            {
+                resDto.CodigoConcepto = codPropPascal.GetString() ?? string.Empty;
+            }
+
+            if (jsonElement.TryGetProperty("serie", out var serProp))
+            {
+                resDto.Serie = serProp.GetString() ?? string.Empty;
+            }
+            else if (jsonElement.TryGetProperty("Serie", out var serPropPascal))
+            {
+                resDto.Serie = serPropPascal.GetString() ?? string.Empty;
+            }
+
+            if (jsonElement.TryGetProperty("folio", out var folProp))
+            {
+                resDto.Folio = folProp.ValueKind == JsonValueKind.Number 
+                    ? folProp.GetDouble().ToString() 
+                    : (folProp.GetString() ?? string.Empty);
+            }
+            else if (jsonElement.TryGetProperty("Folio", out var folPropPascal))
+            {
+                resDto.Folio = folPropPascal.ValueKind == JsonValueKind.Number 
+                    ? folPropPascal.GetDouble().ToString() 
+                    : (folPropPascal.GetString() ?? string.Empty);
+            }
+
+            _logger.LogInformation("Compra creada exitosamente - IdDocumento: {IdDocumento}, CodigoConcepto: {CodigoConcepto}, Serie: {Serie}, Folio: {Folio}", 
+                resDto.IdDocumento, resDto.CodigoConcepto, resDto.Serie, resDto.Folio);
+
+            return resDto;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Excepción al crear compra en API Comercial");
+            throw;
+        }
+    }
+
+    public async Task<byte[]> GetCompraPdfAsync(
+        string? codigoConcepto, 
+        string? serie, 
+        double folio, 
+        string username)
+    {
+        try
+        {
+            var conceptoPath = string.IsNullOrWhiteSpace(codigoConcepto) ? "none" : Uri.EscapeDataString(codigoConcepto);
+            var seriePath = string.IsNullOrWhiteSpace(serie) ? "-" : Uri.EscapeDataString(serie);
+            var url = $"api/compras/{conceptoPath}/{seriePath}/{folio.ToString(CultureInfo.InvariantCulture)}/pdf";
+
+            _logger.LogInformation("Descargando PDF de Compra desde API Comercial: {Url}", url);
+            var response = await SendAsync(username, c => c.GetAsync(url));
+
+            if (!response.IsSuccessStatusCode)
+            {
+                var err = await response.Content.ReadAsStringAsync();
+                _logger.LogError("Error al descargar PDF de Compra en API Comercial: {Error}", err);
+                throw new Exception($"Error en la API Comercial: {response.StatusCode} - {err}");
+            }
+
+            return await response.Content.ReadAsByteArrayAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Excepción al descargar PDF de compra");
+            throw;
+        }
+    }
 }
 
 

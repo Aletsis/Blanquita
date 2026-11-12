@@ -9,6 +9,7 @@
 @inject ISnackbar Snackbar
 @inject IDialogService DialogService
 @inject ILogger<Compras> Logger
+@inject IJSRuntime JS
 
 <PageTitle>Compras - API Comercial</PageTitle>
 
@@ -18,22 +19,32 @@
             <MudIcon Icon="@Icons.Material.Filled.Receipt" Class="mr-2" Size="Size.Large" Color="Color.Primary" />
             Compras (API Comercial)
         </MudText>
-        <MudButton Variant="Variant.Filled" 
-                  StartIcon="@Icons.Material.Filled.Search" 
-                  Color="Color.Primary" 
-                  OnClick="CargarCompras" 
-                  Disabled="@_buscando"
-                  Class="px-6">
-            @if (_buscando) 
-            { 
-                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" /> 
-                <text>Buscando...</text> 
-            } 
-            else 
-            { 
-                <text>Buscar</text> 
-            }
-        </MudButton>
+        <MudStack Row="true" Spacing="2">
+            <MudButton Variant="Variant.Filled" 
+                       StartIcon="@Icons.Material.Filled.Add" 
+                       Color="Color.Success" 
+                       OnClick="AbrirNuevaCompra" 
+                       Disabled="@_buscando"
+                       Class="px-4">
+                Nueva Compra
+            </MudButton>
+            <MudButton Variant="Variant.Filled" 
+                      StartIcon="@Icons.Material.Filled.Search" 
+                      Color="Color.Primary" 
+                      OnClick="CargarCompras" 
+                      Disabled="@_buscando"
+                      Class="px-6">
+                @if (_buscando) 
+                { 
+                    <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" /> 
+                    <text>Buscando...</text> 
+                } 
+                else 
+                { 
+                    <text>Buscar</text> 
+                }
+            </MudButton>
+        </MudStack>
     </MudStack>
 
     <!-- Panel de Filtros -->
@@ -168,13 +179,21 @@
                         }
                     </MudTd>
                     <MudTd DataLabel="Acciones" Style="text-align: center;">
-                        <MudButton Variant="Variant.Filled" 
-                                   Color="Color.Info" 
-                                   Size="Size.Small" 
-                                   StartIcon="@Icons.Material.Filled.Visibility"
-                                   OnClick="@(() => VerDetalles(context))">
-                            Detalles
-                        </MudButton>
+                        <MudStack Row="true" Spacing="1" Justify="Justify.Center">
+                            <MudButton Variant="Variant.Filled" 
+                                       Color="Color.Info" 
+                                       Size="Size.Small" 
+                                       StartIcon="@Icons.Material.Filled.Visibility"
+                                       OnClick="@(() => VerDetalles(context))">
+                                Detalles
+                            </MudButton>
+                            <MudTooltip Text="Descargar PDF">
+                                <MudIconButton Icon="@Icons.Material.Filled.PictureAsPdf" 
+                                               Color="Color.Error" 
+                                               Size="Size.Small" 
+                                               OnClick="@(() => DescargarPdf(context))" />
+                            </MudTooltip>
+                        </MudStack>
                     </MudTd>
                 </RowTemplate>
                 <PagerContent>
@@ -354,6 +373,56 @@
         _lastClickedDocId = doc.CIDDOCUMENTO;
     }
 
+    private async Task AbrirNuevaCompra()
+    {
+        var parameters = new DialogParameters
+        {
+            { nameof(DialogoNuevaCompra.Username), _username }
+        };
+
+        var options = new DialogOptions 
+        { 
+            CloseButton = true, 
+            MaxWidth = MaxWidth.Large, 
+            FullWidth = true,
+            BackdropClick = false
+        };
+
+        var dialog = await DialogService.ShowAsync<DialogoNuevaCompra>("Nueva Compra", parameters, options);
+        var result = await dialog.Result;
+
+        if (result != null && !result.Canceled)
+        {
+            await CargarCompras();
+        }
+    }
+
+    private async Task DescargarPdf(CommercialCompraDto compra)
+    {
+        try
+        {
+            Snackbar.Add("Generando PDF de compra...", Severity.Info);
+            var bytes = await CommercialApiService.GetCompraPdfAsync(
+                compra.CCODIGOCONCEPTO, 
+                compra.CSERIEDOCUMENTO, 
+                compra.CFOLIO, 
+                _username);
+
+            if (bytes != null && bytes.Length > 0)
+            {
+                var nombreArchivo = $"Compra_{(string.IsNullOrEmpty(compra.CSERIEDOCUMENTO) ? "" : compra.CSERIEDOCUMENTO + "_")}{compra.CFOLIO}.pdf";
+                var base64 = Convert.ToBase64String(bytes);
+                await JS.InvokeVoidAsync("fileDownloadHelper.downloadFile", nombreArchivo, "application/pdf", base64);
+                Snackbar.Add("PDF descargado correctamente.", Severity.Success);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error al descargar PDF de compra");
+            Snackbar.Add($"No se pudo descargar el PDF: {ex.Message}", Severity.Error);
+        }
+    }
+
     private async Task VerDetalles(CommercialCompraDto compra)
     {
         var parameters = new DialogParameters
@@ -362,7 +431,8 @@
             { nameof(DialogoDetallesCompra.Username), _username },
             { nameof(DialogoDetallesCompra.Serie), compra.CSERIEDOCUMENTO },
             { nameof(DialogoDetallesCompra.Folio), compra.CFOLIO },
-            { nameof(DialogoDetallesCompra.Total), compra.CTOTAL }
+            { nameof(DialogoDetallesCompra.Total), compra.CTOTAL },
+            { nameof(DialogoDetallesCompra.CodigoConcepto), compra.CCODIGOCONCEPTO }
         };
 
         var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium, FullWidth = true };

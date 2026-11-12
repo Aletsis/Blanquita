@@ -51,6 +51,14 @@ public interface ICommercialApiService
         string username);
 
     Task<CreateCommercialSalidaResponseDto?> CreateSalidaAsync(CreateCommercialSalidaDto dto, string username);
+
+    Task<CreateCommercialCompraResponseDto?> CreateCompraAsync(CreateCommercialCompraDto dto, string username);
+
+    Task<byte[]> GetCompraPdfAsync(
+        string? codigoConcepto, 
+        string? serie, 
+        double folio, 
+        string username);
 }
 
 
