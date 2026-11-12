@@ -116,14 +116,31 @@
         {
             _loading = true;
             
-            // 1. Obtener movimientos
+            // 1. Obtener movimientos (que ya incluyen CCODIGOPRODUCTO y CNOMBREPRODUCTO desde la API)
             _movimientos = await CommercialApiService.GetMovimientosAsync(DocumentoId, Username);
             
-            // 2. Consultar solo los productos de las partidas para mostrar código y nombre
-            var products = await CommercialApiService.GetProductosByIdsAsync(_movimientos.Select(m => m.CIDPRODUCTO), Username);
-            foreach (var (id, p) in products)
+            // 2. Poblar caché con los datos que ya vienen incluidos en los movimientos
+            var idsFaltantes = new HashSet<int>();
+            foreach (var m in _movimientos)
             {
-                _productCache[id] = (p.Codigo, p.Nombre);
+                if (!string.IsNullOrWhiteSpace(m.CCODIGOPRODUCTO) || !string.IsNullOrWhiteSpace(m.CNOMBREPRODUCTO))
+                {
+                    _productCache[m.CIDPRODUCTO] = (m.CCODIGOPRODUCTO ?? $"ID: {m.CIDPRODUCTO}", m.CNOMBREPRODUCTO ?? "Sin nombre");
+                }
+                else
+                {
+                    idsFaltantes.Add(m.CIDPRODUCTO);
+                }
+            }
+
+            // 3. Si hubo productos sin datos (p. ej. contra versiones anteriores de la API), consultar solo los faltantes
+            if (idsFaltantes.Count > 0)
+            {
+                var products = await CommercialApiService.GetProductosByIdsAsync(idsFaltantes, Username);
+                foreach (var (id, p) in products)
+                {
+                    _productCache[id] = (p.Codigo, p.Nombre);
+                }
             }
         }
         catch (Exception ex)

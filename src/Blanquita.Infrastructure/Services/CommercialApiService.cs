@@ -211,7 +211,8 @@ public class CommercialApiService : ICommercialApiService
         int? proveedorId, 
         DateTime? fechaDesde, 
         DateTime? fechaHasta, 
-        string username)
+        string username,
+        int? limit = null)
     {
         try
         {
@@ -222,6 +223,7 @@ public class CommercialApiService : ICommercialApiService
             if (proveedorId.HasValue) queryParams.Add($"proveedorId={proveedorId.Value}");
             if (fechaDesde.HasValue) queryParams.Add($"fechaDesde={fechaDesde.Value:yyyy-MM-dd}");
             if (fechaHasta.HasValue) queryParams.Add($"fechaHasta={fechaHasta.Value:yyyy-MM-dd}");
+            if (limit.HasValue && limit.Value > 0) queryParams.Add($"limit={limit.Value}");
 
             var url = "api/compras";
             if (queryParams.Count > 0)
@@ -385,10 +387,41 @@ public class CommercialApiService : ICommercialApiService
 
     public async Task<IReadOnlyDictionary<int, CommercialProductoDto>> GetProductosByIdsAsync(IEnumerable<int> ids, string username, CancellationToken cancellationToken = default)
     {
+        var distinctIds = ids.Distinct().ToList();
+        if (distinctIds.Count == 0)
+        {
+            return new Dictionary<int, CommercialProductoDto>();
+        }
+
         var result = new ConcurrentDictionary<int, CommercialProductoDto>();
+
+        // Intento 1: Llamada en lote a través del endpoint batch (1 sola petición HTTP)
+        try
+        {
+            _logger.LogInformation("Consultando {Count} productos en lote por ID", distinctIds.Count);
+            var batchResponse = await SendAsync(username, c => c.PostAsJsonAsync("api/productos/by-ids", distinctIds, cancellationToken));
+            if (batchResponse.IsSuccessStatusCode)
+            {
+                var productosBatch = await batchResponse.Content.ReadFromJsonAsync<IEnumerable<CommercialProductoDto>>(cancellationToken: cancellationToken);
+                if (productosBatch != null)
+                {
+                    foreach (var p in productosBatch)
+                    {
+                        result[p.Id] = p;
+                    }
+                    return result;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Fallo al consultar productos en lote mediante /api/productos/by-ids. Reintentando de forma individual.");
+        }
+
+        // Fallback: Si el endpoint en lote no está disponible o falló, consultar en paralelo
         var options = new ParallelOptions { MaxDegreeOfParallelism = MaxParallelProductLookups, CancellationToken = cancellationToken };
 
-        await Parallel.ForEachAsync(ids.Distinct(), options, async (id, _) =>
+        await Parallel.ForEachAsync(distinctIds, options, async (id, _) =>
         {
             try
             {

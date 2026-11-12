@@ -14,7 +14,8 @@ public interface ICommercialApiService
         int? proveedorId, 
         DateTime? fechaDesde, 
         DateTime? fechaHasta, 
-        string username);
+        string username,
+        int? limit = null);
         
     Task<IEnumerable<CommercialMovimientoDto>> GetMovimientosAsync(int documentoId, string username);
     

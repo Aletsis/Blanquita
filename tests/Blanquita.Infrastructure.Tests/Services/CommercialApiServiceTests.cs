@@ -171,7 +171,12 @@ public class CommercialApiServiceTests
     {
         var handler = new FakeCommercialApiHandler(request =>
         {
-            var id = request.RequestUri!.Segments.Last();
+            if (request.RequestUri!.AbsolutePath.Contains("by-ids"))
+            {
+                return new HttpResponseMessage(HttpStatusCode.NotFound);
+            }
+
+            var id = request.RequestUri.Segments.Last();
             return id switch
             {
                 "1" => Json("{\"id\":1,\"codigo\":\"A1\",\"nombre\":\"Azucar\"}"),
@@ -185,8 +190,8 @@ public class CommercialApiServiceTests
 
         Assert.Single(result);
         Assert.Equal("Azucar", result[1].Nombre);
-        // Sin descargar el catálogo y sin repetir el ID duplicado
-        Assert.Equal(3, handler.RequestUris.Count(u => u.Contains("api/productos/")));
+        // Sin descargar el catálogo y sin repetir el ID duplicado (3 consultas individuales tras fallback)
+        Assert.Equal(3, handler.RequestUris.Count(u => u.Contains("api/productos/") && !u.Contains("by-ids")));
         Assert.DoesNotContain(handler.RequestUris, u => u.Contains("api/productos?"));
     }
 
@@ -252,5 +257,62 @@ public class CommercialApiServiceTests
             service.GetComprasAsync(null, null, null, null, null, user));
 
         Assert.Contains("Se requiere el encabezado 'X-Api-Key' para iniciar sesión", ex.Message);
+    }
+
+    [Fact]
+    public async Task GetComprasAsync_ShouldIncludeLimitParam_WhenLimitIsProvided()
+    {
+        var handler = new FakeCommercialApiHandler();
+        var service = CreateService(handler, $"http://api-{Guid.NewGuid():N}");
+
+        await service.GetComprasAsync(null, null, null, null, null, UniqueUser(), limit: 500);
+
+        Assert.Contains(handler.RequestUris, u => u.Contains("limit=500"));
+    }
+
+    [Fact]
+    public async Task GetProductosByIdsAsync_ShouldUseBatchEndpoint_WhenBatchSucceeds()
+    {
+        var handler = new FakeCommercialApiHandler(onApiRequest: request =>
+        {
+            if (request.RequestUri!.AbsolutePath.Contains("api/productos/by-ids"))
+            {
+                return Json("[{\"id\":10,\"codigo\":\"PROD10\",\"nombre\":\"Producto Diez\"},{\"id\":20,\"codigo\":\"PROD20\",\"nombre\":\"Producto Veinte\"}]");
+            }
+            return Json("[]");
+        });
+
+        var service = CreateService(handler, $"http://api-{Guid.NewGuid():N}");
+        var result = await service.GetProductosByIdsAsync(new[] { 10, 20 }, UniqueUser());
+
+        Assert.Equal(2, result.Count);
+        Assert.Equal("PROD10", result[10].Codigo);
+        Assert.Equal("Producto Diez", result[10].Nombre);
+        Assert.Equal("PROD20", result[20].Codigo);
+        Assert.Contains(handler.RequestUris, u => u.Contains("api/productos/by-ids"));
+    }
+
+    [Fact]
+    public async Task GetProductosByIdsAsync_ShouldFallbackToIndividual_WhenBatchEndpointFails()
+    {
+        var handler = new FakeCommercialApiHandler(onApiRequest: request =>
+        {
+            if (request.RequestUri!.AbsolutePath.Contains("api/productos/by-ids"))
+            {
+                return new HttpResponseMessage(HttpStatusCode.NotFound);
+            }
+            if (request.RequestUri.AbsolutePath.Contains("api/productos/10"))
+            {
+                return Json("{\"id\":10,\"codigo\":\"PROD10\",\"nombre\":\"Producto Diez\"}");
+            }
+            return Json("null");
+        });
+
+        var service = CreateService(handler, $"http://api-{Guid.NewGuid():N}");
+        var result = await service.GetProductosByIdsAsync(new[] { 10 }, UniqueUser());
+
+        Assert.Single(result);
+        Assert.Equal("PROD10", result[10].Codigo);
+        Assert.Contains(handler.RequestUris, u => u.Contains("api/productos/10"));
     }
 }

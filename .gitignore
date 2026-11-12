@@ -85,3 +85,6 @@ Blanquita/Config/appsettings.custom.json
 # Dependencias de Node: se instalan en el servidor con npm install (dist/ sí se versiona)
 **/node_modules/
 **/.nuget/
+.DS_Store
+.local/
+Library/

@@ -34,6 +34,8 @@ public class CommercialMovimientoDto
     public double CNETO { get; set; }
     public double CIMPUESTO1 { get; set; }
     public double CTOTAL { get; set; }
+    public string? CCODIGOPRODUCTO { get; set; }
+    public string? CNOMBREPRODUCTO { get; set; }
 }
 
 public class CommercialProveedorDto
