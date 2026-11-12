@@ -1,5 +1,6 @@
 using Blanquita.Infrastructure.Persistence.Identity;
 using Microsoft.AspNetCore.Antiforgery;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -20,7 +21,22 @@ public class AccountController : Controller
         _antiforgery = antiforgery;
     }
 
+    [HttpGet("login")]
+    [AllowAnonymous]
+    public IActionResult Login([FromQuery] string? returnUrl = null)
+    {
+        return Redirect(BuildPageUrlWithReturnUrl("/login", returnUrl));
+    }
+
+    [HttpGet("accessdenied")]
+    [AllowAnonymous]
+    public IActionResult AccessDenied([FromQuery] string? returnUrl = null)
+    {
+        return Redirect(BuildPageUrlWithReturnUrl("/acceso-denegado", returnUrl));
+    }
+
     [HttpPost("login")]
+    [AllowAnonymous]
     [IgnoreAntiforgeryToken]
     public async Task<IActionResult> Login([FromForm] string username, [FromForm] string password, [FromForm] string? returnUrl = null)
     {
@@ -97,5 +113,25 @@ public class AccountController : Controller
 
         await _signInManager.SignOutAsync();
         return Redirect("/login");
+    }
+
+    private string BuildPageUrlWithReturnUrl(string basePath, string? returnUrl)
+    {
+        if (!string.IsNullOrWhiteSpace(returnUrl) && IsSafeLocalReturnUrl(returnUrl))
+        {
+            return $"{basePath}?returnUrl={Uri.EscapeDataString(returnUrl)}";
+        }
+
+        return basePath;
+    }
+
+    private bool IsSafeLocalReturnUrl(string returnUrl)
+    {
+        if (Url != null)
+        {
+            return Url.IsLocalUrl(returnUrl);
+        }
+
+        return returnUrl.StartsWith('/') && !returnUrl.StartsWith("//") && !returnUrl.StartsWith("/\\");
     }
 }

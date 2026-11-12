@@ -1,0 +1,26 @@
+@page "/acceso-denegado"
+@using Microsoft.AspNetCore.Authorization
+@attribute [AllowAnonymous]
+
+<PageTitle>Acceso Denegado</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Small" Class="d-flex align-center justify-center" Style="min-height: 70vh;">
+    <MudPaper Elevation="8" Class="pa-8" Style="width: 100%; max-width: 480px;">
+        <MudStack AlignItems="AlignItems.Center" Spacing="4">
+            <MudAvatar Color="Color.Error" Size="Size.Large" Style="width: 80px; height: 80px;">
+                <MudIcon Icon="@Icons.Material.Filled.Block" Size="Size.Large" />
+            </MudAvatar>
+            <MudText Typo="Typo.h4" Align="Align.Center">Acceso Denegado</MudText>
+            <MudText Typo="Typo.body1" Align="Align.Center" Color="Color.Secondary">
+                No tienes permisos suficientes para acceder a esta página.
+            </MudText>
+            <MudButton Href="/"
+                       Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       StartIcon="@Icons.Material.Filled.Home"
+                       Size="Size.Large">
+                Volver al Inicio
+            </MudButton>
+        </MudStack>
+    </MudPaper>
+</MudContainer>

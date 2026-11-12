@@ -118,9 +118,12 @@
             };
         }
 
-        if (string.IsNullOrEmpty(ReturnUrl) && query.TryGetValue("returnUrl", out var rUrl))
+        if (string.IsNullOrEmpty(ReturnUrl))
         {
-            ReturnUrl = rUrl.ToString();
+            if (query.TryGetValue("returnUrl", out var rUrl) || query.TryGetValue("ReturnUrl", out rUrl))
+            {
+                ReturnUrl = rUrl.ToString();
+            }
         }
     }
 

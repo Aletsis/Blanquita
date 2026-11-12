@@ -73,6 +73,10 @@ public static class DependencyInjection
 
         services.ConfigureApplicationCookie(options =>
         {
+            options.LoginPath = "/login";
+            options.LogoutPath = "/Account/logout";
+            options.AccessDeniedPath = "/acceso-denegado";
+            options.ReturnUrlParameter = "returnUrl";
             options.ExpireTimeSpan = TimeSpan.FromMinutes(5); // Tiempo de inactividad
             options.SlidingExpiration = true;
             options.Cookie.MaxAge = options.ExpireTimeSpan;
