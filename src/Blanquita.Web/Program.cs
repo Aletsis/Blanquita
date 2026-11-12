@@ -145,6 +145,7 @@ var logsBasePath = AppContext.BaseDirectory;
 
     app.MapControllers();
 
+    app.MapStaticAssets();
     app.MapRazorComponents<App>()
         .AddInteractiveServerRenderMode();
 
