@@ -175,24 +175,27 @@
                                                Size="Size.Small" 
                                                OnClick="() => VerDetalleCliente(context.Codigo)" />
                             </MudTooltip>
-                            <MudTooltip Text="Estado de Cuenta y Cartera">
-                                <MudIconButton Icon="@Icons.Material.Filled.AccountBalanceWallet" 
-                                               Color="Color.Warning" 
-                                               Size="Size.Small" 
-                                               OnClick="() => VerSaldoCliente(context.Codigo)" />
-                            </MudTooltip>
-                            <MudTooltip Text="Editar Datos">
-                                <MudIconButton Icon="@Icons.Material.Filled.Edit" 
-                                               Color="Color.Primary" 
-                                               Size="Size.Small" 
-                                               OnClick="() => EditarCliente(context.Codigo)" />
-                            </MudTooltip>
-                            <MudTooltip Text="@(context.Activo ? "Dar de Baja (Inactivar)" : "Reactivar")">
-                                <MudIconButton Icon="@(context.Activo ? Icons.Material.Filled.Block : Icons.Material.Filled.CheckCircle)" 
-                                               Color="@(context.Activo ? Color.Error : Color.Success)" 
-                                               Size="Size.Small" 
-                                               OnClick="() => CambiarEstatusCliente(context)" />
-                            </MudTooltip>
+                            @if (_isAdmin)
+                            {
+                                <MudTooltip Text="Estado de Cuenta y Cartera">
+                                    <MudIconButton Icon="@Icons.Material.Filled.AccountBalanceWallet" 
+                                                   Color="Color.Warning" 
+                                                   Size="Size.Small" 
+                                                   OnClick="() => VerSaldoCliente(context.Codigo)" />
+                                </MudTooltip>
+                                <MudTooltip Text="Editar Datos">
+                                    <MudIconButton Icon="@Icons.Material.Filled.Edit" 
+                                                   Color="Color.Primary" 
+                                                   Size="Size.Small" 
+                                                   OnClick="() => EditarCliente(context.Codigo)" />
+                                </MudTooltip>
+                                <MudTooltip Text="@(context.Activo ? "Dar de Baja (Inactivar)" : "Reactivar")">
+                                    <MudIconButton Icon="@(context.Activo ? Icons.Material.Filled.Block : Icons.Material.Filled.CheckCircle)" 
+                                                   Color="@(context.Activo ? Color.Error : Color.Success)" 
+                                                   Size="Size.Small" 
+                                                   OnClick="() => CambiarEstatusCliente(context)" />
+                                </MudTooltip>
+                            }
                         </MudButtonGroup>
                     </MudTd>
                 </RowTemplate>
@@ -341,24 +344,27 @@
                                                Size="Size.Small" 
                                                OnClick="() => VerDetalleProveedor(context.Codigo)" />
                             </MudTooltip>
-                            <MudTooltip Text="Estado de Cuenta y Pasivos">
-                                <MudIconButton Icon="@Icons.Material.Filled.AccountBalanceWallet" 
-                                               Color="Color.Warning" 
-                                               Size="Size.Small" 
-                                               OnClick="() => VerSaldoProveedor(context.Codigo)" />
-                            </MudTooltip>
-                            <MudTooltip Text="Editar Datos">
-                                <MudIconButton Icon="@Icons.Material.Filled.Edit" 
-                                               Color="Color.Secondary" 
-                                               Size="Size.Small" 
-                                               OnClick="() => EditarProveedor(context.Codigo)" />
-                            </MudTooltip>
-                            <MudTooltip Text="@(context.Activo ? "Dar de Baja (Inactivar)" : "Reactivar")">
-                                <MudIconButton Icon="@(context.Activo ? Icons.Material.Filled.Block : Icons.Material.Filled.CheckCircle)" 
-                                               Color="@(context.Activo ? Color.Error : Color.Success)" 
-                                               Size="Size.Small" 
-                                               OnClick="() => CambiarEstatusProveedor(context)" />
-                            </MudTooltip>
+                            @if (_isAdmin)
+                            {
+                                <MudTooltip Text="Estado de Cuenta y Pasivos">
+                                    <MudIconButton Icon="@Icons.Material.Filled.AccountBalanceWallet" 
+                                                   Color="Color.Warning" 
+                                                   Size="Size.Small" 
+                                                   OnClick="() => VerSaldoProveedor(context.Codigo)" />
+                                </MudTooltip>
+                                <MudTooltip Text="Editar Datos">
+                                    <MudIconButton Icon="@Icons.Material.Filled.Edit" 
+                                                   Color="Color.Secondary" 
+                                                   Size="Size.Small" 
+                                                   OnClick="() => EditarProveedor(context.Codigo)" />
+                                </MudTooltip>
+                                <MudTooltip Text="@(context.Activo ? "Dar de Baja (Inactivar)" : "Reactivar")">
+                                    <MudIconButton Icon="@(context.Activo ? Icons.Material.Filled.Block : Icons.Material.Filled.CheckCircle)" 
+                                                   Color="@(context.Activo ? Color.Error : Color.Success)" 
+                                                   Size="Size.Small" 
+                                                   OnClick="() => CambiarEstatusProveedor(context)" />
+                                </MudTooltip>
+                            }
                         </MudButtonGroup>
                     </MudTd>
                 </RowTemplate>
@@ -406,12 +412,17 @@
     private int _totalItemsProveedor;
     private int _totalPagesProveedor = 1;
 
+    // Permisos y Roles
+    private bool _isAdmin;
+
     protected override async Task OnInitializedAsync()
     {
         try
         {
             var authState = await AuthStateProvider.GetAuthenticationStateAsync();
-            _username = authState.User.Identity?.Name ?? string.Empty;
+            var user = authState.User;
+            _username = user.Identity?.Name ?? string.Empty;
+            _isAdmin = user.IsInRole("Admin") || user.IsInRole("Administrador");
 
             if (string.IsNullOrEmpty(_username))
             {
@@ -476,6 +487,12 @@
 
     private async Task VerSaldoCliente(string codigo)
     {
+        if (!_isAdmin)
+        {
+            Snackbar.Add("La consulta de estado de cuenta y cartera está reservada para administradores.", Severity.Warning);
+            return;
+        }
+
         try
         {
             var saldo = await CommercialApiService.GetSaldoClienteAsync(codigo, _username);
@@ -516,6 +533,12 @@
 
     private async Task EditarCliente(string codigo)
     {
+        if (!_isAdmin)
+        {
+            Snackbar.Add("La edición de clientes está reservada para administradores.", Severity.Warning);
+            return;
+        }
+
         try
         {
             var detalle = await CommercialApiService.GetClienteByCodigoAsync(codigo, _username);
@@ -581,6 +604,12 @@
 
     private async Task CambiarEstatusCliente(CommercialClienteDto cliente)
     {
+        if (!_isAdmin)
+        {
+            Snackbar.Add("El cambio de estatus de clientes está reservado para administradores.", Severity.Warning);
+            return;
+        }
+
         var nuevoEstatus = !cliente.Activo;
         var accion = nuevoEstatus ? "reactivar" : "dar de baja (inactivar)";
 
@@ -659,6 +688,12 @@
 
     private async Task VerSaldoProveedor(string codigo)
     {
+        if (!_isAdmin)
+        {
+            Snackbar.Add("La consulta de estado de cuenta y pasivos está reservada para administradores.", Severity.Warning);
+            return;
+        }
+
         try
         {
             var saldo = await CommercialApiService.GetSaldoProveedorAsync(codigo, _username);
@@ -699,6 +734,12 @@
 
     private async Task EditarProveedor(string codigo)
     {
+        if (!_isAdmin)
+        {
+            Snackbar.Add("La edición de proveedores está reservada para administradores.", Severity.Warning);
+            return;
+        }
+
         try
         {
             var detalle = await CommercialApiService.GetProveedorByCodigoAsync(codigo, _username);
@@ -763,6 +804,12 @@
 
     private async Task CambiarEstatusProveedor(CommercialProveedorDto proveedor)
     {
+        if (!_isAdmin)
+        {
+            Snackbar.Add("El cambio de estatus de proveedores está reservado para administradores.", Severity.Warning);
+            return;
+        }
+
         var nuevoEstatus = !proveedor.Activo;
         var accion = nuevoEstatus ? "reactivar" : "dar de baja (inactivar)";
 
