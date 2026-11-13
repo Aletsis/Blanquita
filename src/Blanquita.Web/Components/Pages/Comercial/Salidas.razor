@@ -128,6 +128,7 @@
                     <MudTh Style="text-align: right;">Impuesto</MudTh>
                     <MudTh Style="text-align: right;">Total</MudTh>
                     <MudTh>Referencia</MudTh>
+                    <MudTh>Usuario</MudTh>
                     <MudTh>Estado</MudTh>
                     <MudTh Style="text-align: center;">Acciones</MudTh>
                 </HeaderContent>
@@ -138,6 +139,7 @@
                     <MudTd DataLabel="Impuesto" Style="text-align: right;">@context.CIMPUESTO1.ToString("C2")</MudTd>
                     <MudTd DataLabel="Total" Style="text-align: right;" Class="font-weight-bold text-indigo">@context.CTOTAL.ToString("C2")</MudTd>
                     <MudTd DataLabel="Referencia">@context.CREFERENCIA</MudTd>
+                    <MudTd DataLabel="Usuario">@(!string.IsNullOrEmpty(context.CTEXTOEXTRA3) ? context.CTEXTOEXTRA3 : context.CTEXTOEXTRA2)</MudTd>
                     <MudTd DataLabel="Estado">
                         @if (context.CCANCELADO == 1)
                         {

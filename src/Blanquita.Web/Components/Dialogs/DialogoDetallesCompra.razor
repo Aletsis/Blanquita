@@ -8,10 +8,18 @@
 
 <MudDialog>
     <TitleContent>
-        <MudText Typo="Typo.h5" Class="font-weight-bold" Style="background: linear-gradient(135deg, #1e88e5, #00c853); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
-            <MudIcon Icon="@Icons.Material.Filled.Receipt" Class="mr-2" Color="Color.Primary" />
-            Detalle de Compra: @(string.IsNullOrEmpty(Serie) ? "" : Serie + " - ")@Folio
-        </MudText>
+        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+            <MudText Typo="Typo.h5" Class="font-weight-bold" Style="background: linear-gradient(135deg, #1e88e5, #00c853); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+                <MudIcon Icon="@Icons.Material.Filled.Receipt" Class="mr-2" Color="Color.Primary" />
+                Detalle de Compra: @(string.IsNullOrEmpty(Serie) ? "" : Serie + " - ")@Folio
+            </MudText>
+            @if (!string.IsNullOrEmpty(Usuario))
+            {
+                <MudChip T="string" Color="Color.Primary" Variant="Variant.Outlined" Size="Size.Small" Icon="@Icons.Material.Filled.Person">
+                    Usuario: @Usuario
+                </MudChip>
+            }
+        </MudStack>
     </TitleContent>
     <DialogContent>
         @if (_loading)
@@ -116,6 +124,9 @@
 
     [Parameter]
     public string? CodigoConcepto { get; set; }
+
+    [Parameter]
+    public string? Usuario { get; set; }
 
     private bool _loading = true;
     private IEnumerable<CommercialMovimientoDto> _movimientos = Enumerable.Empty<CommercialMovimientoDto>();

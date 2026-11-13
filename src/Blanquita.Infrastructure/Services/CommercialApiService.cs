@@ -562,6 +562,15 @@ public class CommercialApiService : ICommercialApiService
     {
         try
         {
+            if (string.IsNullOrWhiteSpace(dto.Usuario))
+            {
+                dto.Usuario = username;
+            }
+            if (string.IsNullOrWhiteSpace(dto.TextoExtra3))
+            {
+                dto.TextoExtra3 = dto.Usuario;
+            }
+
             var url = "api/SalidasAlmacen";
             
             _logger.LogInformation("Creando nueva salida de almacén en API Comercial: {Url}", url);
@@ -633,6 +642,15 @@ public class CommercialApiService : ICommercialApiService
     {
         try
         {
+            if (string.IsNullOrWhiteSpace(dto.Usuario))
+            {
+                dto.Usuario = username;
+            }
+            if (string.IsNullOrWhiteSpace(dto.TextoExtra3))
+            {
+                dto.TextoExtra3 = dto.Usuario;
+            }
+
             var url = "api/compras";
             
             _logger.LogInformation("Creando nueva compra en API Comercial: {Url} (Concepto: {Concepto}, Prov: {Proveedor})", 

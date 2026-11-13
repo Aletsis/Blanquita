@@ -339,6 +339,8 @@
                 ConceptoCodigo = _selectedConceptoCodigo ?? string.Empty,
                 Referencia = _referencia,
                 Observaciones = _observaciones,
+                Usuario = Username,
+                TextoExtra3 = Username,
                 Partidas = _partidas.Select(p => new CreateCommercialSalidaMovimientoDto
                 {
                     ProductoCodigo = p.Producto.Codigo,

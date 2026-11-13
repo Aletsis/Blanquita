@@ -134,6 +134,7 @@
                     <MudTh Style="text-align: right;">Total</MudTh>
                     <MudTh Style="text-align: right;">Pendiente</MudTh>
                     <MudTh>Asociado</MudTh>
+                    <MudTh>Usuario</MudTh>
                     <MudTh>Referencia</MudTh>
                     <MudTh>Edo</MudTh>
                     <MudTh>Vence</MudTh>
@@ -157,6 +158,7 @@
                         @context.CPENDIENTE.ToString("C2")
                     </MudTd>
                     <MudTd DataLabel="Asociado">@context.CTEXTOEXTRA1</MudTd>
+                    <MudTd DataLabel="Usuario">@(!string.IsNullOrEmpty(context.CTEXTOEXTRA3) ? context.CTEXTOEXTRA3 : context.CTEXTOEXTRA2)</MudTd>
                     <MudTd DataLabel="Referencia">@context.CREFERENCIA</MudTd>
                     <MudTd DataLabel="Edo">
                         @if (context.CCANCELADO == 1)
@@ -432,7 +434,8 @@
             { nameof(DialogoDetallesCompra.Serie), compra.CSERIEDOCUMENTO },
             { nameof(DialogoDetallesCompra.Folio), compra.CFOLIO },
             { nameof(DialogoDetallesCompra.Total), compra.CTOTAL },
-            { nameof(DialogoDetallesCompra.CodigoConcepto), compra.CCODIGOCONCEPTO }
+            { nameof(DialogoDetallesCompra.CodigoConcepto), compra.CCODIGOCONCEPTO },
+            { nameof(DialogoDetallesCompra.Usuario), !string.IsNullOrEmpty(compra.CTEXTOEXTRA3) ? compra.CTEXTOEXTRA3 : compra.CTEXTOEXTRA2 }
         };
 
         var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium, FullWidth = true };

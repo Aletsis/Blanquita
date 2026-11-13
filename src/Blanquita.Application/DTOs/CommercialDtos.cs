@@ -18,6 +18,8 @@ public class CommercialCompraDto
     public double CTOTAL { get; set; }
     public double CPENDIENTE { get; set; }
     public string? CTEXTOEXTRA1 { get; set; }
+    public string? CTEXTOEXTRA2 { get; set; }
+    public string? CTEXTOEXTRA3 { get; set; }
     public DateTime? CFECHAVENCIMIENTO { get; set; }
     public DateTime? CFECHAENTREGARECEPCION { get; set; }
     public string? CGUIDDOCUMENTO { get; set; }
@@ -68,6 +70,8 @@ public class CommercialSalidaDto
     public double CTOTAL { get; set; }
     public double CPENDIENTE { get; set; }
     public string? CTEXTOEXTRA1 { get; set; }
+    public string? CTEXTOEXTRA2 { get; set; }
+    public string? CTEXTOEXTRA3 { get; set; }
     public DateTime? CFECHAVENCIMIENTO { get; set; }
     public DateTime? CFECHAENTREGARECEPCION { get; set; }
     public string? CGUIDDOCUMENTO { get; set; }
@@ -92,6 +96,8 @@ public class CreateCommercialSalidaDto
     [StringLength(30, ErrorMessage = "La referencia no puede exceder 30 caracteres.")]
     public string? Referencia { get; set; }
     public string? Observaciones { get; set; }
+    public string? Usuario { get; set; }
+    public string? TextoExtra3 { get; set; }
     public List<CreateCommercialSalidaMovimientoDto> Partidas { get; set; } = new();
     public List<CreateCommercialSalidaMovimientoDto> Movimientos { get; set; } = new(); // alias
 }
@@ -148,6 +154,12 @@ public class CreateCommercialCompraDto
 
     public int NumeroMoneda { get; set; } = 1;
     public double TipoCambio { get; set; } = 1.0;
+
+    /// <summary>Usuario que registra la compra (se guarda en CTEXTOEXTRA3).</summary>
+    public string? Usuario { get; set; }
+
+    /// <summary>Valor específico para CTEXTOEXTRA3. Si no se indica, toma el valor de Usuario.</summary>
+    public string? TextoExtra3 { get; set; }
 
     [MinLength(1, ErrorMessage = "La compra debe tener al menos una partida.")]
     public List<CreateCommercialCompraPartidaDto> Partidas { get; set; } = new();

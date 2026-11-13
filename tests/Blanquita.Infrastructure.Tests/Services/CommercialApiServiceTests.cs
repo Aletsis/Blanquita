@@ -346,13 +346,16 @@ public class CommercialApiServiceTests
             }
         };
 
-        var result = await service.CreateCompraAsync(dto, UniqueUser());
+        var username = UniqueUser();
+        var result = await service.CreateCompraAsync(dto, username);
 
         Assert.NotNull(result);
         Assert.Equal(101, result.IdDocumento);
         Assert.Equal("COMP", result.CodigoConcepto);
         Assert.Equal("A", result.Serie);
         Assert.Equal("1234", result.Folio);
+        Assert.Equal(username, dto.Usuario);
+        Assert.Equal(username, dto.TextoExtra3);
         Assert.Contains(handler.RequestUris, u => u.Contains("api/compras"));
     }
 

@@ -432,6 +432,8 @@
                 CodigoAlmacen = codigoAlmacen,
                 NumeroMoneda = 1,
                 TipoCambio = 1.0,
+                Usuario = Username,
+                TextoExtra3 = Username,
                 Partidas = _partidas.Select(p => new CreateCommercialCompraPartidaDto
                 {
                     CodigoProducto = p.Producto.Codigo,
