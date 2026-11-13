@@ -63,13 +63,14 @@
                                   Placeholder="Ej. FAC-20240315" />
                 </MudItem>
 
-                <!-- Serie opcional -->
+                <!-- Serie (Código del Proveedor) -->
                 <MudItem xs="12" sm="3">
-                    <MudTextField @bind-Value="_serie" 
-                                  Label="Serie (Opcional)" 
+                    <MudTextField Value="@(_selectedProveedor?.Codigo ?? string.Empty)" 
+                                  Label="Serie (Cód. Prov.)" 
                                   Variant="Variant.Outlined" 
                                   Margin="Margin.Dense"
-                                  MaxLength="10" />
+                                  ReadOnly="true"
+                                  HelperText="Asignada con el código del proveedor" />
                 </MudItem>
 
                 <!-- Folio opcional -->
@@ -421,12 +422,14 @@
 
         try
         {
+            var serieProveedor = _selectedProveedor.Codigo?.Trim() ?? string.Empty;
+
             var dto = new CreateCommercialCompraDto
             {
                 CodigoConcepto = _selectedConceptoCodigo ?? string.Empty,
-                Serie = _serie ?? string.Empty,
+                Serie = serieProveedor,
                 Folio = _folio,
-                CodigoProveedor = _selectedProveedor.Codigo,
+                CodigoProveedor = _selectedProveedor.Codigo ?? string.Empty,
                 Referencia = _referencia,
                 Observaciones = _observaciones,
                 CodigoAlmacen = codigoAlmacen,

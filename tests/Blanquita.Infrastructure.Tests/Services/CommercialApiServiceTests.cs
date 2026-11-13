@@ -356,6 +356,7 @@ public class CommercialApiServiceTests
         Assert.Equal("1234", result.Folio);
         Assert.Equal(username, dto.Usuario);
         Assert.Equal(username, dto.TextoExtra3);
+        Assert.Equal("PROV01", dto.Serie);
         Assert.Contains(handler.RequestUris, u => u.Contains("api/compras"));
     }
 

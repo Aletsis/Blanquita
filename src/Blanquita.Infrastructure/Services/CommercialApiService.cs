@@ -650,6 +650,10 @@ public class CommercialApiService : ICommercialApiService
             {
                 dto.TextoExtra3 = dto.Usuario;
             }
+            if (string.IsNullOrWhiteSpace(dto.Serie) && !string.IsNullOrWhiteSpace(dto.CodigoProveedor))
+            {
+                dto.Serie = dto.CodigoProveedor.Trim();
+            }
 
             var url = "api/compras";
             

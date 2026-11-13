@@ -134,7 +134,7 @@ public class CreateCommercialCompraDto
     [StringLength(30, MinimumLength = 1, ErrorMessage = "El código del concepto debe tener entre 1 y 30 caracteres.")]
     public string CodigoConcepto { get; set; } = string.Empty;
 
-    [StringLength(10, ErrorMessage = "La serie no puede exceder 10 caracteres.")]
+    [StringLength(30, ErrorMessage = "La serie no puede exceder 30 caracteres.")]
     public string Serie { get; set; } = string.Empty;
 
     public double Folio { get; set; } = 0;
