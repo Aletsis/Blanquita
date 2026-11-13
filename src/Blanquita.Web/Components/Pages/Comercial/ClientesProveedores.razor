@@ -1,0 +1,783 @@
+@page "/comercial/clientes-proveedores"
+@using Blanquita.Application.DTOs
+@using Blanquita.Application.Interfaces
+@using Blanquita.Web.Components.Dialogs
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Roles = "Admin,Abarrotes,User,Supervisor")]
+@inject ICommercialApiService CommercialApiService
+@inject AuthenticationStateProvider AuthStateProvider
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+@inject ILogger<ClientesProveedores> Logger
+
+<PageTitle>Clientes y Proveedores - CONTPAQi Comercial</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4 animate-fade-in">
+    <!-- Encabezado con Estilo Premium -->
+    <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-6 flex-wrap gap-4">
+        <div>
+            <MudText Typo="Typo.h4" Class="font-weight-bold" Style="background: linear-gradient(135deg, #4f46e5, #06b6d4); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+                <MudIcon Icon="@Icons.Material.Filled.ContactPhone" Class="mr-2" Size="Size.Large" Color="Color.Primary" />
+                Clientes y Proveedores (CONTPAQi Comercial)
+            </MudText>
+            <MudText Typo="Typo.body2" Color="Color.Secondary">
+                Administración de catálogo fiscal, comercial, domicilios y consulta de cartera en tiempo real.
+            </MudText>
+        </div>
+        <MudStack Row="true" Spacing="2">
+            <MudButton Variant="Variant.Filled" 
+                       StartIcon="@Icons.Material.Filled.PersonAdd" 
+                       Color="Color.Primary" 
+                       OnClick="AbrirNuevoClienteDialog" 
+                       Class="px-5">
+                Nuevo Cliente
+            </MudButton>
+            <MudButton Variant="Variant.Filled" 
+                       StartIcon="@Icons.Material.Filled.LocalShipping" 
+                       Color="Color.Secondary" 
+                       OnClick="AbrirNuevoProveedorDialog" 
+                       Class="px-5">
+                Nuevo Proveedor
+            </MudButton>
+        </MudStack>
+    </MudStack>
+
+    <!-- Pestañas Principales: Clientes y Proveedores -->
+    <MudTabs Elevation="3" Rounded="true" ApplyEffectsToContainer="true" Color="Color.Primary">
+        
+        <!-- ========================================== -->
+        <!-- PESTAÑA 1: CLIENTES                        -->
+        <!-- ========================================== -->
+        <MudTabPanel Text="Clientes" Icon="@Icons.Material.Filled.People" Class="pa-4">
+            <!-- Barra de Filtros de Clientes -->
+            <MudCard Elevation="2" Class="pa-4 rounded-lg mb-4">
+                <MudGrid Class="align-center">
+                    <MudItem xs="12" sm="6" md="7">
+                        <MudTextField @bind-Value="_searchCliente"
+                                      Label="Buscar Cliente (Código, Razón Social, RFC o Nombre Comercial)"
+                                      Variant="Variant.Outlined"
+                                      Margin="Margin.Dense"
+                                      Adornment="Adornment.End"
+                                      AdornmentIcon="@Icons.Material.Filled.Search"
+                                      OnAdornmentClick="@(async () => await CargarClientes(1))"
+                                      OnKeyUp="@(async (e) => { if (e.Key == "Enter") await CargarClientes(1); })"
+                                      Clearable="true"
+                                      OnClearButtonClick="@(async () => { _searchCliente = string.Empty; await CargarClientes(1); })" />
+                    </MudItem>
+                    <MudItem xs="6" sm="3" md="3" Class="d-flex align-center">
+                        <MudCheckBox T="bool" Value="_onlyActiveClientes" 
+                                     ValueChanged="@(async (bool val) => { _onlyActiveClientes = val; await CargarClientes(1); })"
+                                     Color="Color.Primary" 
+                                     Label="Solo activos" />
+                    </MudItem>
+                    <MudItem xs="6" sm="3" md="2" Class="d-flex justify-end">
+                        <MudButton Variant="Variant.Filled" 
+                                   Color="Color.Primary" 
+                                   OnClick="@(async () => await CargarClientes(1))" 
+                                   Disabled="@_cargandoClientes"
+                                   FullWidth="true">
+                            @if (_cargandoClientes)
+                            {
+                                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                                <text>Buscando...</text>
+                            }
+                            else
+                            {
+                                <text>Buscar</text>
+                            }
+                        </MudButton>
+                    </MudItem>
+                </MudGrid>
+            </MudCard>
+
+            <!-- Tabla de Clientes -->
+            <MudTable Items="@_clientes" 
+                      Hover="true" 
+                      Dense="true" 
+                      Striped="true" 
+                      Elevation="3" 
+                      Outlined="true" 
+                      Loading="@_cargandoClientes"
+                      LoadingProgressColor="Color.Primary"
+                      Class="rounded-lg">
+                <HeaderContent>
+                    <MudTh>Código</MudTh>
+                    <MudTh>Razón Social (SAT)</MudTh>
+                    <MudTh>Nombre Comercial</MudTh>
+                    <MudTh>RFC</MudTh>
+                    <MudTh>Teléfono / WhatsApp</MudTh>
+                    <MudTh Style="text-align: right;">Límite Crédito</MudTh>
+                    <MudTh Style="text-align: center;">Plazo</MudTh>
+                    <MudTh Style="text-align: center;">Estatus</MudTh>
+                    <MudTh Style="text-align: center;">Acciones</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="Código">
+                        <MudChip T="string" Color="Color.Primary" Size="Size.Small" Variant="Variant.Outlined">
+                            @context.Codigo
+                        </MudChip>
+                    </MudTd>
+                    <MudTd DataLabel="Razón Social">
+                        <b>@context.RazonSocial</b>
+                    </MudTd>
+                    <MudTd DataLabel="Comercial">
+                        @(string.IsNullOrWhiteSpace(context.DenominacionComercial) ? "-" : context.DenominacionComercial)
+                    </MudTd>
+                    <MudTd DataLabel="RFC">
+                        <code>@context.RFC</code>
+                    </MudTd>
+                    <MudTd DataLabel="Contacto">
+                        @if (!string.IsNullOrWhiteSpace(context.WhatsApp))
+                        {
+                            <MudButton Variant="Variant.Text" 
+                                       Size="Size.Small" 
+                                       Color="Color.Success" 
+                                       StartIcon="@Icons.Custom.Brands.WhatsApp" 
+                                       Href="@($"https://wa.me/{context.WhatsApp.Replace(" ", "").Replace("-", "").Replace("+", "")}")" 
+                                       Target="_blank">
+                                @context.WhatsApp
+                            </MudButton>
+                        }
+                        else if (!string.IsNullOrWhiteSpace(context.Telefono))
+                        {
+                            <span>@context.Telefono</span>
+                        }
+                        else
+                        {
+                            <span class="text-muted">-</span>
+                        }
+                    </MudTd>
+                    <MudTd DataLabel="Límite" Style="text-align: right;">
+                        @context.LimiteCredito.ToString("C2")
+                    </MudTd>
+                    <MudTd DataLabel="Plazo" Style="text-align: center;">
+                        @(context.DiasCredito > 0 ? $"{context.DiasCredito} d" : "-")
+                    </MudTd>
+                    <MudTd DataLabel="Estatus" Style="text-align: center;">
+                        @if (context.Activo)
+                        {
+                            <MudChip T="string" Color="Color.Success" Size="Size.Small" Variant="Variant.Filled">Activo</MudChip>
+                        }
+                        else
+                        {
+                            <MudChip T="string" Color="Color.Error" Size="Size.Small" Variant="Variant.Filled">Inactivo</MudChip>
+                        }
+                    </MudTd>
+                    <MudTd DataLabel="Acciones" Style="text-align: center;">
+                        <MudButtonGroup Size="Size.Small" Variant="Variant.Outlined">
+                            <MudTooltip Text="Ver Ficha y Domicilio Fiscal">
+                                <MudIconButton Icon="@Icons.Material.Filled.Visibility" 
+                                               Color="Color.Info" 
+                                               Size="Size.Small" 
+                                               OnClick="() => VerDetalleCliente(context.Codigo)" />
+                            </MudTooltip>
+                            <MudTooltip Text="Estado de Cuenta y Cartera">
+                                <MudIconButton Icon="@Icons.Material.Filled.AccountBalanceWallet" 
+                                               Color="Color.Warning" 
+                                               Size="Size.Small" 
+                                               OnClick="() => VerSaldoCliente(context.Codigo)" />
+                            </MudTooltip>
+                            <MudTooltip Text="Editar Datos">
+                                <MudIconButton Icon="@Icons.Material.Filled.Edit" 
+                                               Color="Color.Primary" 
+                                               Size="Size.Small" 
+                                               OnClick="() => EditarCliente(context.Codigo)" />
+                            </MudTooltip>
+                            <MudTooltip Text="@(context.Activo ? "Dar de Baja (Inactivar)" : "Reactivar")">
+                                <MudIconButton Icon="@(context.Activo ? Icons.Material.Filled.Block : Icons.Material.Filled.CheckCircle)" 
+                                               Color="@(context.Activo ? Color.Error : Color.Success)" 
+                                               Size="Size.Small" 
+                                               OnClick="() => CambiarEstatusCliente(context)" />
+                            </MudTooltip>
+                        </MudButtonGroup>
+                    </MudTd>
+                </RowTemplate>
+                <NoRecordsContent>
+                    <MudText Typo="Typo.body2" Class="pa-4 text-muted text-center">
+                        No se encontraron clientes registrados con los criterios seleccionados.
+                    </MudText>
+                </NoRecordsContent>
+            </MudTable>
+
+            <!-- Paginación de Clientes -->
+            <div class="d-flex justify-space-between align-center mt-4">
+                <MudText Typo="Typo.caption" Color="Color.Secondary">
+                    Mostrando página @_pageCliente de @Math.Max(1, _totalPagesCliente) (Total: @_totalItemsCliente clientes)
+                </MudText>
+                <MudPagination Color="Color.Primary" 
+                               Count="@_totalPagesCliente" 
+                               Selected="@_pageCliente" 
+                               SelectedChanged="CargarClientes" />
+            </div>
+        </MudTabPanel>
+
+        <!-- ========================================== -->
+        <!-- PESTAÑA 2: PROVEEDORES                     -->
+        <!-- ========================================== -->
+        <MudTabPanel Text="Proveedores" Icon="@Icons.Material.Filled.LocalShipping" Class="pa-4">
+            <!-- Barra de Filtros de Proveedores -->
+            <MudCard Elevation="2" Class="pa-4 rounded-lg mb-4">
+                <MudGrid Class="align-center">
+                    <MudItem xs="12" sm="6" md="7">
+                        <MudTextField @bind-Value="_searchProveedor"
+                                      Label="Buscar Proveedor (Código, Razón Social, RFC o Nombre Comercial)"
+                                      Variant="Variant.Outlined"
+                                      Margin="Margin.Dense"
+                                      Adornment="Adornment.End"
+                                      AdornmentIcon="@Icons.Material.Filled.Search"
+                                      OnAdornmentClick="@(async () => await CargarProveedores(1))"
+                                      OnKeyUp="@(async (e) => { if (e.Key == "Enter") await CargarProveedores(1); })"
+                                      Clearable="true"
+                                      OnClearButtonClick="@(async () => { _searchProveedor = string.Empty; await CargarProveedores(1); })" />
+                    </MudItem>
+                    <MudItem xs="6" sm="3" md="3" Class="d-flex align-center">
+                        <MudCheckBox T="bool" Value="_onlyActiveProveedores" 
+                                     ValueChanged="@(async (bool val) => { _onlyActiveProveedores = val; await CargarProveedores(1); })"
+                                     Color="Color.Secondary" 
+                                     Label="Solo activos" />
+                    </MudItem>
+                    <MudItem xs="6" sm="3" md="2" Class="d-flex justify-end">
+                        <MudButton Variant="Variant.Filled" 
+                                   Color="Color.Secondary" 
+                                   OnClick="@(async () => await CargarProveedores(1))" 
+                                   Disabled="@_cargandoProveedores"
+                                   FullWidth="true">
+                            @if (_cargandoProveedores)
+                            {
+                                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                                <text>Buscando...</text>
+                            }
+                            else
+                            {
+                                <text>Buscar</text>
+                            }
+                        </MudButton>
+                    </MudItem>
+                </MudGrid>
+            </MudCard>
+
+            <!-- Tabla de Proveedores -->
+            <MudTable Items="@_proveedores" 
+                      Hover="true" 
+                      Dense="true" 
+                      Striped="true" 
+                      Elevation="3" 
+                      Outlined="true" 
+                      Loading="@_cargandoProveedores"
+                      LoadingProgressColor="Color.Secondary"
+                      Class="rounded-lg">
+                <HeaderContent>
+                    <MudTh>Código</MudTh>
+                    <MudTh>Razón Social (SAT)</MudTh>
+                    <MudTh>RFC</MudTh>
+                    <MudTh>Teléfono / WhatsApp</MudTh>
+                    <MudTh Style="text-align: right;">Límite Crédito</MudTh>
+                    <MudTh Style="text-align: center;">Días Crédito</MudTh>
+                    <MudTh Style="text-align: center;">Estatus</MudTh>
+                    <MudTh Style="text-align: center;">Acciones</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="Código">
+                        <MudChip T="string" Color="Color.Secondary" Size="Size.Small" Variant="Variant.Outlined">
+                            @context.Codigo
+                        </MudChip>
+                    </MudTd>
+                    <MudTd DataLabel="Razón Social">
+                        <b>@context.RazonSocial</b>
+                    </MudTd>
+                    <MudTd DataLabel="RFC">
+                        <code>@context.RFC</code>
+                    </MudTd>
+                    <MudTd DataLabel="Contacto">
+                        @if (!string.IsNullOrWhiteSpace(context.WhatsApp))
+                        {
+                            <MudButton Variant="Variant.Text" 
+                                       Size="Size.Small" 
+                                       Color="Color.Success" 
+                                       StartIcon="@Icons.Custom.Brands.WhatsApp" 
+                                       Href="@($"https://wa.me/{context.WhatsApp.Replace(" ", "").Replace("-", "").Replace("+", "")}")" 
+                                       Target="_blank">
+                                @context.WhatsApp
+                            </MudButton>
+                        }
+                        else if (!string.IsNullOrWhiteSpace(context.Telefono))
+                        {
+                            <span>@context.Telefono</span>
+                        }
+                        else
+                        {
+                            <span class="text-muted">-</span>
+                        }
+                    </MudTd>
+                    <MudTd DataLabel="Límite" Style="text-align: right;">
+                        @context.LimiteCredito.ToString("C2")
+                    </MudTd>
+                    <MudTd DataLabel="Plazo" Style="text-align: center;">
+                        @(context.DiasCredito > 0 ? $"{context.DiasCredito} d" : "-")
+                    </MudTd>
+                    <MudTd DataLabel="Estatus" Style="text-align: center;">
+                        @if (context.Activo)
+                        {
+                            <MudChip T="string" Color="Color.Success" Size="Size.Small" Variant="Variant.Filled">Activo</MudChip>
+                        }
+                        else
+                        {
+                            <MudChip T="string" Color="Color.Error" Size="Size.Small" Variant="Variant.Filled">Inactivo</MudChip>
+                        }
+                    </MudTd>
+                    <MudTd DataLabel="Acciones" Style="text-align: center;">
+                        <MudButtonGroup Size="Size.Small" Variant="Variant.Outlined">
+                            <MudTooltip Text="Ver Ficha y Domicilio Fiscal">
+                                <MudIconButton Icon="@Icons.Material.Filled.Visibility" 
+                                               Color="Color.Info" 
+                                               Size="Size.Small" 
+                                               OnClick="() => VerDetalleProveedor(context.Codigo)" />
+                            </MudTooltip>
+                            <MudTooltip Text="Estado de Cuenta y Pasivos">
+                                <MudIconButton Icon="@Icons.Material.Filled.AccountBalanceWallet" 
+                                               Color="Color.Warning" 
+                                               Size="Size.Small" 
+                                               OnClick="() => VerSaldoProveedor(context.Codigo)" />
+                            </MudTooltip>
+                            <MudTooltip Text="Editar Datos">
+                                <MudIconButton Icon="@Icons.Material.Filled.Edit" 
+                                               Color="Color.Secondary" 
+                                               Size="Size.Small" 
+                                               OnClick="() => EditarProveedor(context.Codigo)" />
+                            </MudTooltip>
+                            <MudTooltip Text="@(context.Activo ? "Dar de Baja (Inactivar)" : "Reactivar")">
+                                <MudIconButton Icon="@(context.Activo ? Icons.Material.Filled.Block : Icons.Material.Filled.CheckCircle)" 
+                                               Color="@(context.Activo ? Color.Error : Color.Success)" 
+                                               Size="Size.Small" 
+                                               OnClick="() => CambiarEstatusProveedor(context)" />
+                            </MudTooltip>
+                        </MudButtonGroup>
+                    </MudTd>
+                </RowTemplate>
+                <NoRecordsContent>
+                    <MudText Typo="Typo.body2" Class="pa-4 text-muted text-center">
+                        No se encontraron proveedores registrados con los criterios seleccionados.
+                    </MudText>
+                </NoRecordsContent>
+            </MudTable>
+
+            <!-- Paginación de Proveedores -->
+            <div class="d-flex justify-space-between align-center mt-4">
+                <MudText Typo="Typo.caption" Color="Color.Secondary">
+                    Mostrando página @_pageProveedor de @Math.Max(1, _totalPagesProveedor) (Total: @_totalItemsProveedor proveedores)
+                </MudText>
+                <MudPagination Color="Color.Secondary" 
+                               Count="@_totalPagesProveedor" 
+                               Selected="@_pageProveedor" 
+                               SelectedChanged="CargarProveedores" />
+            </div>
+        </MudTabPanel>
+    </MudTabs>
+</MudContainer>
+
+@code {
+    private string _username = string.Empty;
+
+    // Estado Clientes
+    private IEnumerable<CommercialClienteDto> _clientes = new List<CommercialClienteDto>();
+    private string _searchCliente = string.Empty;
+    private bool _onlyActiveClientes = true;
+    private bool _cargandoClientes;
+    private int _pageCliente = 1;
+    private int _pageSizeCliente = 20;
+    private int _totalItemsCliente;
+    private int _totalPagesCliente = 1;
+
+    // Estado Proveedores
+    private IEnumerable<CommercialProveedorDto> _proveedores = new List<CommercialProveedorDto>();
+    private string _searchProveedor = string.Empty;
+    private bool _onlyActiveProveedores = true;
+    private bool _cargandoProveedores;
+    private int _pageProveedor = 1;
+    private int _pageSizeProveedor = 20;
+    private int _totalItemsProveedor;
+    private int _totalPagesProveedor = 1;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            _username = authState.User.Identity?.Name ?? string.Empty;
+
+            if (string.IsNullOrEmpty(_username))
+            {
+                Snackbar.Add("No se pudo identificar al usuario de la sesión actual.", Severity.Warning);
+                return;
+            }
+
+            await Task.WhenAll(CargarClientes(1), CargarProveedores(1));
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error al inicializar vista de clientes y proveedores");
+            Snackbar.Add($"Error al conectar con la API Comercial: {ex.Message}", Severity.Error);
+        }
+    }
+
+    // ==========================================
+    // OPERACIONES DE CLIENTES
+    // ==========================================
+
+    private async Task CargarClientes(int page)
+    {
+        _pageCliente = page;
+        _cargandoClientes = true;
+        try
+        {
+            var res = await CommercialApiService.GetClientesAsync(_searchCliente, _pageCliente, _pageSizeCliente, _onlyActiveClientes, _username);
+            _clientes = res.Items ?? new List<CommercialClienteDto>();
+            _totalItemsCliente = res.TotalItems;
+            _totalPagesCliente = Math.Max(1, res.TotalPages);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error al consultar clientes: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _cargandoClientes = false;
+        }
+    }
+
+    private async Task VerDetalleCliente(string codigo)
+    {
+        try
+        {
+            var cliente = await CommercialApiService.GetClienteByCodigoAsync(codigo, _username);
+            if (cliente == null)
+            {
+                Snackbar.Add("No se encontró el detalle del cliente.", Severity.Warning);
+                return;
+            }
+
+            var parameters = new DialogParameters { ["Cliente"] = cliente };
+            var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium, FullWidth = true };
+            await DialogService.ShowAsync<DialogoDetalleClienteComercial>("Ficha Técnica de Cliente", parameters, options);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error al consultar detalle: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task VerSaldoCliente(string codigo)
+    {
+        try
+        {
+            var saldo = await CommercialApiService.GetSaldoClienteAsync(codigo, _username);
+            if (saldo == null)
+            {
+                Snackbar.Add("No se encontró saldo para el cliente.", Severity.Warning);
+                return;
+            }
+
+            var parameters = new DialogParameters { ["Saldo"] = saldo };
+            var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Large, FullWidth = true };
+            await DialogService.ShowAsync<DialogoSaldoComercial>("Estado de Cuenta y Cartera", parameters, options);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error al consultar saldo: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task AbrirNuevoClienteDialog()
+    {
+        var parameters = new DialogParameters
+        {
+            ["IsEdit"] = false,
+            ["Model"] = new CreateCommercialClienteDto(),
+            ["Domicilio"] = new CrearCommercialDomicilioDto(),
+            ["Username"] = _username
+        };
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium, FullWidth = true };
+        var dialog = await DialogService.ShowAsync<DialogoEditarClienteComercial>("Nuevo Cliente", parameters, options);
+        var result = await dialog.Result;
+
+        if (result is { Canceled: false })
+        {
+            await CargarClientes(1);
+        }
+    }
+
+    private async Task EditarCliente(string codigo)
+    {
+        try
+        {
+            var detalle = await CommercialApiService.GetClienteByCodigoAsync(codigo, _username);
+            if (detalle == null) return;
+
+            var model = new CreateCommercialClienteDto
+            {
+                Codigo = detalle.Codigo,
+                RazonSocial = detalle.RazonSocial,
+                DenominacionComercial = detalle.DenominacionComercial,
+                RFC = detalle.RFC ?? string.Empty,
+                CURP = detalle.CURP,
+                RegimenFiscal = detalle.RegimenFiscal,
+                UsoCFDI = detalle.UsoCFDI,
+                MetodoPago = detalle.MetodoPago,
+                NumCtaPago = detalle.NumCtaPago,
+                ListaPrecio = detalle.ListaPrecio,
+                LimiteCredito = detalle.LimiteCredito,
+                DiasCredito = detalle.DiasCredito,
+                PermiteVentaCredito = detalle.PermiteVentaCredito,
+                Email = detalle.Email1,
+                Telefono = detalle.ContactoTelefono,
+                WhatsApp = detalle.WhatsApp,
+                ContactoNombre = detalle.ContactoNombre
+            };
+
+            var domicilio = new CrearCommercialDomicilioDto();
+            if (detalle.DomicilioFiscal != null)
+            {
+                domicilio.Calle = detalle.DomicilioFiscal.Calle;
+                domicilio.NumeroExterior = detalle.DomicilioFiscal.NumeroExterior;
+                domicilio.NumeroInterior = detalle.DomicilioFiscal.NumeroInterior;
+                domicilio.Colonia = detalle.DomicilioFiscal.Colonia;
+                domicilio.CodigoPostal = detalle.DomicilioFiscal.CodigoPostal;
+                domicilio.Ciudad = detalle.DomicilioFiscal.Ciudad;
+                domicilio.Estado = detalle.DomicilioFiscal.Estado;
+                domicilio.Pais = detalle.DomicilioFiscal.Pais;
+            }
+
+            var parameters = new DialogParameters
+            {
+                ["IsEdit"] = true,
+                ["Model"] = model,
+                ["Domicilio"] = domicilio,
+                ["Username"] = _username
+            };
+            var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium, FullWidth = true };
+            var dialog = await DialogService.ShowAsync<DialogoEditarClienteComercial>("Editar Cliente", parameters, options);
+            var result = await dialog.Result;
+
+            if (result is { Canceled: false })
+            {
+                await CargarClientes(_pageCliente);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error al cargar cliente para edición: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task CambiarEstatusCliente(CommercialClienteDto cliente)
+    {
+        var nuevoEstatus = !cliente.Activo;
+        var accion = nuevoEstatus ? "reactivar" : "dar de baja (inactivar)";
+
+        bool? confirmar = await DialogService.ShowMessageBoxAsync(
+            "Confirmar Cambio de Estatus",
+            $"¿Está seguro de que desea {accion} al cliente '{cliente.Codigo} - {cliente.RazonSocial}' en CONTPAQi Comercial?",
+            yesText: "Sí, cambiar", cancelText: "Cancelar");
+
+        if (confirmar == true)
+        {
+            try
+            {
+                var ok = await CommercialApiService.CambiarEstatusClienteAsync(cliente.Codigo, nuevoEstatus, _username);
+                if (ok)
+                {
+                    Snackbar.Add($"Estatus del cliente '{cliente.Codigo}' actualizado.", Severity.Success);
+                    await CargarClientes(_pageCliente);
+                }
+                else
+                {
+                    Snackbar.Add("No se pudo actualizar el estatus.", Severity.Warning);
+                }
+            }
+            catch (Exception ex)
+            {
+                Snackbar.Add($"Error al cambiar estatus: {ex.Message}", Severity.Error);
+            }
+        }
+    }
+
+    // ==========================================
+    // OPERACIONES DE PROVEEDORES
+    // ==========================================
+
+    private async Task CargarProveedores(int page)
+    {
+        _pageProveedor = page;
+        _cargandoProveedores = true;
+        try
+        {
+            var res = await CommercialApiService.GetProveedoresPaginadoAsync(_searchProveedor, _pageProveedor, _pageSizeProveedor, _onlyActiveProveedores, _username);
+            _proveedores = res.Items ?? new List<CommercialProveedorDto>();
+            _totalItemsProveedor = res.TotalItems;
+            _totalPagesProveedor = Math.Max(1, res.TotalPages);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error al consultar proveedores: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _cargandoProveedores = false;
+        }
+    }
+
+    private async Task VerDetalleProveedor(string codigo)
+    {
+        try
+        {
+            var proveedor = await CommercialApiService.GetProveedorByCodigoAsync(codigo, _username);
+            if (proveedor == null)
+            {
+                Snackbar.Add("No se encontró el detalle del proveedor.", Severity.Warning);
+                return;
+            }
+
+            var parameters = new DialogParameters { ["Proveedor"] = proveedor };
+            var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium, FullWidth = true };
+            await DialogService.ShowAsync<DialogoDetalleProveedorComercial>("Ficha Técnica de Proveedor", parameters, options);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error al consultar detalle: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task VerSaldoProveedor(string codigo)
+    {
+        try
+        {
+            var saldo = await CommercialApiService.GetSaldoProveedorAsync(codigo, _username);
+            if (saldo == null)
+            {
+                Snackbar.Add("No se encontró saldo para el proveedor.", Severity.Warning);
+                return;
+            }
+
+            var parameters = new DialogParameters { ["Saldo"] = saldo };
+            var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Large, FullWidth = true };
+            await DialogService.ShowAsync<DialogoSaldoComercial>("Estado de Cuenta y Pasivos", parameters, options);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error al consultar saldo: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task AbrirNuevoProveedorDialog()
+    {
+        var parameters = new DialogParameters
+        {
+            ["IsEdit"] = false,
+            ["Model"] = new CreateCommercialProveedorDto(),
+            ["Domicilio"] = new CrearCommercialDomicilioDto(),
+            ["Username"] = _username
+        };
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium, FullWidth = true };
+        var dialog = await DialogService.ShowAsync<DialogoEditarProveedorComercial>("Nuevo Proveedor", parameters, options);
+        var result = await dialog.Result;
+
+        if (result is { Canceled: false })
+        {
+            await CargarProveedores(1);
+        }
+    }
+
+    private async Task EditarProveedor(string codigo)
+    {
+        try
+        {
+            var detalle = await CommercialApiService.GetProveedorByCodigoAsync(codigo, _username);
+            if (detalle == null) return;
+
+            var model = new CreateCommercialProveedorDto
+            {
+                Codigo = detalle.Codigo,
+                RazonSocial = detalle.RazonSocial,
+                DenominacionComercial = detalle.DenominacionComercial,
+                RFC = detalle.RFC ?? string.Empty,
+                CURP = detalle.CURP,
+                RegimenFiscal = detalle.RegimenFiscal,
+                UsoCFDI = detalle.UsoCFDI,
+                MetodoPago = detalle.MetodoPago,
+                NumCtaPago = detalle.NumCtaPago,
+                LimiteCreditoProveedor = detalle.LimiteCreditoProveedor,
+                DiasCreditoProveedor = detalle.DiasCreditoProveedor,
+                TiempoEntrega = detalle.TiempoEntrega,
+                Email = detalle.Email1,
+                Telefono = detalle.ContactoTelefono,
+                WhatsApp = detalle.WhatsApp,
+                ContactoNombre = detalle.ContactoNombre
+            };
+
+            var domicilio = new CrearCommercialDomicilioDto();
+            if (detalle.DomicilioFiscal != null)
+            {
+                domicilio.Calle = detalle.DomicilioFiscal.Calle;
+                domicilio.NumeroExterior = detalle.DomicilioFiscal.NumeroExterior;
+                domicilio.NumeroInterior = detalle.DomicilioFiscal.NumeroInterior;
+                domicilio.Colonia = detalle.DomicilioFiscal.Colonia;
+                domicilio.CodigoPostal = detalle.DomicilioFiscal.CodigoPostal;
+                domicilio.Ciudad = detalle.DomicilioFiscal.Ciudad;
+                domicilio.Estado = detalle.DomicilioFiscal.Estado;
+                domicilio.Pais = detalle.DomicilioFiscal.Pais;
+            }
+
+            var parameters = new DialogParameters
+            {
+                ["IsEdit"] = true,
+                ["Model"] = model,
+                ["Domicilio"] = domicilio,
+                ["Username"] = _username
+            };
+            var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium, FullWidth = true };
+            var dialog = await DialogService.ShowAsync<DialogoEditarProveedorComercial>("Editar Proveedor", parameters, options);
+            var result = await dialog.Result;
+
+            if (result is { Canceled: false })
+            {
+                await CargarProveedores(_pageProveedor);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error al cargar proveedor para edición: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task CambiarEstatusProveedor(CommercialProveedorDto proveedor)
+    {
+        var nuevoEstatus = !proveedor.Activo;
+        var accion = nuevoEstatus ? "reactivar" : "dar de baja (inactivar)";
+
+        bool? confirmar = await DialogService.ShowMessageBoxAsync(
+            "Confirmar Cambio de Estatus",
+            $"¿Está seguro de que desea {accion} al proveedor '{proveedor.Codigo} - {proveedor.RazonSocial}' en CONTPAQi Comercial?",
+            yesText: "Sí, cambiar", cancelText: "Cancelar");
+
+        if (confirmar == true)
+        {
+            try
+            {
+                var ok = await CommercialApiService.CambiarEstatusProveedorAsync(proveedor.Codigo, nuevoEstatus, _username);
+                if (ok)
+                {
+                    Snackbar.Add($"Estatus del proveedor '{proveedor.Codigo}' actualizado.", Severity.Success);
+                    await CargarProveedores(_pageProveedor);
+                }
+                else
+                {
+                    Snackbar.Add("No se pudo actualizar el estatus.", Severity.Warning);
+                }
+            }
+            catch (Exception ex)
+            {
+                Snackbar.Add($"Error al cambiar estatus: {ex.Message}", Severity.Error);
+            }
+        }
+    }
+}

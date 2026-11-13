@@ -1,0 +1,187 @@
+@using Blanquita.Application.DTOs
+@using Blanquita.Application.Interfaces
+
+<MudDialog>
+    <TitleContent>
+        <MudStack Row="true" AlignItems="AlignItems.Center">
+            <MudIcon Icon="@Icons.Material.Filled.Badge" Color="Color.Primary" Size="Size.Large" />
+            <div>
+                <MudText Typo="Typo.h5" Class="font-weight-bold">
+                    @Cliente?.RazonSocial
+                </MudText>
+                <MudText Typo="Typo.caption" Color="Color.Secondary">
+                    Código: <b>@Cliente?.Codigo</b> | RFC: <b>@Cliente?.RFC</b>
+                </MudText>
+            </div>
+        </MudStack>
+    </TitleContent>
+    <DialogContent>
+        @if (Cliente == null)
+        {
+            <MudAlert Severity="Severity.Warning">No se encontró información del cliente.</MudAlert>
+        }
+        else
+        {
+            <MudTabs Elevation="2" Rounded="true" ApplyEffectsToContainer="true">
+                <!-- Pestaña 1: Datos Fiscales y Generales -->
+                <MudTabPanel Text="General y Fiscal" Icon="@Icons.Material.Filled.Description" Class="pa-4">
+                    <MudGrid>
+                        <MudItem xs="12" sm="6">
+                            <MudText Typo="Typo.subtitle2" Color="Color.Primary">Nombre Comercial:</MudText>
+                            <MudText Typo="Typo.body2">@(string.IsNullOrWhiteSpace(Cliente.DenominacionComercial) ? "N/A" : Cliente.DenominacionComercial)</MudText>
+                        </MudItem>
+                        <MudItem xs="12" sm="6">
+                            <MudText Typo="Typo.subtitle2" Color="Color.Primary">CURP:</MudText>
+                            <MudText Typo="Typo.body2">@(string.IsNullOrWhiteSpace(Cliente.CURP) ? "N/A" : Cliente.CURP)</MudText>
+                        </MudItem>
+                        <MudItem xs="12" sm="6">
+                            <MudText Typo="Typo.subtitle2" Color="Color.Primary">Régimen Fiscal (SAT):</MudText>
+                            <MudText Typo="Typo.body2">@(string.IsNullOrWhiteSpace(Cliente.RegimenFiscal) ? "Sin asignar" : Cliente.RegimenFiscal)</MudText>
+                        </MudItem>
+                        <MudItem xs="12" sm="6">
+                            <MudText Typo="Typo.subtitle2" Color="Color.Primary">Uso de CFDI:</MudText>
+                            <MudText Typo="Typo.body2">@(string.IsNullOrWhiteSpace(Cliente.UsoCFDI) ? "Sin asignar" : Cliente.UsoCFDI)</MudText>
+                        </MudItem>
+                        <MudItem xs="12" sm="6">
+                            <MudText Typo="Typo.subtitle2" Color="Color.Primary">Método de Pago:</MudText>
+                            <MudText Typo="Typo.body2">@(string.IsNullOrWhiteSpace(Cliente.MetodoPago) ? "N/A" : Cliente.MetodoPago)</MudText>
+                        </MudItem>
+                        <MudItem xs="12" sm="6">
+                            <MudText Typo="Typo.subtitle2" Color="Color.Primary">Estatus:</MudText>
+                            @if (Cliente.Activo)
+                            {
+                                <MudChip T="string" Color="Color.Success" Size="Size.Small" Variant="Variant.Filled">Activo</MudChip>
+                            }
+                            else
+                            {
+                                <MudChip T="string" Color="Color.Error" Size="Size.Small" Variant="Variant.Filled">Inactivo</MudChip>
+                            }
+                        </MudItem>
+                    </MudGrid>
+                </MudTabPanel>
+
+                <!-- Pestaña 2: Domicilio Fiscal -->
+                <MudTabPanel Text="Domicilio Fiscal" Icon="@Icons.Material.Filled.Home" Class="pa-4">
+                    @if (Cliente.DomicilioFiscal == null)
+                    {
+                        <MudAlert Severity="Severity.Info" Class="mt-2">
+                            El cliente no tiene un domicilio fiscal registrado en CONTPAQi Comercial.
+                        </MudAlert>
+                    }
+                    else
+                    {
+                        <MudGrid>
+                            <MudItem xs="12" sm="8">
+                                <MudText Typo="Typo.subtitle2" Color="Color.Primary">Calle:</MudText>
+                                <MudText Typo="Typo.body2">@Cliente.DomicilioFiscal.Calle</MudText>
+                            </MudItem>
+                            <MudItem xs="6" sm="2">
+                                <MudText Typo="Typo.subtitle2" Color="Color.Primary">No. Exterior:</MudText>
+                                <MudText Typo="Typo.body2">@Cliente.DomicilioFiscal.NumeroExterior</MudText>
+                            </MudItem>
+                            <MudItem xs="6" sm="2">
+                                <MudText Typo="Typo.subtitle2" Color="Color.Primary">No. Interior:</MudText>
+                                <MudText Typo="Typo.body2">@(string.IsNullOrWhiteSpace(Cliente.DomicilioFiscal.NumeroInterior) ? "S/N" : Cliente.DomicilioFiscal.NumeroInterior)</MudText>
+                            </MudItem>
+                            <MudItem xs="12" sm="6">
+                                <MudText Typo="Typo.subtitle2" Color="Color.Primary">Colonia:</MudText>
+                                <MudText Typo="Typo.body2">@Cliente.DomicilioFiscal.Colonia</MudText>
+                            </MudItem>
+                            <MudItem xs="12" sm="6">
+                                <MudText Typo="Typo.subtitle2" Color="Color.Primary">Código Postal:</MudText>
+                                <MudChip T="string" Color="Color.Primary" Size="Size.Small" Variant="Variant.Outlined">@Cliente.DomicilioFiscal.CodigoPostal</MudChip>
+                            </MudItem>
+                            <MudItem xs="12" sm="4">
+                                <MudText Typo="Typo.subtitle2" Color="Color.Primary">Ciudad / Municipio:</MudText>
+                                <MudText Typo="Typo.body2">@Cliente.DomicilioFiscal.Ciudad @Cliente.DomicilioFiscal.Municipio</MudText>
+                            </MudItem>
+                            <MudItem xs="12" sm="4">
+                                <MudText Typo="Typo.subtitle2" Color="Color.Primary">Estado:</MudText>
+                                <MudText Typo="Typo.body2">@Cliente.DomicilioFiscal.Estado</MudText>
+                            </MudItem>
+                            <MudItem xs="12" sm="4">
+                                <MudText Typo="Typo.subtitle2" Color="Color.Primary">País:</MudText>
+                                <MudText Typo="Typo.body2">@Cliente.DomicilioFiscal.Pais</MudText>
+                            </MudItem>
+                        </MudGrid>
+                    }
+                </MudTabPanel>
+
+                <!-- Pestaña 3: Crédito y Comercial -->
+                <MudTabPanel Text="Crédito y Venta" Icon="@Icons.Material.Filled.CreditCard" Class="pa-4">
+                    <MudGrid>
+                        <MudItem xs="12" sm="6">
+                            <MudText Typo="Typo.subtitle2" Color="Color.Primary">Límite de Crédito:</MudText>
+                            <MudText Typo="Typo.h6" Class="font-weight-bold text-success">@Cliente.LimiteCredito.ToString("C2")</MudText>
+                        </MudItem>
+                        <MudItem xs="12" sm="6">
+                            <MudText Typo="Typo.subtitle2" Color="Color.Primary">Días de Crédito:</MudText>
+                            <MudText Typo="Typo.h6" Class="font-weight-bold">@Cliente.DiasCredito días</MudText>
+                        </MudItem>
+                        <MudItem xs="12" sm="6">
+                            <MudText Typo="Typo.subtitle2" Color="Color.Primary">Lista de Precios:</MudText>
+                            <MudChip T="string" Color="Color.Info" Size="Size.Small">Lista #@Cliente.ListaPrecio</MudChip>
+                        </MudItem>
+                        <MudItem xs="12" sm="6">
+                            <MudText Typo="Typo.subtitle2" Color="Color.Primary">Venta a Crédito:</MudText>
+                            <MudText Typo="Typo.body2">@(Cliente.PermiteVentaCredito ? "Permitida" : "Bloqueada")</MudText>
+                        </MudItem>
+                        <MudItem xs="12" sm="6">
+                            <MudText Typo="Typo.subtitle2" Color="Color.Primary">Permite Exceder Crédito:</MudText>
+                            <MudText Typo="Typo.body2">@(Cliente.PermiteExcederCredito ? "Sí" : "No")</MudText>
+                        </MudItem>
+                        <MudItem xs="12" sm="6">
+                            <MudText Typo="Typo.subtitle2" Color="Color.Primary">Descuento Pronto Pago:</MudText>
+                            <MudText Typo="Typo.body2">@Cliente.DescuentoProntoPago.ToString("N2")% en @Cliente.DiasProntoPago días</MudText>
+                        </MudItem>
+                    </MudGrid>
+                </MudTabPanel>
+
+                <!-- Pestaña 4: Contacto -->
+                <MudTabPanel Text="Contacto" Icon="@Icons.Material.Filled.ContactPhone" Class="pa-4">
+                    <MudGrid>
+                        <MudItem xs="12" sm="6">
+                            <MudText Typo="Typo.subtitle2" Color="Color.Primary">Contacto Principal:</MudText>
+                            <MudText Typo="Typo.body2">@(string.IsNullOrWhiteSpace(Cliente.ContactoNombre) ? "Sin registrar" : Cliente.ContactoNombre)</MudText>
+                        </MudItem>
+                        <MudItem xs="12" sm="6">
+                            <MudText Typo="Typo.subtitle2" Color="Color.Primary">Teléfono:</MudText>
+                            <MudText Typo="Typo.body2">@(string.IsNullOrWhiteSpace(Cliente.ContactoTelefono) ? "Sin registrar" : Cliente.ContactoTelefono)</MudText>
+                        </MudItem>
+                        <MudItem xs="12" sm="6">
+                            <MudText Typo="Typo.subtitle2" Color="Color.Primary">WhatsApp:</MudText>
+                            @if (!string.IsNullOrWhiteSpace(Cliente.WhatsApp))
+                            {
+                                <MudButton Variant="Variant.Text" Color="Color.Success" StartIcon="@Icons.Custom.Brands.WhatsApp" 
+                                           Href="@($"https://wa.me/{Cliente.WhatsApp.Replace(" ", "").Replace("-", "").Replace("+", "")}")" Target="_blank">
+                                    @Cliente.WhatsApp
+                                </MudButton>
+                            }
+                            else
+                            {
+                                <MudText Typo="Typo.body2">Sin registrar</MudText>
+                            }
+                        </MudItem>
+                        <MudItem xs="12" sm="6">
+                            <MudText Typo="Typo.subtitle2" Color="Color.Primary">Correo Electrónico (1):</MudText>
+                            <MudText Typo="Typo.body2">@(string.IsNullOrWhiteSpace(Cliente.Email1) ? "Sin registrar" : Cliente.Email1)</MudText>
+                        </MudItem>
+                    </MudGrid>
+                </MudTabPanel>
+            </MudTabs>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="Cerrar">Cerrar</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    [Parameter]
+    public CommercialClienteDetalleDto? Cliente { get; set; }
+
+    private void Cerrar() => MudDialog.Close(DialogResult.Ok(true));
+}

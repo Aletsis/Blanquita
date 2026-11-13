@@ -753,6 +753,326 @@ public class CommercialApiService : ICommercialApiService
             throw;
         }
     }
+
+    // ==========================================
+    // CLIENTES COMERCIAL
+    // ==========================================
+
+    public async Task<CommercialPaginatedResult<CommercialClienteDto>> GetClientesAsync(
+        string? search, 
+        int page, 
+        int pageSize, 
+        bool onlyActive, 
+        string username)
+    {
+        try
+        {
+            var url = $"api/clientes?page={page}&pageSize={pageSize}&onlyActive={onlyActive.ToString().ToLower()}";
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                url += $"&search={Uri.EscapeDataString(search.Trim())}";
+            }
+
+            var response = await SendAsync(username, c => c.GetAsync(url));
+            if (!response.IsSuccessStatusCode)
+            {
+                var err = await response.Content.ReadAsStringAsync();
+                _logger.LogError("Error al obtener clientes: {Error}", err);
+                throw new Exception($"Error en la API Comercial: {response.StatusCode} - {err}");
+            }
+
+            var result = await response.Content.ReadFromJsonAsync<CommercialPaginatedResult<CommercialClienteDto>>(new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true
+            });
+
+            return result ?? new CommercialPaginatedResult<CommercialClienteDto>();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Excepción al consultar clientes en API Comercial");
+            throw;
+        }
+    }
+
+    public async Task<CommercialClienteDetalleDto?> GetClienteByCodigoAsync(string codigo, string username)
+    {
+        try
+        {
+            var url = $"api/clientes/{Uri.EscapeDataString(codigo.Trim())}";
+            var response = await SendAsync(username, c => c.GetAsync(url));
+            if (response.StatusCode == HttpStatusCode.NotFound)
+                return null;
+
+            if (!response.IsSuccessStatusCode)
+            {
+                var err = await response.Content.ReadAsStringAsync();
+                throw new Exception($"Error en la API Comercial ({response.StatusCode}): {err}");
+            }
+
+            return await response.Content.ReadFromJsonAsync<CommercialClienteDetalleDto>(new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Excepción al consultar detalle del cliente '{Codigo}'", codigo);
+            throw;
+        }
+    }
+
+    public async Task<CommercialSaldoDto?> GetSaldoClienteAsync(string codigo, string username)
+    {
+        try
+        {
+            var url = $"api/clientes/{Uri.EscapeDataString(codigo.Trim())}/saldo";
+            var response = await SendAsync(username, c => c.GetAsync(url));
+            if (response.StatusCode == HttpStatusCode.NotFound)
+                return null;
+
+            if (!response.IsSuccessStatusCode)
+            {
+                var err = await response.Content.ReadAsStringAsync();
+                throw new Exception($"Error en la API Comercial ({response.StatusCode}): {err}");
+            }
+
+            return await response.Content.ReadFromJsonAsync<CommercialSaldoDto>(new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Excepción al consultar saldo del cliente '{Codigo}'", codigo);
+            throw;
+        }
+    }
+
+    public async Task<int> CreateClienteAsync(CreateCommercialClienteDto dto, string username)
+    {
+        try
+        {
+            var url = "api/clientes";
+            var response = await SendAsync(username, c => c.PostAsJsonAsync(url, dto));
+            if (!response.IsSuccessStatusCode)
+            {
+                var err = await response.Content.ReadAsStringAsync();
+                throw new Exception($"Error al crear cliente ({response.StatusCode}): {err}");
+            }
+
+            var content = await response.Content.ReadAsStringAsync();
+            if (int.TryParse(content, out var id))
+                return id;
+
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Excepción al crear cliente '{Codigo}'", dto.Codigo);
+            throw;
+        }
+    }
+
+    public async Task<int> UpdateClienteAsync(string codigo, UpdateCommercialClienteDto dto, string username)
+    {
+        try
+        {
+            var url = $"api/clientes/{Uri.EscapeDataString(codigo.Trim())}";
+            var response = await SendAsync(username, c => c.PutAsJsonAsync(url, dto));
+            if (!response.IsSuccessStatusCode)
+            {
+                var err = await response.Content.ReadAsStringAsync();
+                throw new Exception($"Error al actualizar cliente ({response.StatusCode}): {err}");
+            }
+
+            var content = await response.Content.ReadAsStringAsync();
+            if (int.TryParse(content, out var id))
+                return id;
+
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Excepción al actualizar cliente '{Codigo}'", codigo);
+            throw;
+        }
+    }
+
+    public async Task<bool> CambiarEstatusClienteAsync(string codigo, bool activo, string username)
+    {
+        try
+        {
+            var url = $"api/clientes/{Uri.EscapeDataString(codigo.Trim())}/estatus?activo={activo.ToString().ToLower()}";
+            var response = await SendAsync(username, c => c.PatchAsync(url, null));
+            return response.IsSuccessStatusCode;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Excepción al cambiar estatus del cliente '{Codigo}'", codigo);
+            throw;
+        }
+    }
+
+    // ==========================================
+    // PROVEEDORES COMERCIAL EXTENDIDO
+    // ==========================================
+
+    public async Task<CommercialPaginatedResult<CommercialProveedorDto>> GetProveedoresPaginadoAsync(
+        string? searchTerm, 
+        int page, 
+        int pageSize, 
+        bool onlyActive, 
+        string username)
+    {
+        try
+        {
+            var url = $"api/proveedores?page={page}&pageSize={pageSize}&onlyActive={onlyActive.ToString().ToLower()}";
+            if (!string.IsNullOrWhiteSpace(searchTerm))
+            {
+                url += $"&searchTerm={Uri.EscapeDataString(searchTerm.Trim())}";
+            }
+
+            var response = await SendAsync(username, c => c.GetAsync(url));
+            if (!response.IsSuccessStatusCode)
+            {
+                var err = await response.Content.ReadAsStringAsync();
+                _logger.LogError("Error al obtener proveedores paginados: {Error}", err);
+                throw new Exception($"Error en la API Comercial: {response.StatusCode} - {err}");
+            }
+
+            var result = await response.Content.ReadFromJsonAsync<CommercialPaginatedResult<CommercialProveedorDto>>(new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true
+            });
+
+            return result ?? new CommercialPaginatedResult<CommercialProveedorDto>();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Excepción al consultar proveedores paginados en API Comercial");
+            throw;
+        }
+    }
+
+    public async Task<CommercialProveedorDetalleDto?> GetProveedorByCodigoAsync(string codigo, string username)
+    {
+        try
+        {
+            var url = $"api/proveedores/{Uri.EscapeDataString(codigo.Trim())}";
+            var response = await SendAsync(username, c => c.GetAsync(url));
+            if (response.StatusCode == HttpStatusCode.NotFound)
+                return null;
+
+            if (!response.IsSuccessStatusCode)
+            {
+                var err = await response.Content.ReadAsStringAsync();
+                throw new Exception($"Error en la API Comercial ({response.StatusCode}): {err}");
+            }
+
+            return await response.Content.ReadFromJsonAsync<CommercialProveedorDetalleDto>(new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Excepción al consultar detalle del proveedor '{Codigo}'", codigo);
+            throw;
+        }
+    }
+
+    public async Task<CommercialSaldoDto?> GetSaldoProveedorAsync(string codigo, string username)
+    {
+        try
+        {
+            var url = $"api/proveedores/{Uri.EscapeDataString(codigo.Trim())}/saldo";
+            var response = await SendAsync(username, c => c.GetAsync(url));
+            if (response.StatusCode == HttpStatusCode.NotFound)
+                return null;
+
+            if (!response.IsSuccessStatusCode)
+            {
+                var err = await response.Content.ReadAsStringAsync();
+                throw new Exception($"Error en la API Comercial ({response.StatusCode}): {err}");
+            }
+
+            return await response.Content.ReadFromJsonAsync<CommercialSaldoDto>(new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Excepción al consultar saldo del proveedor '{Codigo}'", codigo);
+            throw;
+        }
+    }
+
+    public async Task<int> CreateProveedorAsync(CreateCommercialProveedorDto dto, string username)
+    {
+        try
+        {
+            var url = "api/proveedores";
+            var response = await SendAsync(username, c => c.PostAsJsonAsync(url, dto));
+            if (!response.IsSuccessStatusCode)
+            {
+                var err = await response.Content.ReadAsStringAsync();
+                throw new Exception($"Error al crear proveedor ({response.StatusCode}): {err}");
+            }
+
+            var content = await response.Content.ReadAsStringAsync();
+            if (int.TryParse(content, out var id))
+                return id;
+
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Excepción al crear proveedor '{Codigo}'", dto.Codigo);
+            throw;
+        }
+    }
+
+    public async Task<int> UpdateProveedorAsync(string codigo, UpdateCommercialProveedorDto dto, string username)
+    {
+        try
+        {
+            var url = $"api/proveedores/{Uri.EscapeDataString(codigo.Trim())}";
+            var response = await SendAsync(username, c => c.PutAsJsonAsync(url, dto));
+            if (!response.IsSuccessStatusCode)
+            {
+                var err = await response.Content.ReadAsStringAsync();
+                throw new Exception($"Error al actualizar proveedor ({response.StatusCode}): {err}");
+            }
+
+            var content = await response.Content.ReadAsStringAsync();
+            if (int.TryParse(content, out var id))
+                return id;
+
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Excepción al actualizar proveedor '{Codigo}'", codigo);
+            throw;
+        }
+    }
+
+    public async Task<bool> CambiarEstatusProveedorAsync(string codigo, bool activo, string username)
+    {
+        try
+        {
+            var url = $"api/proveedores/{Uri.EscapeDataString(codigo.Trim())}/estatus?activo={activo.ToString().ToLower()}";
+            var response = await SendAsync(username, c => c.PatchAsync(url, null));
+            return response.IsSuccessStatusCode;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Excepción al cambiar estatus del proveedor '{Codigo}'", codigo);
+            throw;
+        }
+    }
 }
 
 

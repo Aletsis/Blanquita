@@ -1,0 +1,127 @@
+@using Blanquita.Application.DTOs
+@using Blanquita.Application.Interfaces
+
+<MudDialog>
+    <TitleContent>
+        <MudStack Row="true" AlignItems="AlignItems.Center">
+            <MudIcon Icon="@Icons.Material.Filled.AccountBalanceWallet" Color="Color.Primary" Size="Size.Large" />
+            <div>
+                <MudText Typo="Typo.h5" Class="font-weight-bold">
+                    Estado de Cuenta / Cartera: @Saldo?.RazonSocial
+                </MudText>
+                <MudText Typo="Typo.caption" Color="Color.Secondary">
+                    Código: <b>@Saldo?.Codigo</b> | RFC: <b>@Saldo?.RFC</b>
+                </MudText>
+            </div>
+        </MudStack>
+    </TitleContent>
+    <DialogContent>
+        @if (Saldo == null)
+        {
+            <MudAlert Severity="Severity.Warning">No se encontró información de saldos para esta entidad.</MudAlert>
+        }
+        else
+        {
+            <!-- Tarjetas de Resumen Financiero -->
+            <MudGrid Class="mb-4">
+                <MudItem xs="12" sm="3">
+                    <MudPaper Elevation="2" Class="pa-4 rounded-lg border-l-4 border-solid" Style="border-left-color: #2196f3 !important;">
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">Límite de Crédito</MudText>
+                        <MudText Typo="Typo.h6" Class="font-weight-bold">@Saldo.LimiteCredito.ToString("C2")</MudText>
+                        <MudText Typo="Typo.caption">Plazo: @Saldo.DiasCredito días</MudText>
+                    </MudPaper>
+                </MudItem>
+                <MudItem xs="12" sm="3">
+                    <MudPaper Elevation="2" Class="pa-4 rounded-lg border-l-4 border-solid" Style="border-left-color: #ff9800 !important;">
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">Saldo Total Pendiente</MudText>
+                        <MudText Typo="Typo.h6" Class="font-weight-bold text-warning">@Saldo.SaldoActual.ToString("C2")</MudText>
+                        <MudText Typo="Typo.caption">@Saldo.TotalDocumentosPendientes docto(s)</MudText>
+                    </MudPaper>
+                </MudItem>
+                <MudItem xs="12" sm="3">
+                    <MudPaper Elevation="2" Class="pa-4 rounded-lg border-l-4 border-solid" Style="border-left-color: #f44336 !important;">
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">Saldo Vencido</MudText>
+                        <MudText Typo="Typo.h6" Class="font-weight-bold text-danger">@Saldo.SaldoVencido.ToString("C2")</MudText>
+                        <MudText Typo="Typo.caption">@Saldo.TotalDocumentosVencidos docto(s) vencidos</MudText>
+                    </MudPaper>
+                </MudItem>
+                <MudItem xs="12" sm="3">
+                    <MudPaper Elevation="2" Class="pa-4 rounded-lg border-l-4 border-solid" Style="border-left-color: #4caf50 !important;">
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">Crédito Disponible</MudText>
+                        <MudText Typo="Typo.h6" Class="font-weight-bold text-success">@Saldo.CreditoDisponible.ToString("C2")</MudText>
+                        <MudText Typo="Typo.caption">Disponible para operar</MudText>
+                    </MudPaper>
+                </MudItem>
+            </MudGrid>
+
+            <!-- Tabla de Documentos Pendientes -->
+            <MudText Typo="Typo.subtitle1" Class="font-weight-bold mb-2">
+                Documentos Pendientes de Pago
+            </MudText>
+
+            @if (Saldo.DocumentosPendientes == null || !Saldo.DocumentosPendientes.Any())
+            {
+                <MudAlert Severity="Severity.Success" Variant="Variant.Outlined">
+                    ¡Al corriente! No existen documentos pendientes ni saldos por liquidar.
+                </MudAlert>
+            }
+            else
+            {
+                <MudTable Items="@Saldo.DocumentosPendientes" Dense="true" Hover="true" Striped="true" Elevation="1" Outlined="true" Class="rounded-lg">
+                    <HeaderContent>
+                        <MudTh>Serie / Folio</MudTh>
+                        <MudTh>Fecha Emisión</MudTh>
+                        <MudTh>Fecha Vencimiento</MudTh>
+                        <MudTh Style="text-align: right;">Total Docto</MudTh>
+                        <MudTh Style="text-align: right;">Saldo Pendiente</MudTh>
+                        <MudTh Style="text-align: center;">Estatus</MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd DataLabel="Docto">
+                            <b>@(string.IsNullOrEmpty(context.Serie) ? "" : context.Serie + "-")@context.Folio</b>
+                        </MudTd>
+                        <MudTd DataLabel="Fecha">
+                            @(context.Fecha.HasValue ? context.Fecha.Value.ToString("dd/MM/yyyy") : "-")
+                        </MudTd>
+                        <MudTd DataLabel="Vencimiento">
+                            @(context.FechaVencimiento.HasValue ? context.FechaVencimiento.Value.ToString("dd/MM/yyyy") : "-")
+                        </MudTd>
+                        <MudTd DataLabel="Total" Style="text-align: right;">
+                            @context.Total.ToString("C2")
+                        </MudTd>
+                        <MudTd DataLabel="Pendiente" Style="text-align: right;" Class="font-weight-bold">
+                            @context.SaldoPendiente.ToString("C2")
+                        </MudTd>
+                        <MudTd DataLabel="Estatus" Style="text-align: center;">
+                            @if (context.Vencido)
+                            {
+                                <MudChip T="string" Color="Color.Error" Size="Size.Small" Variant="Variant.Filled">
+                                    Vencido (@context.DiasVencido d)
+                                </MudChip>
+                            }
+                            else
+                            {
+                                <MudChip T="string" Color="Color.Success" Size="Size.Small" Variant="Variant.Outlined">
+                                    Vigente
+                                </MudChip>
+                            }
+                        </MudTd>
+                    </RowTemplate>
+                </MudTable>
+            }
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="Cerrar">Cerrar</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    [Parameter]
+    public CommercialSaldoDto? Saldo { get; set; }
+
+    private void Cerrar() => MudDialog.Close(DialogResult.Ok(true));
+}

@@ -1,0 +1,298 @@
+@using Blanquita.Application.DTOs
+@using Blanquita.Application.Interfaces
+@inject ICommercialApiService CommercialApiService
+@inject ISnackbar Snackbar
+
+<MudDialog>
+    <TitleContent>
+        <MudStack Row="true" AlignItems="AlignItems.Center">
+            <MudIcon Icon="@(IsEdit ? Icons.Material.Filled.Edit : Icons.Material.Filled.PersonAdd)" 
+                     Color="@(IsEdit ? Color.Info : Color.Secondary)" Size="Size.Large" />
+            <MudText Typo="Typo.h5" Class="font-weight-bold">
+                @(IsEdit ? $"Editar Proveedor: {Model.Codigo}" : "Nuevo Proveedor (CONTPAQi Comercial)")
+            </MudText>
+        </MudStack>
+    </TitleContent>
+    <DialogContent>
+        <MudForm @ref="_form" @bind-IsValid="_isValid">
+            <MudTabs Elevation="1" Rounded="true" ApplyEffectsToContainer="true">
+                <!-- Pestaña 1: Datos Generales y Fiscales -->
+                <MudTabPanel Text="General y Fiscal" Icon="@Icons.Material.Filled.Badge" Class="pa-4">
+                    <MudGrid>
+                        <MudItem xs="12" sm="4">
+                            <MudTextField @bind-Value="Model.Codigo" 
+                                          Label="Código *" 
+                                          Required="true" 
+                                          RequiredError="El código es requerido."
+                                          MaxLength="30"
+                                          Disabled="@IsEdit" 
+                                          Variant="Variant.Outlined" 
+                                          Margin="Margin.Dense" />
+                        </MudItem>
+                        <MudItem xs="12" sm="8">
+                            <MudTextField @bind-Value="Model.RazonSocial" 
+                                          Label="Razón Social (SAT) *" 
+                                          Required="true" 
+                                          RequiredError="La razón social es requerida."
+                                          MaxLength="60"
+                                          Variant="Variant.Outlined" 
+                                          Margin="Margin.Dense" />
+                        </MudItem>
+                        <MudItem xs="12" sm="6">
+                            <MudTextField @bind-Value="Model.DenominacionComercial" 
+                                          Label="Nombre Comercial" 
+                                          MaxLength="60"
+                                          Variant="Variant.Outlined" 
+                                          Margin="Margin.Dense" />
+                        </MudItem>
+                        <MudItem xs="12" sm="6">
+                            <MudTextField @bind-Value="Model.RFC" 
+                                          Label="RFC *" 
+                                          Required="true" 
+                                          RequiredError="El RFC es requerido."
+                                          MaxLength="13"
+                                          Variant="Variant.Outlined" 
+                                          Margin="Margin.Dense" />
+                        </MudItem>
+                        <MudItem xs="12" sm="6">
+                            <MudTextField @bind-Value="Model.RegimenFiscal" 
+                                          Label="Régimen Fiscal (SAT)" 
+                                          Placeholder="Ej. 601, 612"
+                                          MaxLength="10"
+                                          Variant="Variant.Outlined" 
+                                          Margin="Margin.Dense" />
+                        </MudItem>
+                        <MudItem xs="12" sm="6">
+                            <MudTextField @bind-Value="Model.UsoCFDI" 
+                                          Label="Uso de CFDI" 
+                                          Placeholder="Ej. G01, G03"
+                                          MaxLength="10"
+                                          Variant="Variant.Outlined" 
+                                          Margin="Margin.Dense" />
+                        </MudItem>
+                    </MudGrid>
+                </MudTabPanel>
+
+                <!-- Pestaña 2: Domicilio Fiscal -->
+                <MudTabPanel Text="Domicilio Fiscal" Icon="@Icons.Material.Filled.Home" Class="pa-4">
+                    <MudGrid>
+                        <MudItem xs="12" sm="8">
+                            <MudTextField @bind-Value="Domicilio.Calle" 
+                                          Label="Calle" 
+                                          MaxLength="60"
+                                          Variant="Variant.Outlined" 
+                                          Margin="Margin.Dense" />
+                        </MudItem>
+                        <MudItem xs="6" sm="2">
+                            <MudTextField @bind-Value="Domicilio.NumeroExterior" 
+                                          Label="No. Exterior" 
+                                          MaxLength="30"
+                                          Variant="Variant.Outlined" 
+                                          Margin="Margin.Dense" />
+                        </MudItem>
+                        <MudItem xs="6" sm="2">
+                            <MudTextField @bind-Value="Domicilio.NumeroInterior" 
+                                          Label="No. Interior" 
+                                          MaxLength="30"
+                                          Variant="Variant.Outlined" 
+                                          Margin="Margin.Dense" />
+                        </MudItem>
+                        <MudItem xs="12" sm="6">
+                            <MudTextField @bind-Value="Domicilio.Colonia" 
+                                          Label="Colonia" 
+                                          MaxLength="60"
+                                          Variant="Variant.Outlined" 
+                                          Margin="Margin.Dense" />
+                        </MudItem>
+                        <MudItem xs="12" sm="6">
+                            <MudTextField @bind-Value="Domicilio.CodigoPostal" 
+                                          Label="Código Postal (5 dígitos) *" 
+                                          MaxLength="5"
+                                          Variant="Variant.Outlined" 
+                                          Margin="Margin.Dense" />
+                        </MudItem>
+                        <MudItem xs="12" sm="6">
+                            <MudTextField @bind-Value="Domicilio.Ciudad" 
+                                          Label="Ciudad / Municipio" 
+                                          MaxLength="60"
+                                          Variant="Variant.Outlined" 
+                                          Margin="Margin.Dense" />
+                        </MudItem>
+                        <MudItem xs="12" sm="6">
+                            <MudTextField @bind-Value="Domicilio.Estado" 
+                                          Label="Estado" 
+                                          MaxLength="60"
+                                          Variant="Variant.Outlined" 
+                                          Margin="Margin.Dense" />
+                        </MudItem>
+                    </MudGrid>
+                </MudTabPanel>
+
+                <!-- Pestaña 3: Condiciones de Compra y Crédito -->
+                <MudTabPanel Text="Condiciones de Compra" Icon="@Icons.Material.Filled.ShoppingBag" Class="pa-4">
+                    <MudGrid>
+                        <MudItem xs="12" sm="6">
+                            <MudNumericField @bind-Value="Model.LimiteCreditoProveedor" 
+                                             Label="Límite de Crédito Otorgado ($)" 
+                                             Min="0.0" 
+                                             Format="N2"
+                                             Variant="Variant.Outlined" 
+                                             Margin="Margin.Dense" />
+                        </MudItem>
+                        <MudItem xs="12" sm="6">
+                            <MudNumericField @bind-Value="Model.DiasCreditoProveedor" 
+                                             Label="Días de Crédito Otorgados" 
+                                             Min="0" 
+                                             Variant="Variant.Outlined" 
+                                             Margin="Margin.Dense" />
+                        </MudItem>
+                        <MudItem xs="12" sm="6">
+                            <MudNumericField @bind-Value="Model.TiempoEntrega" 
+                                             Label="Tiempo de Entrega (Días)" 
+                                             Min="0" 
+                                             Variant="Variant.Outlined" 
+                                             Margin="Margin.Dense" />
+                        </MudItem>
+                    </MudGrid>
+                </MudTabPanel>
+
+                <!-- Pestaña 4: Contacto -->
+                <MudTabPanel Text="Contacto" Icon="@Icons.Material.Filled.ContactPhone" Class="pa-4">
+                    <MudGrid>
+                        <MudItem xs="12" sm="6">
+                            <MudTextField @bind-Value="Model.ContactoNombre" 
+                                          Label="Nombre de Contacto" 
+                                          MaxLength="60"
+                                          Variant="Variant.Outlined" 
+                                          Margin="Margin.Dense" />
+                        </MudItem>
+                        <MudItem xs="12" sm="6">
+                            <MudTextField @bind-Value="Model.Telefono" 
+                                          Label="Teléfono Principal" 
+                                          MaxLength="30"
+                                          Variant="Variant.Outlined" 
+                                          Margin="Margin.Dense" />
+                        </MudItem>
+                        <MudItem xs="12" sm="6">
+                            <MudTextField @bind-Value="Model.WhatsApp" 
+                                          Label="Número WhatsApp" 
+                                          MaxLength="30"
+                                          Variant="Variant.Outlined" 
+                                          Margin="Margin.Dense" />
+                        </MudItem>
+                        <MudItem xs="12" sm="6">
+                            <MudTextField @bind-Value="Model.Email" 
+                                          Label="Correo Electrónico" 
+                                          MaxLength="60"
+                                          Variant="Variant.Outlined" 
+                                          Margin="Margin.Dense" />
+                        </MudItem>
+                    </MudGrid>
+                </MudTabPanel>
+            </MudTabs>
+        </MudForm>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancelar" Variant="Variant.Outlined">Cancelar</MudButton>
+        <MudButton Color="Color.Secondary" Variant="Variant.Filled" OnClick="Guardar" Disabled="@_guardando">
+            @if (_guardando)
+            {
+                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                <text>Guardando...</text>
+            }
+            else
+            {
+                <text>Guardar</text>
+            }
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    [Parameter]
+    public bool IsEdit { get; set; }
+
+    [Parameter]
+    public CreateCommercialProveedorDto Model { get; set; } = new();
+
+    [Parameter]
+    public CrearCommercialDomicilioDto Domicilio { get; set; } = new();
+
+    [Parameter]
+    public string Username { get; set; } = string.Empty;
+
+    private MudForm _form = default!;
+    private bool _isValid;
+    private bool _guardando;
+
+    protected override void OnInitialized()
+    {
+        if (Model.DomicilioFiscal != null)
+        {
+            Domicilio = Model.DomicilioFiscal;
+        }
+    }
+
+    private void Cancelar() => MudDialog.Cancel();
+
+    private async Task Guardar()
+    {
+        await _form.ValidateAsync();
+        if (!_isValid)
+        {
+            Snackbar.Add("Por favor revise los campos requeridos en el formulario.", Severity.Warning);
+            return;
+        }
+
+        _guardando = true;
+        try
+        {
+            if (!string.IsNullOrWhiteSpace(Domicilio.CodigoPostal))
+            {
+                Model.DomicilioFiscal = Domicilio;
+            }
+
+            if (IsEdit)
+            {
+                var updateDto = new UpdateCommercialProveedorDto
+                {
+                    RazonSocial = Model.RazonSocial,
+                    DenominacionComercial = Model.DenominacionComercial,
+                    RFC = Model.RFC,
+                    CURP = Model.CURP,
+                    RegimenFiscal = Model.RegimenFiscal,
+                    UsoCFDI = Model.UsoCFDI,
+                    LimiteCreditoProveedor = Model.LimiteCreditoProveedor,
+                    DiasCreditoProveedor = Model.DiasCreditoProveedor,
+                    TiempoEntrega = Model.TiempoEntrega,
+                    Email = Model.Email,
+                    Telefono = Model.Telefono,
+                    WhatsApp = Model.WhatsApp,
+                    ContactoNombre = Model.ContactoNombre,
+                    DomicilioFiscal = Model.DomicilioFiscal
+                };
+
+                await CommercialApiService.UpdateProveedorAsync(Model.Codigo, updateDto, Username);
+                Snackbar.Add($"Proveedor '{Model.Codigo}' actualizado exitosamente en CONTPAQi.", Severity.Success);
+            }
+            else
+            {
+                await CommercialApiService.CreateProveedorAsync(Model, Username);
+                Snackbar.Add($"Proveedor '{Model.Codigo}' creado exitosamente en CONTPAQi.", Severity.Success);
+            }
+
+            MudDialog.Close(DialogResult.Ok(true));
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error al guardar en CONTPAQi: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _guardando = false;
+        }
+    }
+}

@@ -59,6 +59,22 @@ public interface ICommercialApiService
         string? serie, 
         double folio, 
         string username);
+
+    // --- CLIENTES COMERCIAL ---
+    Task<CommercialPaginatedResult<CommercialClienteDto>> GetClientesAsync(string? search, int page, int pageSize, bool onlyActive, string username);
+    Task<CommercialClienteDetalleDto?> GetClienteByCodigoAsync(string codigo, string username);
+    Task<CommercialSaldoDto?> GetSaldoClienteAsync(string codigo, string username);
+    Task<int> CreateClienteAsync(CreateCommercialClienteDto dto, string username);
+    Task<int> UpdateClienteAsync(string codigo, UpdateCommercialClienteDto dto, string username);
+    Task<bool> CambiarEstatusClienteAsync(string codigo, bool activo, string username);
+
+    // --- PROVEEDORES COMERCIAL EXTENDIDO ---
+    Task<CommercialPaginatedResult<CommercialProveedorDto>> GetProveedoresPaginadoAsync(string? searchTerm, int page, int pageSize, bool onlyActive, string username);
+    Task<CommercialProveedorDetalleDto?> GetProveedorByCodigoAsync(string codigo, string username);
+    Task<CommercialSaldoDto?> GetSaldoProveedorAsync(string codigo, string username);
+    Task<int> CreateProveedorAsync(CreateCommercialProveedorDto dto, string username);
+    Task<int> UpdateProveedorAsync(string codigo, UpdateCommercialProveedorDto dto, string username);
+    Task<bool> CambiarEstatusProveedorAsync(string codigo, bool activo, string username);
 }
 
 

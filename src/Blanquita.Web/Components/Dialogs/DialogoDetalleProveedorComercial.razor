@@ -1,0 +1,175 @@
+@using Blanquita.Application.DTOs
+@using Blanquita.Application.Interfaces
+
+<MudDialog>
+    <TitleContent>
+        <MudStack Row="true" AlignItems="AlignItems.Center">
+            <MudIcon Icon="@Icons.Material.Filled.LocalShipping" Color="Color.Secondary" Size="Size.Large" />
+            <div>
+                <MudText Typo="Typo.h5" Class="font-weight-bold">
+                    @Proveedor?.RazonSocial
+                </MudText>
+                <MudText Typo="Typo.caption" Color="Color.Secondary">
+                    Código: <b>@Proveedor?.Codigo</b> | RFC: <b>@Proveedor?.RFC</b>
+                </MudText>
+            </div>
+        </MudStack>
+    </TitleContent>
+    <DialogContent>
+        @if (Proveedor == null)
+        {
+            <MudAlert Severity="Severity.Warning">No se encontró información del proveedor.</MudAlert>
+        }
+        else
+        {
+            <MudTabs Elevation="2" Rounded="true" ApplyEffectsToContainer="true">
+                <!-- Pestaña 1: General y Fiscal -->
+                <MudTabPanel Text="General y Fiscal" Icon="@Icons.Material.Filled.Description" Class="pa-4">
+                    <MudGrid>
+                        <MudItem xs="12" sm="6">
+                            <MudText Typo="Typo.subtitle2" Color="Color.Primary">Nombre Comercial:</MudText>
+                            <MudText Typo="Typo.body2">@(string.IsNullOrWhiteSpace(Proveedor.DenominacionComercial) ? "N/A" : Proveedor.DenominacionComercial)</MudText>
+                        </MudItem>
+                        <MudItem xs="12" sm="6">
+                            <MudText Typo="Typo.subtitle2" Color="Color.Primary">CURP:</MudText>
+                            <MudText Typo="Typo.body2">@(string.IsNullOrWhiteSpace(Proveedor.CURP) ? "N/A" : Proveedor.CURP)</MudText>
+                        </MudItem>
+                        <MudItem xs="12" sm="6">
+                            <MudText Typo="Typo.subtitle2" Color="Color.Primary">Régimen Fiscal (SAT):</MudText>
+                            <MudText Typo="Typo.body2">@(string.IsNullOrWhiteSpace(Proveedor.RegimenFiscal) ? "Sin asignar" : Proveedor.RegimenFiscal)</MudText>
+                        </MudItem>
+                        <MudItem xs="12" sm="6">
+                            <MudText Typo="Typo.subtitle2" Color="Color.Primary">Uso de CFDI:</MudText>
+                            <MudText Typo="Typo.body2">@(string.IsNullOrWhiteSpace(Proveedor.UsoCFDI) ? "Sin asignar" : Proveedor.UsoCFDI)</MudText>
+                        </MudItem>
+                        <MudItem xs="12" sm="6">
+                            <MudText Typo="Typo.subtitle2" Color="Color.Primary">Estatus:</MudText>
+                            @if (Proveedor.Activo)
+                            {
+                                <MudChip T="string" Color="Color.Success" Size="Size.Small" Variant="Variant.Filled">Activo</MudChip>
+                            }
+                            else
+                            {
+                                <MudChip T="string" Color="Color.Error" Size="Size.Small" Variant="Variant.Filled">Inactivo</MudChip>
+                            }
+                        </MudItem>
+                    </MudGrid>
+                </MudTabPanel>
+
+                <!-- Pestaña 2: Domicilio Fiscal -->
+                <MudTabPanel Text="Domicilio Fiscal" Icon="@Icons.Material.Filled.Home" Class="pa-4">
+                    @if (Proveedor.DomicilioFiscal == null)
+                    {
+                        <MudAlert Severity="Severity.Info" Class="mt-2">
+                            El proveedor no tiene un domicilio fiscal registrado en CONTPAQi Comercial.
+                        </MudAlert>
+                    }
+                    else
+                    {
+                        <MudGrid>
+                            <MudItem xs="12" sm="8">
+                                <MudText Typo="Typo.subtitle2" Color="Color.Primary">Calle:</MudText>
+                                <MudText Typo="Typo.body2">@Proveedor.DomicilioFiscal.Calle</MudText>
+                            </MudItem>
+                            <MudItem xs="6" sm="2">
+                                <MudText Typo="Typo.subtitle2" Color="Color.Primary">No. Exterior:</MudText>
+                                <MudText Typo="Typo.body2">@Proveedor.DomicilioFiscal.NumeroExterior</MudText>
+                            </MudItem>
+                            <MudItem xs="6" sm="2">
+                                <MudText Typo="Typo.subtitle2" Color="Color.Primary">No. Interior:</MudText>
+                                <MudText Typo="Typo.body2">@(string.IsNullOrWhiteSpace(Proveedor.DomicilioFiscal.NumeroInterior) ? "S/N" : Proveedor.DomicilioFiscal.NumeroInterior)</MudText>
+                            </MudItem>
+                            <MudItem xs="12" sm="6">
+                                <MudText Typo="Typo.subtitle2" Color="Color.Primary">Colonia:</MudText>
+                                <MudText Typo="Typo.body2">@Proveedor.DomicilioFiscal.Colonia</MudText>
+                            </MudItem>
+                            <MudItem xs="12" sm="6">
+                                <MudText Typo="Typo.subtitle2" Color="Color.Primary">Código Postal:</MudText>
+                                <MudChip T="string" Color="Color.Primary" Size="Size.Small" Variant="Variant.Outlined">@Proveedor.DomicilioFiscal.CodigoPostal</MudChip>
+                            </MudItem>
+                            <MudItem xs="12" sm="4">
+                                <MudText Typo="Typo.subtitle2" Color="Color.Primary">Ciudad / Municipio:</MudText>
+                                <MudText Typo="Typo.body2">@Proveedor.DomicilioFiscal.Ciudad @Proveedor.DomicilioFiscal.Municipio</MudText>
+                            </MudItem>
+                            <MudItem xs="12" sm="4">
+                                <MudText Typo="Typo.subtitle2" Color="Color.Primary">Estado:</MudText>
+                                <MudText Typo="Typo.body2">@Proveedor.DomicilioFiscal.Estado</MudText>
+                            </MudItem>
+                            <MudItem xs="12" sm="4">
+                                <MudText Typo="Typo.subtitle2" Color="Color.Primary">País:</MudText>
+                                <MudText Typo="Typo.body2">@Proveedor.DomicilioFiscal.Pais</MudText>
+                            </MudItem>
+                        </MudGrid>
+                    }
+                </MudTabPanel>
+
+                <!-- Pestaña 3: Condiciones de Compra y Crédito -->
+                <MudTabPanel Text="Condiciones de Compra" Icon="@Icons.Material.Filled.ShoppingBag" Class="pa-4">
+                    <MudGrid>
+                        <MudItem xs="12" sm="6">
+                            <MudText Typo="Typo.subtitle2" Color="Color.Primary">Límite de Crédito Otorgado:</MudText>
+                            <MudText Typo="Typo.h6" Class="font-weight-bold text-success">@Proveedor.LimiteCreditoProveedor.ToString("C2")</MudText>
+                        </MudItem>
+                        <MudItem xs="12" sm="6">
+                            <MudText Typo="Typo.subtitle2" Color="Color.Primary">Días de Crédito:</MudText>
+                            <MudText Typo="Typo.h6" Class="font-weight-bold">@Proveedor.DiasCreditoProveedor días</MudText>
+                        </MudItem>
+                        <MudItem xs="12" sm="6">
+                            <MudText Typo="Typo.subtitle2" Color="Color.Primary">Tiempo de Entrega Estimado:</MudText>
+                            <MudText Typo="Typo.body2">@Proveedor.TiempoEntrega días</MudText>
+                        </MudItem>
+                        <MudItem xs="12" sm="6">
+                            <MudText Typo="Typo.subtitle2" Color="Color.Primary">Días de Embarque:</MudText>
+                            <MudText Typo="Typo.body2">@Proveedor.DiasEmbarqueProveedor días</MudText>
+                        </MudItem>
+                    </MudGrid>
+                </MudTabPanel>
+
+                <!-- Pestaña 4: Contacto -->
+                <MudTabPanel Text="Contacto" Icon="@Icons.Material.Filled.ContactPhone" Class="pa-4">
+                    <MudGrid>
+                        <MudItem xs="12" sm="6">
+                            <MudText Typo="Typo.subtitle2" Color="Color.Primary">Contacto Principal:</MudText>
+                            <MudText Typo="Typo.body2">@(string.IsNullOrWhiteSpace(Proveedor.ContactoNombre) ? "Sin registrar" : Proveedor.ContactoNombre)</MudText>
+                        </MudItem>
+                        <MudItem xs="12" sm="6">
+                            <MudText Typo="Typo.subtitle2" Color="Color.Primary">Teléfono:</MudText>
+                            <MudText Typo="Typo.body2">@(string.IsNullOrWhiteSpace(Proveedor.ContactoTelefono) ? "Sin registrar" : Proveedor.ContactoTelefono)</MudText>
+                        </MudItem>
+                        <MudItem xs="12" sm="6">
+                            <MudText Typo="Typo.subtitle2" Color="Color.Primary">WhatsApp:</MudText>
+                            @if (!string.IsNullOrWhiteSpace(Proveedor.WhatsApp))
+                            {
+                                <MudButton Variant="Variant.Text" Color="Color.Success" StartIcon="@Icons.Custom.Brands.WhatsApp" 
+                                           Href="@($"https://wa.me/{Proveedor.WhatsApp.Replace(" ", "").Replace("-", "").Replace("+", "")}")" Target="_blank">
+                                    @Proveedor.WhatsApp
+                                </MudButton>
+                            }
+                            else
+                            {
+                                <MudText Typo="Typo.body2">Sin registrar</MudText>
+                            }
+                        </MudItem>
+                        <MudItem xs="12" sm="6">
+                            <MudText Typo="Typo.subtitle2" Color="Color.Primary">Correo Electrónico:</MudText>
+                            <MudText Typo="Typo.body2">@(string.IsNullOrWhiteSpace(Proveedor.Email1) ? "Sin registrar" : Proveedor.Email1)</MudText>
+                        </MudItem>
+                    </MudGrid>
+                </MudTabPanel>
+            </MudTabs>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="Cerrar">Cerrar</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    [Parameter]
+    public CommercialProveedorDetalleDto? Proveedor { get; set; }
+
+    private void Cerrar() => MudDialog.Close(DialogResult.Ok(true));
+}
