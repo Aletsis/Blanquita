@@ -119,6 +119,10 @@
                     </MudTd>
                     <MudTd DataLabel="Razón Social">
                         <b>@context.RazonSocial</b>
+                        @if (context.EsAmbos)
+                        {
+                            <MudChip T="string" Color="Color.Tertiary" Size="Size.Small" Variant="Variant.Filled" Icon="@Icons.Material.Filled.SyncAlt" Class="ml-2">Cliente y Proveedor</MudChip>
+                        }
                     </MudTd>
                     <MudTd DataLabel="Comercial">
                         @(string.IsNullOrWhiteSpace(context.DenominacionComercial) ? "-" : context.DenominacionComercial)
@@ -284,6 +288,10 @@
                     </MudTd>
                     <MudTd DataLabel="Razón Social">
                         <b>@context.RazonSocial</b>
+                        @if (context.EsAmbos)
+                        {
+                            <MudChip T="string" Color="Color.Tertiary" Size="Size.Small" Variant="Variant.Filled" Icon="@Icons.Material.Filled.SyncAlt" Class="ml-2">Cliente y Proveedor</MudChip>
+                        }
                     </MudTd>
                     <MudTd DataLabel="RFC">
                         <code>@context.RFC</code>
@@ -531,7 +539,9 @@
                 Email = detalle.Email1,
                 Telefono = detalle.ContactoTelefono,
                 WhatsApp = detalle.WhatsApp,
-                ContactoNombre = detalle.ContactoNombre
+                ContactoNombre = detalle.ContactoNombre,
+                TipoCliente = detalle.TipoCliente,
+                EsProveedorTambien = detalle.TipoCliente == 2
             };
 
             var domicilio = new CrearCommercialDomicilioDto();
@@ -711,7 +721,9 @@
                 Email = detalle.Email1,
                 Telefono = detalle.ContactoTelefono,
                 WhatsApp = detalle.WhatsApp,
-                ContactoNombre = detalle.ContactoNombre
+                ContactoNombre = detalle.ContactoNombre,
+                TipoCliente = detalle.TipoCliente,
+                EsClienteTambien = detalle.TipoCliente == 2
             };
 
             var domicilio = new CrearCommercialDomicilioDto();

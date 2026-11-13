@@ -71,6 +71,11 @@
                                           Variant="Variant.Outlined" 
                                           Margin="Margin.Dense" />
                         </MudItem>
+                        <MudItem xs="12">
+                            <MudCheckBox @bind-Value="Model.EsProveedorTambien" 
+                                         Color="Color.Tertiary" 
+                                         Label="Habilitar también como Proveedor (Catálogo Mixto CONTPAQi Comercial)" />
+                        </MudItem>
                     </MudGrid>
                 </MudTabPanel>
 
@@ -265,6 +270,8 @@
                 Model.DomicilioFiscal = Domicilio;
             }
 
+            Model.TipoCliente = Model.EsProveedorTambien ? 2 : 1;
+
             if (IsEdit)
             {
                 var updateDto = new UpdateCommercialClienteDto
@@ -279,6 +286,8 @@
                     LimiteCredito = Model.LimiteCredito,
                     DiasCredito = Model.DiasCredito,
                     PermiteVentaCredito = Model.PermiteVentaCredito,
+                    TipoCliente = Model.TipoCliente,
+                    EsProveedorTambien = Model.EsProveedorTambien,
                     Email = Model.Email,
                     Telefono = Model.Telefono,
                     WhatsApp = Model.WhatsApp,

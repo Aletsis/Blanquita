@@ -53,6 +53,7 @@ public class CommercialProveedorDto
     public string? RegimenFiscal { get; set; }
     public string? UsoCFDI { get; set; }
     public int TipoCliente { get; set; }
+    public bool EsAmbos => TipoCliente == 2;
     public double LimiteCredito { get; set; }
     public int DiasCredito { get; set; }
     public bool Activo { get; set; } = true;

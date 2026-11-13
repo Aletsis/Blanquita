@@ -26,6 +26,7 @@ public class CommercialClienteDto
     public string? RegimenFiscal { get; set; }
     public string? UsoCFDI { get; set; }
     public int TipoCliente { get; set; } // 1 = Cliente, 2 = Mixto
+    public bool EsAmbos => TipoCliente == 2;
     public int ListaPrecio { get; set; }
     public double LimiteCredito { get; set; }
     public int DiasCredito { get; set; }
@@ -58,6 +59,7 @@ public class CommercialClienteDetalleDto
     public string? CURP { get; set; }
     public string? RepresentanteLegal { get; set; }
     public int TipoCliente { get; set; }
+    public bool EsAmbos => TipoCliente == 2;
     public bool Activo { get; set; }
     public DateTime? FechaAlta { get; set; }
     public DateTime? FechaBaja { get; set; }
@@ -110,6 +112,7 @@ public class CommercialProveedorDetalleDto
     public string? CURP { get; set; }
     public string? RepresentanteLegal { get; set; }
     public int TipoCliente { get; set; }
+    public bool EsAmbos => TipoCliente == 2;
     public bool Activo { get; set; }
     public DateTime? FechaAlta { get; set; }
     public DateTime? FechaBaja { get; set; }
@@ -264,6 +267,12 @@ public class CreateCommercialClienteDto
     public string? ContactoNombre { get; set; }
 
     public CrearCommercialDomicilioDto? DomicilioFiscal { get; set; }
+
+    /// <summary>
+    /// 1 = Solo Cliente, 2 = Ambos (Cliente y Proveedor)
+    /// </summary>
+    public int TipoCliente { get; set; } = 1;
+    public bool EsProveedorTambien { get; set; }
 }
 
 public class UpdateCommercialClienteDto
@@ -293,6 +302,12 @@ public class UpdateCommercialClienteDto
     public string? ContactoNombre { get; set; }
 
     public bool? Activo { get; set; }
+
+    /// <summary>
+    /// 1 = Solo Cliente, 2 = Ambos (Cliente y Proveedor)
+    /// </summary>
+    public int? TipoCliente { get; set; }
+    public bool? EsProveedorTambien { get; set; }
 
     public CrearCommercialDomicilioDto? DomicilioFiscal { get; set; }
 }
@@ -337,6 +352,12 @@ public class CreateCommercialProveedorDto
     public string? ContactoNombre { get; set; }
 
     public CrearCommercialDomicilioDto? DomicilioFiscal { get; set; }
+
+    /// <summary>
+    /// 3 = Solo Proveedor, 2 = Ambos (Cliente y Proveedor)
+    /// </summary>
+    public int TipoCliente { get; set; } = 3;
+    public bool EsClienteTambien { get; set; }
 }
 
 public class UpdateCommercialProveedorDto
@@ -362,6 +383,12 @@ public class UpdateCommercialProveedorDto
     public string? ContactoNombre { get; set; }
 
     public bool? Activo { get; set; }
+
+    /// <summary>
+    /// 3 = Solo Proveedor, 2 = Ambos (Cliente y Proveedor)
+    /// </summary>
+    public int? TipoCliente { get; set; }
+    public bool? EsClienteTambien { get; set; }
 
     public CrearCommercialDomicilioDto? DomicilioFiscal { get; set; }
 }
